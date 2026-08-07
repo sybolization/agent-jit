@@ -1,0 +1,1037 @@
+{
+  "mode": "r4e-branching-recombination",
+  "samples": 10,
+  "difficultyAxes": {
+    "dependencyDepth": 4,
+    "branchingFactor": 2,
+    "recombinationBurden": 3,
+    "stateCardinality": "N × (ratio + 分组 + score)"
+  },
+  "groundTruth": {
+    "R4e|15": [
+      "adv/org-repo-0",
+      "adv/org-repo-1"
+    ],
+    "R4e|30": [
+      "adv/org-repo-0",
+      "adv/org-repo-1",
+      "adv/org-repo-17"
+    ]
+  },
+  "results": [
+    {
+      "arm": "dsl",
+      "depth": "R4e",
+      "n": 15,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 2681,
+          "runtime_internal_bytes": 2273,
+          "llm_ms": 5530.677457999999,
+          "runtime_ms": 1.4923749999998108,
+          "e2e_ms": 5539.858125,
+          "usage": {
+            "input": 113,
+            "output": 708,
+            "cacheRead": 1280,
+            "totalTokens": 2101
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=15)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhigh = select(ratio, \"ratio > 0.15\")\nlow = select(ratio, \"ratio <= 0.15\")\ncontrib = map(high, github.get_contributor_stats(full_name=_.full_name))\ncommits = map(low, github.list_commits(full_name=_.full_name))\nmerged = join(ratio, contrib, commits, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "tool_ms": 1.4923749999998108
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 637,
+          "runtime_internal_bytes": 2273,
+          "llm_ms": 1803.9178339999999,
+          "runtime_ms": 0.6508329999996931,
+          "e2e_ms": 1808.5241670000005,
+          "usage": {
+            "input": 113,
+            "output": 224,
+            "cacheRead": 1280,
+            "totalTokens": 1617
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=15)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhigh_ratio = select(ratio, \"ratio > 0.15\")\nlow_ratio = select(ratio, \"ratio <= 0.15\")\ncontrib = map(high_ratio, github.get_contributor_stats(full_name=_.full_name))\ncommits = map(low_ratio, github.list_commits(full_name=_.full_name))\nmerged = join(ratio, contrib, commits, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted_kept = sort(kept, key=\"score\", desc=true)\ntop = take(sorted_kept, 3)\nreturn top",
+          "tool_ms": 0.6508329999996931
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 719,
+          "runtime_internal_bytes": 2273,
+          "llm_ms": 1970.4283750000004,
+          "runtime_ms": 0.21654099999977916,
+          "e2e_ms": 1972.209667,
+          "usage": {
+            "input": 113,
+            "output": 231,
+            "cacheRead": 1280,
+            "totalTokens": 1624
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=15)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\ncontrib = select(ratio, \"ratio > 0.15\")\ncommits_path = select(ratio, \"ratio <= 0.15\")\ncontrib_stats = map(contrib, github.get_contributor_stats(full_name=_.full_name))\ncommit_stats = map(commits_path, github.list_commits(full_name=_.full_name))\nmerged = join(ratio, contrib_stats, commit_stats, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "tool_ms": 0.21654099999977916
+        },
+        {
+          "ok": true,
+          "round_trips": 2,
+          "model_ingress_bytes": 9383,
+          "model_egress_bytes": 1642,
+          "runtime_internal_bytes": 2273,
+          "llm_ms": 4258.323875,
+          "runtime_ms": 0.2449590000014723,
+          "e2e_ms": 4260.456249999999,
+          "usage": {
+            "input": 268,
+            "output": 535,
+            "cacheRead": 2816,
+            "totalTokens": 3619
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=15)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhigh = select(ratio, \"ratio > 0.15\")\nlow = select(ratio, \"ratio <= 0.15\")\ncontrib = map(high, github.get_contributor_stats(full_name=_.full_name))\ncommits = map(low, github.list_commits(full_name=_.full_name))\nmerged = join(ratio, contrib, commits, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "tool_ms": 0.2449590000014723
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 950,
+          "runtime_internal_bytes": 2273,
+          "llm_ms": 2072.7727079999986,
+          "runtime_ms": 0.37462499999855936,
+          "e2e_ms": 2075.6147500000006,
+          "usage": {
+            "input": 113,
+            "output": 296,
+            "cacheRead": 1280,
+            "totalTokens": 1689
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": false,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=15)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\ncontrib = select(ratio, \"ratio > 0.15\")\ncommits = select(ratio, \"ratio <= 0.15\")\ncontrib_stats = map(contrib, github.get_contributor_stats(full_name=_.full_name))\ncommit_stats = map(commits, github.list_commits(full_name=_.full_name))\nmerged = join(ratio, contrib_stats, commit_stats, key=\"full_name\")\nscore_contrib = compute(contrib_stats, score=\"total_contributions * 1\")\nscore_commits = compute(commit_stats, score=\"total_commits * 1\")\nfinal_merged = join(merged, score_contrib, score_commits, key=\"full_name\")\nkept = select(final_merged, \"score >= 100\")\nsorted_repos = sort(kept, key=\"score\", desc=true)\ntop = take(sorted_repos, 3)\nreturn top",
+          "correctness_failures": [
+            "join 缺少分支工具 github.get_contributor_stats",
+            "join 缺少分支工具 github.list_commits"
+          ],
+          "tool_ms": 0.37462499999855936
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 775,
+          "runtime_internal_bytes": 2273,
+          "llm_ms": 1752.1139999999996,
+          "runtime_ms": 0.36320899999918765,
+          "e2e_ms": 1754.8494580000006,
+          "usage": {
+            "input": 113,
+            "output": 245,
+            "cacheRead": 1280,
+            "totalTokens": 1638
+          },
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=15)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\ncontrib = select(ratio, \"ratio > 0.15\")\ncommits = select(ratio, \"ratio <= 0.15\")\ncontrib_stats = map(contrib, github.get_contributor_stats(full_name=_.full_name))\ncommit_stats = map(commits, github.list_commits(full_name=_.full_name))\ncontrib_score = compute(contrib_stats, score=\"total_contributions\")\ncommit_score = compute(commit_stats, score=\"total_commits\")\nmerged = join(details, contrib_score, commit_score, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "correctness_failures": [
+            "join 缺少分支工具 github.get_contributor_stats",
+            "join 缺少分支工具 github.list_commits"
+          ],
+          "tool_ms": 0.36320899999918765
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "model_ingress_bytes": 18766,
+          "model_egress_bytes": 13495,
+          "runtime_internal_bytes": 2273,
+          "llm_ms": 27699.910624999997,
+          "runtime_ms": 0.46491599999717437,
+          "e2e_ms": 27704.762708,
+          "usage": {
+            "input": 636,
+            "output": 3474,
+            "cacheRead": 5248,
+            "totalTokens": 9358
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=15)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhi = select(ratio, \"ratio > 0.15\")\nlo = select(ratio, \"ratio <= 0.15\")\ncontrib = map(hi, github.get_contributor_stats(full_name=_.full_name))\ncommitstats = map(lo, github.list_commits(full_name=_.full_name))\nmerged = join(details, contrib, commitstats, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "tool_ms": 0.46491599999717437
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 603,
+          "runtime_internal_bytes": 2273,
+          "llm_ms": 1823.3935420000053,
+          "runtime_ms": 0.20687500000349246,
+          "e2e_ms": 1824.7220000000016,
+          "usage": {
+            "input": 113,
+            "output": 210,
+            "cacheRead": 1280,
+            "totalTokens": 1603
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=15)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhigh = select(ratio, \"ratio > 0.15\")\nlow = select(ratio, \"ratio <= 0.15\")\ncontrib = map(high, github.get_contributor_stats(full_name=_.full_name))\ncommits = map(low, github.list_commits(full_name=_.full_name))\nmerged = join(ratio, contrib, commits, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "tool_ms": 0.20687500000349246
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 2314,
+          "runtime_internal_bytes": 2273,
+          "llm_ms": 4659.679709000004,
+          "runtime_ms": 0.22316699999646517,
+          "e2e_ms": 4661.013749999998,
+          "usage": {
+            "input": 113,
+            "output": 653,
+            "cacheRead": 1280,
+            "totalTokens": 2046
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=15)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhigh = select(ratio, \"ratio > 0.15\")\nlow = select(ratio, \"ratio <= 0.15\")\ncs = map(high, github.get_contributor_stats(full_name=_.full_name))\ncm = map(low, github.list_commits(full_name=_.full_name))\nmerged = join(ratio, cs, cm, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "tool_ms": 0.22316699999646517
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 6536,
+          "runtime_internal_bytes": 2273,
+          "llm_ms": 11722.015416999995,
+          "runtime_ms": 0.42329199999949196,
+          "e2e_ms": 11724.147957999994,
+          "usage": {
+            "input": 113,
+            "output": 1608,
+            "cacheRead": 1280,
+            "totalTokens": 3001
+          },
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=15)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhi = select(ratio, \"ratio > 0.15\")\nlo = select(ratio, \"ratio <= 0.15\")\ncontrib = map(hi, github.get_contributor_stats(full_name=_.full_name))\ncontrib_score = compute(contrib, score=\"total_contributions + contributors\")\ncommits = map(lo, github.list_commits(full_name=_.full_name))\ncommits_score = compute(commits, score=\"total_commits * 1\")\nmerged = join(details, contrib_score, commits_score, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "correctness_failures": [
+            "join 缺少分支工具 github.get_contributor_stats",
+            "join 缺少分支工具 github.list_commits"
+          ],
+          "tool_ms": 0.42329199999949196
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "depth": "R4e",
+      "n": 30,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 2,
+          "model_ingress_bytes": 9639,
+          "model_egress_bytes": 4473,
+          "runtime_internal_bytes": 4570,
+          "llm_ms": 10114.355416,
+          "runtime_ms": 0.41391699999985576,
+          "e2e_ms": 10118.718207999998,
+          "usage": {
+            "input": 338,
+            "output": 1284,
+            "cacheRead": 2816,
+            "totalTokens": 4438
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhigh = select(ratio, \"ratio > 0.15\")\nlow = select(ratio, \"ratio <= 0.15\")\ncontrib = map(high, github.get_contributor_stats(full_name=_.full_name))\ncommits = map(low, github.list_commits(full_name=_.full_name))\nmerged = join(ratio, contrib, commits, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "tool_ms": 0.41391699999985576
+        },
+        {
+          "ok": true,
+          "round_trips": 2,
+          "model_ingress_bytes": 15877,
+          "model_egress_bytes": 10765,
+          "runtime_internal_bytes": 4570,
+          "llm_ms": 19737.605457999998,
+          "runtime_ms": 0.2721669999991718,
+          "e2e_ms": 19739.415792,
+          "usage": {
+            "input": 2100,
+            "output": 2802,
+            "cacheRead": 2560,
+            "totalTokens": 7462
+          },
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhigh = select(ratio, \"ratio > 0.15\")\nlow = select(ratio, \"ratio <= 0.15\")\ncontrib = map(high, github.get_contributor_stats(full_name=_.full_name))\ncommits = map(low, github.list_commits(full_name=_.full_name))\ncontrib_score = compute(contrib, score=\"total_contributions\")\ncommits_score = compute(commits, score=\"total_commits\")\nmerged = join(ratio, contrib_score, commits_score, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "correctness_failures": [
+            "join 缺少分支工具 github.get_contributor_stats",
+            "join 缺少分支工具 github.list_commits"
+          ],
+          "tool_ms": 0.2721669999991718
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 5105,
+          "runtime_internal_bytes": 4570,
+          "llm_ms": 8937.751249999998,
+          "runtime_ms": 0.38387499999953434,
+          "e2e_ms": 8939.917290999998,
+          "usage": {
+            "input": 113,
+            "output": 1326,
+            "cacheRead": 1280,
+            "totalTokens": 2719
+          },
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ntop = take(repos, 30)\ndetails = map(top, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhigh = select(ratio, \"ratio > 0.15\")\nlow = select(ratio, \"ratio <= 0.15\")\ncontrib = map(high, github.get_contributor_stats(full_name=_.full_name))\ncomms = map(low, github.list_commits(full_name=_.full_name))\ncontrib_score = compute(contrib, score=\"total_contributions\")\ncomms_score = compute(comms, score=\"total_commits\")\nmerged = join(ratio, contrib_score, comms_score, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\nresult = take(sorted, 3)\nreturn result",
+          "correctness_failures": [
+            "join 缺少分支工具 github.get_contributor_stats",
+            "join 缺少分支工具 github.list_commits"
+          ],
+          "tool_ms": 0.38387499999953434
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 757,
+          "runtime_internal_bytes": 4570,
+          "llm_ms": 1978.8295419999995,
+          "runtime_ms": 0.32479199999943376,
+          "e2e_ms": 1980.7935419999994,
+          "usage": {
+            "input": 113,
+            "output": 251,
+            "cacheRead": 1280,
+            "totalTokens": 1644
+          },
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhigh = select(ratio, \"ratio > 0.15\")\nlow = select(ratio, \"ratio <= 0.15\")\ncontrib = map(high, github.get_contributor_stats(full_name=_.full_name))\ncommits = map(low, github.list_commits(full_name=_.full_name))\ncontrib_score = compute(contrib, score=\"contributor_stats * 1\")\ncommits_score = compute(commits, score=\"total_commits * 1\")\nmerged = join(ratio, contrib_score, commits_score, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted_repos = sort(kept, key=\"score\", desc=true)\ntop = take(sorted_repos, 3)\nreturn top",
+          "correctness_failures": [
+            "join 缺少分支工具 github.get_contributor_stats",
+            "join 缺少分支工具 github.list_commits"
+          ],
+          "tool_ms": 0.32479199999943376
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 637,
+          "runtime_internal_bytes": 4570,
+          "llm_ms": 1568.6916249999995,
+          "runtime_ms": 0.447041999999783,
+          "e2e_ms": 1570.9084580000053,
+          "usage": {
+            "input": 113,
+            "output": 211,
+            "cacheRead": 1280,
+            "totalTokens": 1604
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\ncontrib = select(ratio, \"ratio > 0.15\")\ncommit = select(ratio, \"ratio <= 0.15\")\ncontrib_score = map(contrib, github.get_contributor_stats(full_name=_.full_name))\ncommit_score = map(commit, github.list_commits(full_name=_.full_name))\nmerged = join(ratio, contrib_score, commit_score, key=\"full_name\")\nhigh = select(merged, \"score >= 100\")\nsorted = sort(high, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "tool_ms": 0.447041999999783
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 5221,
+          "runtime_internal_bytes": 4570,
+          "llm_ms": 9793.069875000001,
+          "runtime_ms": 0.41924999999901047,
+          "e2e_ms": 9794.861790999996,
+          "usage": {
+            "input": 113,
+            "output": 1390,
+            "cacheRead": 1280,
+            "totalTokens": 2783
+          },
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhigh = select(ratio, \"ratio > 0.15\")\nlow = select(ratio, \"ratio <= 0.15\")\ncs = map(high, github.get_contributor_stats(full_name=_.full_name))\ncm = map(low, github.list_commits(full_name=_.full_name))\ncs_score = compute(cs, score=\"total_contributions\")\ncm_score = compute(cm, score=\"total_commits\")\nmerged = join(ratio, cs_score, cm_score, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop3 = take(sorted, 3)\nreturn top3",
+          "correctness_failures": [
+            "join 缺少分支工具 github.get_contributor_stats",
+            "join 缺少分支工具 github.list_commits"
+          ],
+          "tool_ms": 0.41924999999901047
+        },
+        {
+          "ok": true,
+          "round_trips": 2,
+          "model_ingress_bytes": 9393,
+          "model_egress_bytes": 2122,
+          "runtime_internal_bytes": 4570,
+          "llm_ms": 5585.700124999996,
+          "runtime_ms": 0.434291999998095,
+          "e2e_ms": 5588.095792,
+          "usage": {
+            "input": 269,
+            "output": 655,
+            "cacheRead": 2816,
+            "totalTokens": 3740
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\nhigh = select(ratio, \"ratio > 0.15\")\nlow = select(ratio, \"ratio <= 0.15\")\ncontributors = map(high, github.get_contributor_stats(full_name=_.full_name))\ncommits = map(low, github.list_commits(full_name=_.full_name))\nmerged = join(ratio, contributors, commits, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "tool_ms": 0.434291999998095
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 3118,
+          "runtime_internal_bytes": 4570,
+          "llm_ms": 6111.352417000002,
+          "runtime_ms": 0.26029099999868777,
+          "e2e_ms": 6112.694792000002,
+          "usage": {
+            "input": 113,
+            "output": 820,
+            "cacheRead": 1280,
+            "totalTokens": 2213
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ntop = take(repos, 30)\ndetails = map(top, github.get_repository(full_name=_.full_name))\ncomputed = compute(details, ratio=\"forks / stars\")\nhigh = select(computed, \"ratio > 0.15\")\nlow = select(computed, \"ratio <= 0.15\")\ncontrib = map(high, github.get_contributor_stats(full_name=_.full_name))\ncommits = map(low, github.list_commits(full_name=_.full_name))\nmerged = join(computed, contrib, commits, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\nresult = take(sorted, 3)\nreturn result",
+          "tool_ms": 0.26029099999868777
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 7050,
+          "runtime_internal_bytes": 4570,
+          "llm_ms": 12082.209125000008,
+          "runtime_ms": 0.7356670000008307,
+          "e2e_ms": 12086.093582999994,
+          "usage": {
+            "input": 113,
+            "output": 1764,
+            "cacheRead": 1280,
+            "totalTokens": 3157
+          },
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\ncontrib = select(ratio, \"ratio > 0.15\")\ncommits = select(ratio, \"ratio <= 0.15\")\ncontrib_stats = map(contrib, github.get_contributor_stats(full_name=_.full_name))\ncommit_stats = map(commits, github.list_commits(full_name=_.full_name))\ncontrib_scored = compute(contrib_stats, score=\"total_contributions\")\ncommit_scored = compute(commit_stats, score=\"total_commits\")\nmerged = join(ratio, contrib_scored, commit_scored, key=\"full_name\")\nhigh = select(merged, \"score >= 100\")\nsorted_r = sort(high, key=\"score\", desc=true)\ntop = take(sorted_r, 3)\nreturn top",
+          "correctness_failures": [
+            "join 缺少分支工具 github.get_contributor_stats",
+            "join 缺少分支工具 github.list_commits"
+          ],
+          "tool_ms": 0.7356670000008307
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 3648,
+          "runtime_internal_bytes": 4570,
+          "llm_ms": 6503.386624999999,
+          "runtime_ms": 0.6239170000044396,
+          "e2e_ms": 6507.449875000006,
+          "usage": {
+            "input": 113,
+            "output": 992,
+            "cacheRead": 1280,
+            "totalTokens": 2385
+          },
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "program": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\nratio = compute(details, ratio=\"forks / stars\")\ncontrib = select(ratio, \"ratio > 0.15\")\ncommits = select(ratio, \"ratio <= 0.15\")\ncontrib_score = map(contrib, github.get_contributor_stats(full_name=_.full_name))\ncommit_score = map(commits, github.list_commits(full_name=_.full_name))\nmerged = join(details, contrib_score, commit_score, key=\"full_name\")\nkept = select(merged, \"score >= 100\")\nsorted = sort(kept, key=\"score\", desc=true)\ntop = take(sorted, 3)\nreturn top",
+          "tool_ms": 0.6239170000044396
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "depth": "R4e",
+      "n": 15,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2273,
+          "model_ingress_bytes": 15872,
+          "model_egress_bytes": 3511,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 13051.857126,
+          "tool_ms": 0.8319210000001931,
+          "e2e_ms": 13052.836042,
+          "usage": {
+            "input": 1154,
+            "output": 2338,
+            "cacheRead": 7936,
+            "totalTokens": 11428
+          },
+          "final_text": "Now let me compile all the scores:\n\n| Repo | Path | Score |\n|------|------|-------|\n| adv/org-repo-0 | contributors | 801 |\n| adv/org-repo-1 | commits | 750 |\n| adv/org-repo-2 | contributors | 90 |\n| adv/org-repo-3 | commits | 80 |\n| adv/org-repo-4 | commits | 80 |\n| adv/org-repo-5 | contributors | 60 |\n| adv/org-repo-6 | contributors | 36 |\n| adv/org-repo-7 | commits | 84 |\n| adv/org-repo-8 | commits | 80 |\n| adv/org-repo-9 | commits | 84 |\n| adv/org-repo-10 | commits | 60 |\n| adv/org-repo-11 | contributors | 84 |\n| adv/org-repo-12 | contributors | 75 |\n| adv/org-repo-13 | contributors | 45 |\n| adv/org-repo-14 | commits | 20 |\n\nNow I need to keep only repos with score >= 100:\n- adv/org-repo-0: 801 ✓\n- adv/org-repo-1: 750 ✓\n\nThese are the only two with score >= 100.\n\nSort by score descending:\n1. adv/org-repo-0 (801)\n2. adv/org-repo-1 (750)\n\nReturn top 3, but we only have 2 qualifying repos. So return those 2.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2273,
+          "model_ingress_bytes": 16194,
+          "model_egress_bytes": 4058,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 13650.068374999999,
+          "tool_ms": 0.12833300001148018,
+          "e2e_ms": 13650.28875,
+          "usage": {
+            "input": 1241,
+            "output": 2522,
+            "cacheRead": 7936,
+            "totalTokens": 11699
+          },
+          "final_text": "Now let me compile all the scores by repository:\n\n| Repository | Ratio | Path | Score |\n|---|---|---|---|\n| adv/org-repo-0 | 0.151 | contributors | 801 |\n| adv/org-repo-1 | 0.149 | commits | 750 |\n| adv/org-repo-2 | 0.20 | contributors | 90 |\n| adv/org-repo-3 | 0.14 | commits | 80 |\n| adv/org-repo-4 | 0.15 | commits | 80 |\n| adv/org-repo-5 | 0.20 | contributors | 60 |\n| adv/org-repo-6 | 0.20 | contributors | 36 |\n| adv/org-repo-7 | 0.133 | commits | 84 |\n| adv/org-repo-8 | 0.15 | commits | 80 |\n| adv/org-repo-9 | 0.14 | commits | 84 |\n| adv/org-repo-10 | 0.14 | commits | 60 |\n| adv/org-repo-11 | 0.20 | contributors | 84 |\n| adv/org-repo-12 | 0.20 | contributors | 75 |\n| adv/org-repo-13 | 0.50 | contributors | 45 |\n| adv/org-repo-14 | 0.05 | commits | 20 |\n\nNow I need to only keep repositories with score >= 100:\n- **adv/org-repo-0**: score 801 ✓\n- **adv/org-repo-1**: score 750 ✓\n\nAll others have scores < 100.\n\nSo only 2 repositories qualify (score >= 100). Let me sort them by score from high to low:\n1. adv/org-repo-0 (score 801)\n2. adv/org-repo-1 (score 750)\n\nOnly these 2 have scores >= 100. The task asks for the top 3, but we should submit what qualifies. Let me submit the 2 that meet the criteria.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2273,
+          "model_ingress_bytes": 15708,
+          "model_egress_bytes": 3791,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 12666.332623999999,
+          "tool_ms": 0.1914550000183226,
+          "e2e_ms": 12666.631209,
+          "usage": {
+            "input": 1171,
+            "output": 2369,
+            "cacheRead": 7808,
+            "totalTokens": 11348
+          },
+          "final_text": "Now let me compile all the scores by repository:\n\n| Repository | Path | Score |\n|---|---|---|\n| adv/org-repo-0 | contributors | 801 |\n| adv/org-repo-1 | commits | 750 |\n| adv/org-repo-2 | contributors | 90 |\n| adv/org-repo-3 | commits | 80 |\n| adv/org-repo-4 | commits | 80 |\n| adv/org-repo-5 | contributors | 60 |\n| adv/org-repo-6 | contributors | 36 |\n| adv/org-repo-7 | commits | 84 |\n| adv/org-repo-8 | commits | 80 |\n| adv/org-repo-9 | commits | 84 |\n| adv/org-repo-10 | commits | 60 |\n| adv/org-repo-11 | contributors | 84 |\n| adv/org-repo-12 | contributors | 75 |\n| adv/org-repo-13 | contributors | 45 |\n| adv/org-repo-14 | commits | 20 |\n\nNow I need to keep only repos with score >= 100:\n- adv/org-repo-0: 801 ✓\n- adv/org-repo-1: 750 ✓\n\nOnly these two have score >= 100. But the task says \"返回前 3 个仓库的完整名称\". Let me check - only 2 repos qualify. Wait, let me re-check... Only repos with score >= 100.\n\nrepos with score >= 100:\n1. adv/org-repo-0: 801\n2. adv/org-repo-1: 750\n\nOnly 2 qualify. But the task asks for the top 3. Since only 2 have score >= 100, I should return those 2.\n\nHmm, but let me re-read: \"只保留 score >= 100 的仓库，按 score 从高到低排序，返回前 3 个仓库的完整名称\". So if only 2 qualify, we return those 2.\n\nRanked by score from highest to lowest:\n1. adv/org-repo-0 (801)\n2. adv/org-repo-1 (750)\n\nLet me submit these.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2273,
+          "model_ingress_bytes": 15739,
+          "model_egress_bytes": 3544,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 12946.044043000002,
+          "tool_ms": 0.22187500002473826,
+          "e2e_ms": 12946.376749999996,
+          "usage": {
+            "input": 1207,
+            "output": 2335,
+            "cacheRead": 7808,
+            "totalTokens": 11350
+          },
+          "final_text": "Now let me compile the scores by repository:\n\n**Contributors path (ratio > 0.15):**\n- adv/org-repo-0: score = 801\n- adv/org-repo-2: score = 90\n- adv/org-repo-5: score = 60\n- adv/org-repo-6: score = 36\n- adv/org-repo-11: score = 84\n- adv/org-repo-12: score = 75\n- adv/org-repo-13: score = 45\n\n**Commits path (ratio ≤ 0.15):**\n- adv/org-repo-1: score = 750\n- adv/org-repo-3: score = 80\n- adv/org-repo-4: score = 80\n- adv/org-repo-7: score = 84\n- adv/org-repo-8: score = 80\n- adv/org-repo-9: score = 84\n- adv/org-repo-10: score = 60\n- adv/org-repo-14: score = 20\n\nNow filtering to only keep repos with score >= 100:\n- adv/org-repo-0: score 801 ✓\n- adv/org-repo-1: score 750 ✓\n\nThese are the only two with score >= 100. Let me sort them by score descending:\n1. adv/org-repo-0 (801)\n2. adv/org-repo-1 (750)\n\nWait, the task says \"返回前 3 个仓库\" but only 2 have score >= 100. Let me re-check... Only repos with score >= 100 should be kept. There are only 2 such repos. I should return those 2.\n\nLet me submit the answer with the repos that have score >= 100, sorted by score descending.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2273,
+          "model_ingress_bytes": 15731,
+          "model_egress_bytes": 3395,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 13411.782084000006,
+          "tool_ms": 0.21720799999457086,
+          "e2e_ms": 13412.218917000006,
+          "usage": {
+            "input": 1124,
+            "output": 2351,
+            "cacheRead": 7936,
+            "totalTokens": 11411
+          },
+          "final_text": "Now let me compile all the scores:\n\n**Contributors path:**\n- adv/org-repo-0: score = 801\n- adv/org-repo-2: score = 90\n- adv/org-repo-5: score = 60\n- adv/org-repo-6: score = 36\n- adv/org-repo-11: score = 84\n- adv/org-repo-12: score = 75\n- adv/org-repo-13: score = 45\n\n**Commits path:**\n- adv/org-repo-1: score = 750\n- adv/org-repo-3: score = 80\n- adv/org-repo-4: score = 80\n- adv/org-repo-7: score = 84\n- adv/org-repo-8: score = 80\n- adv/org-repo-9: score = 84\n- adv/org-repo-10: score = 60\n- adv/org-repo-14: score = 20\n\nNow, filtering for score >= 100:\n- adv/org-repo-0: 801 ✓\n- adv/org-repo-1: 750 ✓\n- All others have score < 100\n\nOnly 2 repos have score >= 100: adv/org-repo-0 (801) and adv/org-repo-1 (750).\n\nSorted by score from high to low:\n1. adv/org-repo-0 (801)\n2. adv/org-repo-1 (750)\n\nSince we need to return the top 3 repositories but only 2 pass the score >= 100 filter, we return the 2 that qualify.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2273,
+          "model_ingress_bytes": 15782,
+          "model_egress_bytes": 3599,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 12916.119668,
+          "tool_ms": 0.2682069999864325,
+          "e2e_ms": 12916.547584,
+          "usage": {
+            "input": 1226,
+            "output": 2337,
+            "cacheRead": 7808,
+            "totalTokens": 11371
+          },
+          "final_text": "Now I have all the scores. Let me compile them:\n\n| Repository | Path | Score |\n|---|---|---|\n| adv/org-repo-0 | contributors | 801 |\n| adv/org-repo-1 | commits | 750 |\n| adv/org-repo-2 | contributors | 90 |\n| adv/org-repo-3 | commits | 80 |\n| adv/org-repo-4 | commits | 80 |\n| adv/org-repo-5 | contributors | 60 |\n| adv/org-repo-6 | contributors | 36 |\n| adv/org-repo-7 | commits | 84 |\n| adv/org-repo-8 | commits | 80 |\n| adv/org-repo-9 | commits | 84 |\n| adv/org-repo-10 | commits | 60 |\n| adv/org-repo-11 | contributors | 84 |\n| adv/org-repo-12 | contributors | 75 |\n| adv/org-repo-13 | contributors | 45 |\n| adv/org-repo-14 | commits | 20 |\n\nNow, filtering for repos with score >= 100:\n- **adv/org-repo-0**: 801 ✓\n- **adv/org-repo-1**: 750 ✓\n\nThese are the only two with score >= 100. But the task asks for the top 3. Let me check again...\n\nWait, only 2 repos have score >= 100. The task says \"只保留 score >= 100 的仓库，按 score 从高到低排序，返回前 3 个仓库\". If there are only 2, I return those 2.\n\nRanking by score descending:\n1. adv/org-repo-0 (801)\n2. adv/org-repo-1 (750)\n\nOnly these 2 have score >= 100. So the result is these two repos.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2273,
+          "model_ingress_bytes": 15662,
+          "model_egress_bytes": 3523,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 12766.429375999985,
+          "tool_ms": 0.22103799997421447,
+          "e2e_ms": 12766.800000000003,
+          "usage": {
+            "input": 1192,
+            "output": 2308,
+            "cacheRead": 7808,
+            "totalTokens": 11308
+          },
+          "final_text": "Now let me compile all the scores by repository:\n\n| Repository | Path | Score |\n|---|---|---|\n| adv/org-repo-0 | contributors | 801 |\n| adv/org-repo-1 | commits | 750 |\n| adv/org-repo-2 | contributors | 90 |\n| adv/org-repo-3 | commits | 80 |\n| adv/org-repo-4 | commits | 80 |\n| adv/org-repo-5 | contributors | 60 |\n| adv/org-repo-6 | contributors | 36 |\n| adv/org-repo-7 | commits | 84 |\n| adv/org-repo-8 | commits | 80 |\n| adv/org-repo-9 | commits | 84 |\n| adv/org-repo-10 | commits | 60 |\n| adv/org-repo-11 | contributors | 84 |\n| adv/org-repo-12 | contributors | 75 |\n| adv/org-repo-13 | contributors | 45 |\n| adv/org-repo-14 | commits | 20 |\n\nNow filter for score >= 100:\n- adv/org-repo-0: 801 ✓\n- adv/org-repo-1: 750 ✓\n\nSort by score descending:\n1. adv/org-repo-0: 801\n2. adv/org-repo-1: 750\n\nOnly 2 repositories have score >= 100. But the task asks for the top 3. Let me check - the task says \"只保留 score >= 100 的仓库\" then \"返回前 3 个仓库\". If there are only 2 qualifying, I return those 2.\n\nWait, let me re-check. Only repos 0 and 1 have score >= 100. So the top 3 would just be those 2 that qualify.\n\nLet me submit the answer.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2273,
+          "model_ingress_bytes": 15806,
+          "model_egress_bytes": 3518,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 13538.584290999977,
+          "tool_ms": 0.24291699995228555,
+          "e2e_ms": 13538.908792000002,
+          "usage": {
+            "input": 1232,
+            "output": 2299,
+            "cacheRead": 7808,
+            "totalTokens": 11339
+          },
+          "final_text": "Now let me compile the scores for all repositories:\n\n| Repository | Path | Score |\n|---|---|---|\n| adv/org-repo-0 | contributors | 801 |\n| adv/org-repo-1 | commits | 750 |\n| adv/org-repo-2 | contributors | 90 |\n| adv/org-repo-3 | commits | 80 |\n| adv/org-repo-4 | commits | 80 |\n| adv/org-repo-5 | contributors | 60 |\n| adv/org-repo-6 | contributors | 36 |\n| adv/org-repo-7 | commits | 84 |\n| adv/org-repo-8 | commits | 80 |\n| adv/org-repo-9 | commits | 84 |\n| adv/org-repo-10 | commits | 60 |\n| adv/org-repo-11 | contributors | 84 |\n| adv/org-repo-12 | contributors | 75 |\n| adv/org-repo-13 | contributors | 45 |\n| adv/org-repo-14 | commits | 20 |\n\nNow, filter to only keep repositories with score >= 100:\n- **adv/org-repo-0**: 801 ✓\n- **adv/org-repo-1**: 750 ✓\n\nThese are the only ones with score >= 100. Let me sort by score descending:\n1. adv/org-repo-0 (score 801)\n2. adv/org-repo-1 (score 750)\n\nOnly 2 repositories have score >= 100. The task asks to return the top 3. Since only 2 qualify, I'll submit those 2.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2273,
+          "model_ingress_bytes": 16313,
+          "model_egress_bytes": 3858,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 14464.653250000018,
+          "tool_ms": 0.12116700001934078,
+          "e2e_ms": 14464.944625000004,
+          "usage": {
+            "input": 1111,
+            "output": 2541,
+            "cacheRead": 8192,
+            "totalTokens": 11844
+          },
+          "final_text": "Now let me compile the scores for each repository:\n\n| Repo | Score | Score >= 100? |\n|------|-------|---------------|\n| adv/org-repo-0 | 801 | Yes |\n| adv/org-repo-1 | 750 | Yes |\n| adv/org-repo-2 | 90 | No |\n| adv/org-repo-3 | 80 | No |\n| adv/org-repo-4 | 80 | No |\n| adv/org-repo-5 | 60 | No |\n| adv/org-repo-6 | 36 | No |\n| adv/org-repo-7 | 84 | No |\n| adv/org-repo-8 | 80 | No |\n| adv/org-repo-9 | 84 | No |\n| adv/org-repo-10 | 60 | No |\n| adv/org-repo-11 | 84 | No |\n| adv/org-repo-12 | 75 | No |\n| adv/org-repo-13 | 45 | No |\n| adv/org-repo-14 | 20 | No |\n\nOnly repos 0 and 1 have score >= 100. Their scores are 801 and 750 respectively.\n\nSorted by score descending:\n1. adv/org-repo-0 (801)\n2. adv/org-repo-1 (750)\n\nThe task asks for the top 3 repos, but only 2 meet the score >= 100 threshold. Let me submit those two.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2273,
+          "model_ingress_bytes": 15946,
+          "model_egress_bytes": 3559,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 13706.740250000017,
+          "tool_ms": 0.1702470000309404,
+          "e2e_ms": 13706.965875000009,
+          "usage": {
+            "input": 1140,
+            "output": 2319,
+            "cacheRead": 7936,
+            "totalTokens": 11395
+          },
+          "final_text": "Now let me map all the scores to their repositories:\n\n| Repo | Score | Path |\n|------|-------|------|\n| adv/org-repo-0 | 801 | contributors |\n| adv/org-repo-1 | 750 | commits |\n| adv/org-repo-2 | 90 | contributors |\n| adv/org-repo-3 | 80 | commits |\n| adv/org-repo-4 | 80 | commits |\n| adv/org-repo-5 | 60 | contributors |\n| adv/org-repo-6 | 36 | contributors |\n| adv/org-repo-7 | 84 | commits |\n| adv/org-repo-8 | 80 | commits |\n| adv/org-repo-9 | 84 | commits |\n| adv/org-repo-10 | 60 | commits |\n| adv/org-repo-11 | 84 | contributors |\n| adv/org-repo-12 | 75 | contributors |\n| adv/org-repo-13 | 45 | contributors |\n| adv/org-repo-14 | 20 | commits |\n\nNow filter for score >= 100:\n- adv/org-repo-0: 801 ✓\n- adv/org-repo-1: 750 ✓\n\nOnly two repos have score >= 100. Sorting from highest to lowest:\n1. adv/org-repo-0 (801)\n2. adv/org-repo-1 (750)\n\nThe task says return top 3 but there are only 2 with score >= 100. So I submit those 2.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "depth": "R4e",
+      "n": 30,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4570,
+          "model_ingress_bytes": 24662,
+          "model_egress_bytes": 7454,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 24920.504916999995,
+          "tool_ms": 0.24129100001277948,
+          "e2e_ms": 24921.318292,
+          "usage": {
+            "input": 5070,
+            "output": 4942,
+            "cacheRead": 8960,
+            "totalTokens": 18972
+          },
+          "final_text": "Now let me compile all the scores:\n\n**Contributors path scores:**\n- adv/org-repo-0: 801\n- adv/org-repo-2: 90\n- adv/org-repo-5: 60\n- adv/org-repo-6: 36\n- adv/org-repo-11: 84\n- adv/org-repo-12: 75\n- adv/org-repo-13: 45\n- adv/org-repo-16: 24\n- adv/org-repo-27: 24\n- adv/org-repo-28: 45\n- adv/org-repo-29: 30\n\n**Commits path scores:**\n- adv/org-repo-1: 750\n- adv/org-repo-3: 80\n- adv/org-repo-4: 80\n- adv/org-repo-7: 84\n- adv/org-repo-8: 80\n- adv/org-repo-9: 84\n- adv/org-repo-10: 60\n- adv/org-repo-14: 20\n- adv/org-repo-15: 24\n- adv/org-repo-17: 170\n- adv/org-repo-18: 30\n- adv/org-repo-19: 40\n- adv/org-repo-20: 20\n- adv/org-repo-21: 50\n- adv/org-repo-22: 60\n- adv/org-repo-23: 24\n- adv/org-repo-24: 30\n- adv/org-repo-25: 40\n- adv/org-repo-26: 50\n\nNow, filter for score >= 100:\n- adv/org-repo-0: 801 ✓\n- adv/org-repo-1: 750 ✓\n- adv/org-repo-17: 170 ✓\n\nSort by score descending:\n1. adv/org-repo-0: 801\n2. adv/org-repo-1: 750\n3. adv/org-repo-17: 170\n\nThese are the top 3 repositories with score >= 100. Let me submit the answer.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4570,
+          "model_ingress_bytes": 22575,
+          "model_egress_bytes": 5707,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 20600.890958,
+          "tool_ms": 0.20203999998557265,
+          "e2e_ms": 20601.411875,
+          "usage": {
+            "input": 1919,
+            "output": 4202,
+            "cacheRead": 11264,
+            "totalTokens": 17385
+          },
+          "final_text": "Now let me compile all the scores and filter by score >= 100:\n\n| Repo | Score | Score >= 100? |\n|------|-------|---------------|\n| adv/org-repo-0 | 801 | ✓ |\n| adv/org-repo-1 | 750 | ✓ |\n| adv/org-repo-2 | 90 | ✗ |\n| adv/org-repo-3 | 80 | ✗ |\n| adv/org-repo-4 | 80 | ✗ |\n| adv/org-repo-5 | 60 | ✗ |\n| adv/org-repo-6 | 36 | ✗ |\n| adv/org-repo-7 | 84 | ✗ |\n| adv/org-repo-8 | 80 | ✗ |\n| adv/org-repo-9 | 84 | ✗ |\n| adv/org-repo-10 | 60 | ✗ |\n| adv/org-repo-11 | 84 | ✗ |\n| adv/org-repo-12 | 75 | ✗ |\n| adv/org-repo-13 | 45 | ✗ |\n| adv/org-repo-14 | 20 | ✗ |\n| adv/org-repo-15 | 24 | ✗ |\n| adv/org-repo-16 | 24 | ✗ |\n| adv/org-repo-17 | 170 | ✓ |\n| adv/org-repo-18 | 30 | ✗ |\n| adv/org-repo-19 | 40 | ✗ |\n| adv/org-repo-20 | 20 | ✗ |\n| adv/org-repo-21 | 50 | ✗ |\n| adv/org-repo-22 | 60 | ✗ |\n| adv/org-repo-23 | 24 | ✗ |\n| adv/org-repo-24 | 30 | ✗ |\n| adv/org-repo-25 | 40 | ✗ |\n| adv/org-repo-26 | 50 | ✗ |\n| adv/org-repo-27 | 24 | ✗ |\n| adv/org-repo-28 | 45 | ✗ |\n| adv/org-repo-29 | 30 | ✗ |\n\nRepos with score >= 100:\n- adv/org-repo-0: 801\n- adv/org-repo-1: 750\n- adv/org-repo-17: 170\n\nSorted from highest to lowest: org-repo-0 (801), org-repo-1 (750), org-repo-17 (170)\n\nTop 3: adv/org-repo-0, adv/org-repo-1, adv/org-repo-17\n\nLet me submit the answer.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4570,
+          "model_ingress_bytes": 23685,
+          "model_egress_bytes": 6121,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 21991.788374999996,
+          "tool_ms": 0.22883699997328222,
+          "e2e_ms": 21992.149333,
+          "usage": {
+            "input": 2578,
+            "output": 4355,
+            "cacheRead": 11008,
+            "totalTokens": 17941
+          },
+          "final_text": "现在我需要把每个仓库的score对应回去，只保留 score >= 100 的仓库，按score从高到低排序，返回前3个。\n\n让我整理所有仓库的score：\n\n**Contributors路径：**\n- repo-0: 801\n- repo-2: 90\n- repo-5: 60\n- repo-6: 36\n- repo-11: 84\n- repo-12: 75\n- repo-13: 45\n- repo-16: 24\n- repo-27: 24\n- repo-28: 45\n- repo-29: 30\n\n**Commits路径：**\n- repo-1: 750\n- repo-3: 80\n- repo-4: 80\n- repo-7: 84\n- repo-8: 80\n- repo-9: 84\n- repo-10: 60\n- repo-14: 20\n- repo-15: 24\n- repo-17: 170\n- repo-18: 30\n- repo-19: 40\n- repo-20: 20\n- repo-21: 50\n- repo-22: 60\n- repo-23: 24\n- repo-24: 30\n- repo-25: 40\n- repo-26: 50\n\n现在筛选 score >= 100 的仓库：\n- repo-0: 801 ✓\n- repo-1: 750 ✓\n- repo-17: 170 ✓\n\n其他所有仓库的score都 < 100。\n\n按score从高到低排序：\n1. repo-0: 801\n2. repo-1: 750\n3. repo-17: 170\n\n前3个仓库为：adv/org-repo-0, adv/org-repo-1, adv/org-repo-17\n\n让我提交答案。",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4570,
+          "model_ingress_bytes": 24332,
+          "model_egress_bytes": 7417,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 24247.457374999984,
+          "tool_ms": 0.2485820000001695,
+          "e2e_ms": 24247.96920800001,
+          "usage": {
+            "input": 1993,
+            "output": 4947,
+            "cacheRead": 11904,
+            "totalTokens": 18844
+          },
+          "final_text": "Now I have all the scores. Let me tabulate them:\n\n**Contributors path scores:**\n- repo-0: 801\n- repo-2: 90\n- repo-5: 60\n- repo-6: 36\n- repo-11: 84\n- repo-12: 75\n- repo-13: 45\n- repo-16: 24\n- repo-27: 24\n- repo-28: 45\n- repo-29: 30\n\n**Commits path scores:**\n- repo-1: 750\n- repo-3: 80\n- repo-4: 80\n- repo-7: 84\n- repo-8: 80\n- repo-9: 84\n- repo-10: 60\n- repo-14: 20\n- repo-15: 24\n- repo-17: 170\n- repo-18: 30\n- repo-19: 40\n- repo-20: 20\n- repo-21: 50\n- repo-22: 60\n- repo-23: 24\n- repo-24: 30\n- repo-25: 40\n- repo-26: 50\n\nNow filtering for score >= 100:\n- repo-0: 801 ✓\n- repo-1: 750 ✓\n- repo-17: 170 ✓\n\nThese are the only ones with score >= 100. Let me sort them by score descending:\n1. repo-0: 801\n2. repo-1: 750\n3. repo-17: 170\n\nSo the top 3 repositories are adv/org-repo-0, adv/org-repo-1, adv/org-repo-17.\n\nLet me also check: are there more with score >= 100? Let me re-verify:\n- 801 ✓\n- 90 ✗\n- 60 ✗\n- 36 ✗\n- 84 ✗\n- 75 ✗\n- 45 ✗\n- 24 ✗\n- 24 ✗\n- 45 ✗\n- 30 ✗\n- 750 ✓\n- 80 ✗\n- 80 ✗\n- 84 ✗\n- 80 ✗\n- 84 ✗\n- 60 ✗\n- 20 ✗\n- 24 ✗\n- 170 ✓\n- 30 ✗\n- 40 ✗\n- 20 ✗\n- 50 ✗\n- 60 ✗\n- 24 ✗\n- 30 ✗\n- 40 ✗\n- 50 ✗\n\nIndeed, only three repos have score >= 100: repo-0 (801), repo-1 (750), repo-17 (170).\n\nTop 3 by score descending: repo-0, repo-1, repo-17.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4570,
+          "model_ingress_bytes": 25285,
+          "model_egress_bytes": 8158,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 25319.57329300001,
+          "tool_ms": 0.2533329999423586,
+          "e2e_ms": 25320.082916,
+          "usage": {
+            "input": 1930,
+            "output": 5143,
+            "cacheRead": 12288,
+            "totalTokens": 19361
+          },
+          "final_text": "Now let me map all scores to their repositories and filter for score >= 100:\n\n**Contributors path scores:**\n- adv/org-repo-0: 801\n- adv/org-repo-2: 90\n- adv/org-repo-5: 60\n- adv/org-repo-6: 36\n- adv/org-repo-11: 84\n- adv/org-repo-12: 75\n- adv/org-repo-13: 45\n- adv/org-repo-16: 24\n- adv/org-repo-27: 24\n- adv/org-repo-28: 45\n- adv/org-repo-29: 30\n\n**Commits path scores:**\n- adv/org-repo-1: 750\n- adv/org-repo-3: 80\n- adv/org-repo-4: 80\n- adv/org-repo-7: 84\n- adv/org-repo-8: 80\n- adv/org-repo-9: 84\n- adv/org-repo-10: 60\n- adv/org-repo-14: 20\n- adv/org-repo-15: 24\n- adv/org-repo-17: 170\n- adv/org-repo-18: 30\n- adv/org-repo-19: 40\n- adv/org-repo-20: 20\n- adv/org-repo-21: 50\n- adv/org-repo-22: 60\n- adv/org-repo-23: 24\n- adv/org-repo-24: 30\n- adv/org-repo-25: 40\n- adv/org-repo-26: 50\n\nRepositories with score >= 100:\n1. **adv/org-repo-0**: 801\n2. **adv/org-repo-1**: 750\n3. **adv/org-repo-17**: 170\n\nAll others have scores below 100.\n\nSorted from highest to lowest:\n1. adv/org-repo-0 (801)\n2. adv/org-repo-1 (750)\n3. adv/org-repo-17 (170)\n\nTop 3 repositories to submit.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4570,
+          "model_ingress_bytes": 24792,
+          "model_egress_bytes": 6929,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 23554.208333000002,
+          "tool_ms": 0.3702070000144886,
+          "e2e_ms": 23554.744166000004,
+          "usage": {
+            "input": 3582,
+            "output": 4657,
+            "cacheRead": 10368,
+            "totalTokens": 18607
+          },
+          "final_text": "Now let me compile all the scores:\n\n**Contributors path:**\n- repo-0: 801\n- repo-2: 90\n- repo-5: 60\n- repo-6: 36\n- repo-11: 84\n- repo-12: 75\n- repo-13: 45\n- repo-16: 24\n- repo-27: 24\n- repo-28: 45\n- repo-29: 30\n\n**Commits path:**\n- repo-1: 750\n- repo-3: 80\n- repo-4: 80\n- repo-7: 84\n- repo-8: 80\n- repo-9: 84\n- repo-10: 60\n- repo-14: 20\n- repo-15: 24\n- repo-17: 170\n- repo-18: 30\n- repo-19: 40\n- repo-20: 20\n- repo-21: 50\n- repo-22: 60\n- repo-23: 24\n- repo-24: 30\n- repo-25: 40\n- repo-26: 50\n\nNow, keep repos with score >= 100:\n- repo-0: 801 ✓\n- repo-1: 750 ✓\n- repo-17: 170 ✓\n\nOthers are all below 100.\n\nSort by score descending:\n1. repo-0: 801\n2. repo-1: 750\n3. repo-17: 170\n\nThe top 3 repos are adv/org-repo-0, adv/org-repo-1, adv/org-repo-17.\n\nLet me submit the answer.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4570,
+          "model_ingress_bytes": 24860,
+          "model_egress_bytes": 7878,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 23956.994917000004,
+          "tool_ms": 0.2519140000513289,
+          "e2e_ms": 23957.438708,
+          "usage": {
+            "input": 1919,
+            "output": 4934,
+            "cacheRead": 12032,
+            "totalTokens": 18885
+          },
+          "final_text": "Now let me compile all the scores by repository:\n\n**Contributors path:**\n- adv/org-repo-0: score = 801\n- adv/org-repo-2: score = 90\n- adv/org-repo-5: score = 60\n- adv/org-repo-6: score = 36\n- adv/org-repo-11: score = 84\n- adv/org-repo-12: score = 75\n- adv/org-repo-13: score = 45\n- adv/org-repo-16: score = 24\n- adv/org-repo-27: score = 24\n- adv/org-repo-28: score = 45\n- adv/org-repo-29: score = 30\n\n**Commits path:**\n- adv/org-repo-1: score = 750\n- adv/org-repo-3: score = 80\n- adv/org-repo-4: score = 80\n- adv/org-repo-7: score = 84\n- adv/org-repo-8: score = 80\n- adv/org-repo-9: score = 84\n- adv/org-repo-10: score = 60\n- adv/org-repo-14: score = 20\n- adv/org-repo-15: score = 24\n- adv/org-repo-17: score = 170\n- adv/org-repo-18: score = 30\n- adv/org-repo-19: score = 40\n- adv/org-repo-20: score = 20\n- adv/org-repo-21: score = 50\n- adv/org-repo-22: score = 60\n- adv/org-repo-23: score = 24\n- adv/org-repo-24: score = 30\n- adv/org-repo-25: score = 40\n- adv/org-repo-26: score = 50\n\nNow filter for score >= 100:\n- adv/org-repo-0: 801 ✓\n- adv/org-repo-1: 750 ✓\n- adv/org-repo-17: 170 ✓\n\nSort by score descending:\n1. adv/org-repo-0: 801\n2. adv/org-repo-1: 750\n3. adv/org-repo-17: 170\n\nTop 3 repos: adv/org-repo-0, adv/org-repo-1, adv/org-repo-17\n\nLet me submit this.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4570,
+          "model_ingress_bytes": 24067,
+          "model_egress_bytes": 6725,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 22543.37216800003,
+          "tool_ms": 0.6084160000900738,
+          "e2e_ms": 22544.28029200001,
+          "usage": {
+            "input": 1945,
+            "output": 4671,
+            "cacheRead": 11904,
+            "totalTokens": 18520
+          },
+          "final_text": "Now let me compile all the scores:\n\n**Contributors path (ratio > 0.15):**\n- repo-0: 801\n- repo-2: 90\n- repo-5: 60\n- repo-6: 36\n- repo-11: 84\n- repo-12: 75\n- repo-13: 45\n- repo-16: 24\n- repo-27: 24\n- repo-28: 45\n- repo-29: 30\n\n**Commits path (ratio ≤ 0.15):**\n- repo-1: 750\n- repo-3: 80\n- repo-4: 80\n- repo-7: 84\n- repo-8: 80\n- repo-9: 84\n- repo-10: 60\n- repo-14: 20\n- repo-15: 24\n- repo-17: 170\n- repo-18: 30\n- repo-19: 40\n- repo-20: 20\n- repo-21: 50\n- repo-22: 60\n- repo-23: 24\n- repo-24: 30\n- repo-25: 40\n- repo-26: 50\n\nNow let me filter for scores >= 100:\n- repo-0: 801 ✓\n- repo-1: 750 ✓\n- repo-17: 170 ✓\n\nAll others are below 100. So the repos with score >= 100 are repo-0 (801), repo-1 (750), repo-17 (170).\n\nSorted by score descending: repo-0, repo-1, repo-17.\n\nTop 3: adv/org-repo-0, adv/org-repo-1, adv/org-repo-17.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4570,
+          "model_ingress_bytes": 24079,
+          "model_egress_bytes": 6568,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 21408.20208300001,
+          "tool_ms": 0.24775600005523302,
+          "e2e_ms": 21408.568708000006,
+          "usage": {
+            "input": 1891,
+            "output": 4422,
+            "cacheRead": 11776,
+            "totalTokens": 18089
+          },
+          "final_text": "Now let me compile all the scores and filter for repos with score >= 100:\n\nFrom contributors path:\n- repo-0: 801\n- repo-2: 90\n- repo-5: 60\n- repo-6: 36\n- repo-11: 84\n- repo-12: 75\n- repo-13: 45\n- repo-16: 24\n- repo-27: 24\n- repo-28: 45\n- repo-29: 30\n\nFrom commits path:\n- repo-1: 750\n- repo-3: 80\n- repo-4: 80\n- repo-7: 84\n- repo-8: 80\n- repo-9: 84\n- repo-10: 60\n- repo-14: 20\n- repo-15: 24\n- repo-17: 170\n- repo-18: 30\n- repo-19: 40\n- repo-20: 20\n- repo-21: 50\n- repo-22: 60\n- repo-23: 24\n- repo-24: 30\n- repo-25: 40\n- repo-26: 50\n\nRepos with score >= 100:\n1. adv/org-repo-0: 801\n2. adv/org-repo-1: 750\n3. adv/org-repo-17: 170\n\nThese are the top 3 when sorted by score descending. Let me submit the answer.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4570,
+          "model_ingress_bytes": 24720,
+          "model_egress_bytes": 7630,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 24114.01012500003,
+          "tool_ms": 0.31054299999959767,
+          "e2e_ms": 24114.51341700001,
+          "usage": {
+            "input": 1901,
+            "output": 4952,
+            "cacheRead": 12160,
+            "totalTokens": 19013
+          },
+          "final_text": "Now let me compile all the scores and filter for score >= 100:\n\nFrom contributors path (ratio > 0.15):\n- repo-0: score = 801\n- repo-2: score = 90\n- repo-5: score = 60\n- repo-6: score = 36\n- repo-11: score = 84\n- repo-12: score = 75\n- repo-13: score = 45\n- repo-16: score = 24\n- repo-27: score = 24\n- repo-28: score = 45\n- repo-29: score = 30\n\nFrom commits path (ratio ≤ 0.15):\n- repo-1: score = 750\n- repo-3: score = 80\n- repo-4: score = 80\n- repo-7: score = 84\n- repo-8: score = 80\n- repo-9: score = 84\n- repo-10: score = 60\n- repo-14: score = 20\n- repo-15: score = 24\n- repo-17: score = 170\n- repo-18: score = 30\n- repo-19: score = 40\n- repo-20: score = 20\n- repo-21: score = 50\n- repo-22: score = 60\n- repo-23: score = 24\n- repo-24: score = 30\n- repo-25: score = 40\n- repo-26: score = 50\n\nNow, filter for score >= 100:\n- repo-0: 801 ✓\n- repo-1: 750 ✓\n- repo-17: 170 ✓\n\nSort by score from high to low:\n1. repo-0: 801\n2. repo-1: 750\n3. repo-17: 170\n\nOnly 3 repositories have score >= 100, so the top 3 are exactly these.\n\nFinal answer:\n1. adv/org-repo-0\n2. adv/org-repo-1\n3. adv/org-repo-17",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    }
+  ]
+}

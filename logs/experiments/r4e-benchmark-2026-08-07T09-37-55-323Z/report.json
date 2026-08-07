@@ -1,0 +1,140 @@
+{
+  "mode": "r4e-branching-recombination",
+  "samples": 1,
+  "difficultyAxes": {
+    "dependencyDepth": 4,
+    "branchingFactor": 2,
+    "recombinationBurden": 3,
+    "stateCardinality": "N × (ratio + 分组 + score)"
+  },
+  "groundTruth": {
+    "R4e|15": [
+      "adv/org-repo-0",
+      "adv/org-repo-1"
+    ],
+    "R4e|30": [
+      "adv/org-repo-0",
+      "adv/org-repo-1",
+      "adv/org-repo-17"
+    ]
+  },
+  "results": [
+    {
+      "arm": "dsl",
+      "depth": "R4e",
+      "n": 15,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 1407,
+          "runtime_internal_bytes": 2273,
+          "llm_ms": 6724.995457999999,
+          "runtime_ms": 1.6459999999997308,
+          "e2e_ms": 6735.700666,
+          "usage": {
+            "input": 1393,
+            "output": 413,
+            "cacheRead": 0,
+            "totalTokens": 1806
+          },
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false,
+          "tool_ms": 1.6459999999997308
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "depth": "R4e",
+      "n": 30,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 4248,
+          "model_egress_bytes": 6327,
+          "runtime_internal_bytes": 4570,
+          "llm_ms": 14878.853417,
+          "runtime_ms": 0.4912500000009459,
+          "e2e_ms": 14881.867959,
+          "usage": {
+            "input": 1393,
+            "output": 1576,
+            "cacheRead": 0,
+            "totalTokens": 2969
+          },
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false,
+          "tool_ms": 0.4912500000009459
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "depth": "R4e",
+      "n": 15,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2273,
+          "model_ingress_bytes": 15525,
+          "model_egress_bytes": 3672,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 17079.069833,
+          "tool_ms": 0.7379609999925378,
+          "e2e_ms": 17079.877292,
+          "usage": {
+            "input": 1366,
+            "output": 2396,
+            "cacheRead": 7552,
+            "totalTokens": 11314
+          },
+          "final_text": "Now let me compile the scores for each repository:\n\n**Contributors path scores:**\n- repo-0: 801\n- repo-2: 90\n- repo-5: 60\n- repo-6: 36\n- repo-11: 84\n- repo-12: 75\n- repo-13: 45\n\n**Commits path scores:**\n- repo-1: 750\n- repo-3: 80\n- repo-4: 80\n- repo-7: 84\n- repo-8: 80\n- repo-9: 84\n- repo-10: 60\n- repo-14: 20\n\nNow, filter for score >= 100:\n- repo-0: 801 ✓\n- repo-1: 750 ✓\n- repo-2: 90 ✗\n- repo-3: 80 ✗\n- repo-4: 80 ✗\n- repo-5: 60 ✗\n- repo-6: 36 ✗\n- repo-7: 84 ✗\n- repo-8: 80 ✗\n- repo-9: 84 ✗\n- repo-10: 60 ✗\n- repo-11: 84 ✗\n- repo-12: 75 ✗\n- repo-13: 45 ✗\n- repo-14: 20 ✗\n\nOnly repo-0 (801) and repo-1 (750) have score >= 100. But we need top 3, and only 2 qualify.\n\nWait, let me re-check. The task says \"只保留 score >= 100 的仓库，按 score 从高到低排序，返回前 3 个仓库\". If fewer than 3 qualify, we return what qualifies.\n\nQualifying repos with score >= 100:\n- adv/org-repo-0: 801\n- adv/org-repo-1: 750\n\nOnly 2 qualify. But let me verify - filter for score >= 100 gives us repo-0 and repo-1. We need to return the top 3, but only 2 qualify. Let me re-read...\n\n\"只保留 score >= 100 的仓库，按 score 从高到低排序，返回前 3 个仓库的完整名称\"\n\nSo we filter to score >= 100, then sort descending, then take top 3. Since only 2 have score >= 100, we return those 2.\n\nRanked from highest to lowest:\n1. adv/org-repo-0 (801)\n2. adv/org-repo-1 (750)\n\nLet me submit these.",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "depth": "R4e",
+      "n": 30,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4570,
+          "model_ingress_bytes": 24359,
+          "model_egress_bytes": 7474,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 27014.081833,
+          "tool_ms": 0.5606270000062068,
+          "e2e_ms": 27015.352,
+          "usage": {
+            "input": 2454,
+            "output": 4983,
+            "cacheRead": 11520,
+            "totalTokens": 18957
+          },
+          "final_text": "Now let me compile all the scores:\n\n**Contributors path (ratio > 0.15):**\n- adv/org-repo-0: score = 801\n- adv/org-repo-2: score = 90\n- adv/org-repo-5: score = 60\n- adv/org-repo-6: score = 36\n- adv/org-repo-11: score = 84\n- adv/org-repo-12: score = 75\n- adv/org-repo-13: score = 45\n- adv/org-repo-16: score = 24\n- adv/org-repo-27: score = 24\n- adv/org-repo-28: score = 45\n- adv/org-repo-29: score = 30\n\n**Commits path (ratio ≤ 0.15):**\n- adv/org-repo-1: score = 750\n- adv/org-repo-3: score = 80\n- adv/org-repo-4: score = 80\n- adv/org-repo-7: score = 84\n- adv/org-repo-8: score = 80\n- adv/org-repo-9: score = 84\n- adv/org-repo-10: score = 60\n- adv/org-repo-14: score = 20\n- adv/org-repo-15: score = 24\n- adv/org-repo-17: score = 170\n- adv/org-repo-18: score = 30\n- adv/org-repo-19: score = 40\n- adv/org-repo-20: score = 20\n- adv/org-repo-21: score = 50\n- adv/org-repo-22: score = 60\n- adv/org-repo-23: score = 24\n- adv/org-repo-24: score = 30\n- adv/org-repo-25: score = 40\n- adv/org-repo-26: score = 50\n\nNow filter repositories with score >= 100:\n- adv/org-repo-0: 801 ✓\n- adv/org-repo-1: 750 ✓\n- adv/org-repo-17: 170 ✓\n\nSort by score from high to low:\n1. adv/org-repo-0: 801\n2. adv/org-repo-1: 750\n3. adv/org-repo-17: 170\n\nTop 3 repositories: adv/org-repo-0, adv/org-repo-1, adv/org-repo-17",
+          "answered": [
+            "adv/org-repo-0",
+            "adv/org-repo-1",
+            "adv/org-repo-17"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    }
+  ]
+}

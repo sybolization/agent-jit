@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8"/>
+<title>r4e-branching-recombination 结果可视化</title>
+<style>
+:root { --dsl:#4C78A8; --iter:#E45756; }
+body { font-family: system-ui, -apple-system, "PingFang SC", sans-serif; margin: 24px auto; max-width: 1020px; color: #111827; background: #fafafa; }
+h1 { font-size: 20px; } h2 { font-size: 16px; margin: 30px 0 8px; border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; }
+h3 { font-size: 14px; margin: 0 0 4px; } .sub { color: #6b7280; font-size: 12px; margin: 0 0 8px; }
+.card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin: 14px 0; }
+.card svg { width: 100%; height: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 8px; }
+th, td { border: 1px solid #e5e7eb; padding: 5px 8px; text-align: right; }
+th { background: #f3f4f6; } td:first-child, th:first-child { text-align: left; }
+.meta { color: #6b7280; font-size: 12px; }
+.legend span { margin-right: 16px; font-size: 12px; }
+.dot { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; }
+</style>
+</head>
+<body>
+<h1>r4e-branching-recombination — 结果可视化</h1>
+<p class="meta">报告：/Users/apple/Documents/agent-execution-dsl-seed/logs/experiments/r4e-benchmark-2026-08-07T09-48-39-642Z/report.json ｜ 样本：10 / cell ｜ samples × 2 臂 × 2 cells</p>
+
+<h2>Ground Truth 与数据集校验</h2>
+<div class="card"><h3>ground truth（每 cell 一次快照，两臂共用）</h3><table><thead><tr><th>cell</th><th>答案（owner/repo）</th></tr></thead><tbody><tr><td><b>R4e|15</b></td><td>adv/org-repo-0, adv/org-repo-1</td></tr><tr><td><b>R4e|30</b></td><td>adv/org-repo-0, adv/org-repo-1, adv/org-repo-17</td></tr></tbody></table></div>
+<div class="card"><h3>filter 淘汰统计（kept / total）</h3><table><thead><tr><th>cell</th><th>保留 / 总数（淘汰数）</th></tr></thead><tbody></tbody></table></div>
+
+<h2>正确率</h2>
+<div class="card"><h3>Task Pass 率（严格答案匹配 + 图语义）</h3><p class="sub">iterative 必须调用 submit_answer 才计为已提交；DSL = 答案精确匹配 AND 计算图语义正确</p><svg viewBox="0 0 940 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+<title>Task Pass 率（严格答案匹配 + 图语义）</title>
+<line x1="84" y1="336" x2="910" y2="336" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="340" text-anchor="end" font-size="11" fill="#6b7280">0%</text><line x1="84" y1="276" x2="910" y2="276" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="280" text-anchor="end" font-size="11" fill="#6b7280">23%</text><line x1="84" y1="216" x2="910" y2="216" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="220" text-anchor="end" font-size="11" fill="#6b7280">46%</text><line x1="84" y1="156" x2="910" y2="156" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="160" text-anchor="end" font-size="11" fill="#6b7280">69%</text><line x1="84" y1="96.00000000000003" x2="910" y2="96.00000000000003" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="100.00000000000003" text-anchor="end" font-size="11" fill="#6b7280">92%</text><line x1="84" y1="36" x2="910" y2="36" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="40" text-anchor="end" font-size="11" fill="#6b7280">115%</text>
+<rect x="238.5" y="75.13043478260869" width="46" height="260.8695652173913" fill="#4C78A8" rx="2"/>
+<text x="261.5" y="70.13043478260869" text-anchor="middle" font-size="10" fill="#374151">100%</text><rect x="296.5" y="75.13043478260869" width="46" height="260.8695652173913" fill="#E45756" rx="2"/>
+<text x="319.5" y="70.13043478260869" text-anchor="middle" font-size="10" fill="#374151">100%</text><text x="290.5" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|15</text><rect x="651.5" y="75.13043478260869" width="46" height="260.8695652173913" fill="#4C78A8" rx="2"/>
+<text x="674.5" y="70.13043478260869" text-anchor="middle" font-size="10" fill="#374151">100%</text><rect x="709.5" y="75.13043478260869" width="46" height="260.8695652173913" fill="#E45756" rx="2"/>
+<text x="732.5" y="70.13043478260869" text-anchor="middle" font-size="10" fill="#374151">100%</text><text x="703.5" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|30</text>
+<text x="16" y="186" transform="rotate(-90 16 186)" text-anchor="middle" font-size="11" fill="#6b7280">task pass %</text>
+</svg></div>
+
+<h2>成本随深度缩放</h2>
+<div class="legend"><span><span class="dot" style="background:var(--dsl)"></span>DSL</span><span><span class="dot" style="background:var(--iter)"></span>Iterative</span></div>
+<div class="card"><h3>模型 tokens（均值 / cell）</h3><p class="sub">DSL 只写一次程序；iterative 每轮把完整历史重新送模型</p><svg viewBox="0 0 940 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+<title>模型 tokens（均值 / cell）</title>
+<line x1="84" y1="336" x2="910" y2="336" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="340" text-anchor="end" font-size="11" fill="#6b7280">0</text><line x1="84" y1="276" x2="910" y2="276" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="280" text-anchor="end" font-size="11" fill="#6b7280">4.2k</text><line x1="84" y1="216" x2="910" y2="216" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="220" text-anchor="end" font-size="11" fill="#6b7280">8.4k</text><line x1="84" y1="155.99999999999997" x2="910" y2="155.99999999999997" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="159.99999999999997" text-anchor="end" font-size="11" fill="#6b7280">12.5k</text><line x1="84" y1="96" x2="910" y2="96" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="100" text-anchor="end" font-size="11" fill="#6b7280">16.7k</text><line x1="84" y1="35.99999999999994" x2="910" y2="35.99999999999994" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="39.99999999999994" text-anchor="end" font-size="11" fill="#6b7280">20.9k</text>
+<polyline points="84,312.0579514463546 910,303.1017613888312" fill="none" stroke="#4C78A8" stroke-width="2.5"/><circle cx="84" cy="312.0579514463546" r="4" fill="#4C78A8"/><text x="84" y="304.0579514463546" text-anchor="middle" font-size="9.5" fill="#374151">1.7k</text><circle cx="910" cy="303.1017613888312" r="4" fill="#4C78A8"/><text x="910" y="295.1017613888312" text-anchor="middle" font-size="9.5" fill="#374151">2.3k</text><polyline points="84,170.90282454808838 910,68.14285714285717" fill="none" stroke="#E45756" stroke-width="2.5"/><circle cx="84" cy="170.90282454808838" r="4" fill="#E45756"/><text x="84" y="162.90282454808838" text-anchor="middle" font-size="9.5" fill="#374151">11.5k</text><circle cx="910" cy="68.14285714285717" r="4" fill="#E45756"/><text x="910" y="60.14285714285717" text-anchor="middle" font-size="9.5" fill="#374151">18.7k</text><text x="84" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|15</text><text x="910" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|30</text><rect x="84" y="10" width="12" height="12" rx="2" fill="#4C78A8"/>
+<text x="101" y="20" font-size="11" fill="#111827">DSL</text><rect x="194" y="10" width="12" height="12" rx="2" fill="#E45756"/>
+<text x="211" y="20" font-size="11" fill="#111827">Iterative</text>
+</svg></div>
+<div class="card"><h3>模型输入字节 model_ingress（均值 / cell）</h3><p class="sub">中间工具结果是否重新进入模型 context 的度量</p><svg viewBox="0 0 940 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+<title>模型输入字节 model_ingress（均值 / cell）</title>
+<line x1="84" y1="336" x2="910" y2="336" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="340" text-anchor="end" font-size="11" fill="#6b7280">0.0 KB</text><line x1="84" y1="276" x2="910" y2="276" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="280" text-anchor="end" font-size="11" fill="#6b7280">5.5 KB</text><line x1="84" y1="216" x2="910" y2="216" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="220" text-anchor="end" font-size="11" fill="#6b7280">11.0 KB</text><line x1="84" y1="156" x2="910" y2="156" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="160" text-anchor="end" font-size="11" fill="#6b7280">16.5 KB</text><line x1="84" y1="96" x2="910" y2="96" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="100" text-anchor="end" font-size="11" fill="#6b7280">22.0 KB</text><line x1="84" y1="36" x2="910" y2="36" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="40" text-anchor="end" font-size="11" fill="#6b7280">27.5 KB</text>
+<polyline points="84,289.5821766917144 910,272.7188445074976" fill="none" stroke="#4C78A8" stroke-width="2.5"/><circle cx="84" cy="289.5821766917144" r="4" fill="#4C78A8"/><text x="84" y="281.5821766917144" text-anchor="middle" font-size="9.5" fill="#374151">4.3 KB</text><circle cx="910" cy="272.7188445074976" r="4" fill="#4C78A8"/><text x="910" y="264.7188445074976" text-anchor="middle" font-size="9.5" fill="#374151">5.8 KB</text><polyline points="84,162.13069657474304 910,68.14285714285717" fill="none" stroke="#E45756" stroke-width="2.5"/><circle cx="84" cy="162.13069657474304" r="4" fill="#E45756"/><text x="84" y="154.13069657474304" text-anchor="middle" font-size="9.5" fill="#374151">15.9 KB</text><circle cx="910" cy="68.14285714285717" r="4" fill="#E45756"/><text x="910" y="60.14285714285717" text-anchor="middle" font-size="9.5" fill="#374151">24.6 KB</text><text x="84" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|15</text><text x="910" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|30</text><rect x="84" y="10" width="12" height="12" rx="2" fill="#4C78A8"/>
+<text x="101" y="20" font-size="11" fill="#111827">DSL</text><rect x="194" y="10" width="12" height="12" rx="2" fill="#E45756"/>
+<text x="211" y="20" font-size="11" fill="#111827">Iterative</text>
+</svg></div>
+<div class="card"><h3>模型输出字节 model_egress（均值 / cell）</h3><p class="sub"></p><svg viewBox="0 0 940 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+<title>模型输出字节 model_egress（均值 / cell）</title>
+<line x1="84" y1="336" x2="910" y2="336" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="340" text-anchor="end" font-size="11" fill="#6b7280">0.0 KB</text><line x1="84" y1="276" x2="910" y2="276" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="280" text-anchor="end" font-size="11" fill="#6b7280">1.4 KB</text><line x1="84" y1="216" x2="910" y2="216" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="220" text-anchor="end" font-size="11" fill="#6b7280">2.7 KB</text><line x1="84" y1="156" x2="910" y2="156" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="160" text-anchor="end" font-size="11" fill="#6b7280">4.1 KB</text><line x1="84" y1="96" x2="910" y2="96" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="100" text-anchor="end" font-size="11" fill="#6b7280">5.4 KB</text><line x1="84" y1="35.99999999999994" x2="910" y2="35.99999999999994" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="39.99999999999994" text-anchor="end" font-size="11" fill="#6b7280">6.8 KB</text>
+<polyline points="84,303.01532213741865 910,285.673573854634" fill="none" stroke="#4C78A8" stroke-width="2.5"/><circle cx="84" cy="303.01532213741865" r="4" fill="#4C78A8"/><text x="84" y="295.01532213741865" text-anchor="middle" font-size="9.5" fill="#374151">0.7 KB</text><circle cx="910" cy="285.673573854634" r="4" fill="#4C78A8"/><text x="910" y="277.673573854634" text-anchor="middle" font-size="9.5" fill="#374151">1.1 KB</text><polyline points="84,188.22433145303904 910,68.14285714285717" fill="none" stroke="#E45756" stroke-width="2.5"/><circle cx="84" cy="188.22433145303904" r="4" fill="#E45756"/><text x="84" y="180.22433145303904" text-anchor="middle" font-size="9.5" fill="#374151">3.3 KB</text><circle cx="910" cy="68.14285714285717" r="4" fill="#E45756"/><text x="910" y="60.14285714285717" text-anchor="middle" font-size="9.5" fill="#374151">6.1 KB</text><text x="84" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|15</text><text x="910" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|30</text><rect x="84" y="10" width="12" height="12" rx="2" fill="#4C78A8"/>
+<text x="101" y="20" font-size="11" fill="#111827">DSL</text><rect x="194" y="10" width="12" height="12" rx="2" fill="#E45756"/>
+<text x="211" y="20" font-size="11" fill="#111827">Iterative</text>
+</svg></div>
+<div class="card"><h3>LLM round trips（均值 / cell）</h3><p class="sub">深度 D1→D3：iterative 的决策轮数随依赖层增长，DSL 恒 1</p><svg viewBox="0 0 940 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+<title>LLM round trips（均值 / cell）</title>
+<line x1="84" y1="336" x2="910" y2="336" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="340" text-anchor="end" font-size="11" fill="#6b7280">0</text><line x1="84" y1="276" x2="910" y2="276" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="280" text-anchor="end" font-size="11" fill="#6b7280">1</text><line x1="84" y1="216" x2="910" y2="216" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="220" text-anchor="end" font-size="11" fill="#6b7280">2</text><line x1="84" y1="155.99999999999997" x2="910" y2="155.99999999999997" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="159.99999999999997" text-anchor="end" font-size="11" fill="#6b7280">3</text><line x1="84" y1="96" x2="910" y2="96" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="100" text-anchor="end" font-size="11" fill="#6b7280">4</text><line x1="84" y1="36" x2="910" y2="36" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="40" text-anchor="end" font-size="11" fill="#6b7280">5</text>
+<rect x="238.5" y="272.37327677624603" width="46" height="63.626723223753984" fill="#4C78A8" rx="2"/>
+<text x="261.5" y="267.37327677624603" text-anchor="middle" font-size="10" fill="#374151">1</text><rect x="296.5" y="81.49310710498406" width="46" height="254.50689289501594" fill="#E45756" rx="2"/>
+<text x="319.5" y="76.49310710498406" text-anchor="middle" font-size="10" fill="#374151">4</text><text x="290.5" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|15</text><rect x="651.5" y="253.2852598091198" width="46" height="82.71474019088019" fill="#4C78A8" rx="2"/>
+<text x="674.5" y="248.2852598091198" text-anchor="middle" font-size="10" fill="#374151">1</text><rect x="709.5" y="75.13043478260869" width="46" height="260.8695652173913" fill="#E45756" rx="2"/>
+<text x="732.5" y="70.13043478260869" text-anchor="middle" font-size="10" fill="#374151">4</text><text x="703.5" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|30</text>
+<text x="16" y="186" transform="rotate(-90 16 186)" text-anchor="middle" font-size="11" fill="#6b7280">次数</text>
+</svg></div>
+<div class="card"><h3>深度折叠：tokens（D1/D2/D3 平均）</h3><p class="sub">depth scaling：iterative 随深度暴涨，DSL 基本恒定</p><svg viewBox="0 0 940 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+<title>深度折叠：tokens（D1/D2/D3 平均）</title>
+<line x1="84" y1="336" x2="910" y2="336" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="340" text-anchor="end" font-size="11" fill="#6b7280">0</text><line x1="84" y1="276" x2="910" y2="276" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="280" text-anchor="end" font-size="11" fill="#6b7280">3.4k</text><line x1="84" y1="216" x2="910" y2="216" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="220" text-anchor="end" font-size="11" fill="#6b7280">6.8k</text><line x1="84" y1="155.99999999999997" x2="910" y2="155.99999999999997" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="159.99999999999997" text-anchor="end" font-size="11" fill="#6b7280">10.1k</text><line x1="84" y1="96" x2="910" y2="96" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="100" text-anchor="end" font-size="11" fill="#6b7280">13.5k</text><line x1="84" y1="36" x2="910" y2="36" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="40" text-anchor="end" font-size="11" fill="#6b7280">16.9k</text>
+<circle cx="497" cy="300.8344495589981" r="4" fill="#4C78A8"/><text x="497" y="292.8344495589981" text-anchor="middle" font-size="9.5" fill="#374151">2.0k</text><circle cx="497" cy="68.14285714285717" r="4" fill="#E45756"/><text x="497" y="60.14285714285717" text-anchor="middle" font-size="9.5" fill="#374151">15.1k</text><text x="497" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e</text><rect x="84" y="10" width="12" height="12" rx="2" fill="#4C78A8"/>
+<text x="101" y="20" font-size="11" fill="#111827">DSL</text><rect x="194" y="10" width="12" height="12" rx="2" fill="#E45756"/>
+<text x="211" y="20" font-size="11" fill="#111827">Iterative</text>
+</svg></div>
+<div class="card"><h3>深度折叠：model_ingress（D1/D2/D3 平均）</h3><p class="sub">depth scaling：中间数据进不进 model context</p><svg viewBox="0 0 940 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+<title>深度折叠：model_ingress（D1/D2/D3 平均）</title>
+<line x1="84" y1="336" x2="910" y2="336" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="340" text-anchor="end" font-size="11" fill="#6b7280">0.0 KB</text><line x1="84" y1="276" x2="910" y2="276" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="280" text-anchor="end" font-size="11" fill="#6b7280">4.5 KB</text><line x1="84" y1="216" x2="910" y2="216" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="220" text-anchor="end" font-size="11" fill="#6b7280">9.1 KB</text><line x1="84" y1="155.99999999999997" x2="910" y2="155.99999999999997" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="159.99999999999997" text-anchor="end" font-size="11" fill="#6b7280">13.6 KB</text><line x1="84" y1="96" x2="910" y2="96" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="100" text-anchor="end" font-size="11" fill="#6b7280">18.1 KB</text><line x1="84" y1="36" x2="910" y2="36" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="40" text-anchor="end" font-size="11" fill="#6b7280">22.7 KB</text>
+<circle cx="497" cy="269.4799732204847" r="4" fill="#4C78A8"/><text x="497" y="261.4799732204847" text-anchor="middle" font-size="9.5" fill="#374151">5.0 KB</text><circle cx="497" cy="68.14285714285717" r="4" fill="#E45756"/><text x="497" y="60.14285714285717" text-anchor="middle" font-size="9.5" fill="#374151">20.3 KB</text><text x="497" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e</text><rect x="84" y="10" width="12" height="12" rx="2" fill="#4C78A8"/>
+<text x="101" y="20" font-size="11" fill="#111827">DSL</text><rect x="194" y="10" width="12" height="12" rx="2" fill="#E45756"/>
+<text x="211" y="20" font-size="11" fill="#111827">Iterative</text>
+</svg></div>
+
+<h2>数据“去了哪里”</h2>
+<div class="card"><h3>DSL runtime_internal_bytes（留在 runtime 的中间数据）</h3><p class="sub">DSL 臂独有；iterative 恒 0（中间数据 100% 经过模型）</p><svg viewBox="0 0 940 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+<title>DSL runtime_internal_bytes（留在 runtime 的中间数据）</title>
+<line x1="84" y1="336" x2="910" y2="336" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="340" text-anchor="end" font-size="11" fill="#6b7280">0.0 KB</text><line x1="84" y1="276" x2="910" y2="276" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="280" text-anchor="end" font-size="11" fill="#6b7280">1.0 KB</text><line x1="84" y1="216" x2="910" y2="216" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="220" text-anchor="end" font-size="11" fill="#6b7280">2.1 KB</text><line x1="84" y1="156" x2="910" y2="156" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="160" text-anchor="end" font-size="11" fill="#6b7280">3.1 KB</text><line x1="84" y1="96.00000000000003" x2="910" y2="96.00000000000003" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="100.00000000000003" text-anchor="end" font-size="11" fill="#6b7280">4.1 KB</text><line x1="84" y1="36" x2="910" y2="36" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="40" text-anchor="end" font-size="11" fill="#6b7280">5.1 KB</text>
+<rect x="238.5" y="206.25021406145942" width="46" height="129.74978593854058" fill="#4C78A8" rx="2"/>
+<text x="261.5" y="201.25021406145942" text-anchor="middle" font-size="10" fill="#374151">2.2 KB</text><rect x="296.5" y="336" width="46" height="0.5" fill="#E45756" rx="2"/>
+<text x="319.5" y="331" text-anchor="middle" font-size="10" fill="#374151">0.0 KB</text><text x="290.5" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|15</text><rect x="651.5" y="75.13043478260869" width="46" height="260.8695652173913" fill="#4C78A8" rx="2"/>
+<text x="674.5" y="70.13043478260869" text-anchor="middle" font-size="10" fill="#374151">4.5 KB</text><rect x="709.5" y="336" width="46" height="0.5" fill="#E45756" rx="2"/>
+<text x="732.5" y="331" text-anchor="middle" font-size="10" fill="#374151">0.0 KB</text><text x="703.5" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|30</text>
+<text x="16" y="186" transform="rotate(-90 16 186)" text-anchor="middle" font-size="11" fill="#6b7280">bytes</text>
+</svg></div>
+<div class="card"><h3>执行耗时 execMs（均值 / cell）</h3><p class="sub">DSL=runtime_ms，iterative=tool_ms（同并发上限 5）</p><svg viewBox="0 0 940 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+<title>执行耗时 execMs（均值 / cell）</title>
+<line x1="84" y1="336" x2="910" y2="336" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="340" text-anchor="end" font-size="11" fill="#6b7280">0ms</text><line x1="84" y1="276" x2="910" y2="276" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="280" text-anchor="end" font-size="11" fill="#6b7280">0ms</text><line x1="84" y1="216" x2="910" y2="216" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="220" text-anchor="end" font-size="11" fill="#6b7280">0ms</text><line x1="84" y1="156" x2="910" y2="156" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="160" text-anchor="end" font-size="11" fill="#6b7280">1ms</text><line x1="84" y1="96" x2="910" y2="96" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="100" text-anchor="end" font-size="11" fill="#6b7280">1ms</text><line x1="84" y1="36" x2="910" y2="36" stroke="#e5e7eb" stroke-width="1"/><text x="76" y="40" text-anchor="end" font-size="11" fill="#6b7280">1ms</text>
+<rect x="238.5" y="237.91737391302092" width="46" height="98.08262608697908" fill="#4C78A8" rx="2"/>
+<text x="261.5" y="232.91737391302092" text-anchor="middle" font-size="10" fill="#374151">0ms</text><rect x="296.5" y="269.4094695683491" width="46" height="66.59053043165089" fill="#E45756" rx="2"/>
+<text x="319.5" y="264.4094695683491" text-anchor="middle" font-size="10" fill="#374151">0ms</text><text x="290.5" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|15</text><rect x="651.5" y="225.29671304370498" width="46" height="110.70328695629503" fill="#4C78A8" rx="2"/>
+<text x="674.5" y="220.29671304370498" text-anchor="middle" font-size="10" fill="#374151">0ms</text><rect x="709.5" y="211.39993043407338" width="46" height="124.6000695659266" fill="#E45756" rx="2"/>
+<text x="732.5" y="206.39993043407338" text-anchor="middle" font-size="10" fill="#374151">0ms</text><text x="703.5" y="356" text-anchor="middle" font-size="12" fill="#111827">R4e|30</text>
+<text x="16" y="186" transform="rotate(-90 16 186)" text-anchor="middle" font-size="11" fill="#6b7280">时间 (ms)</text>
+</svg></div>
+
+<h2>汇总表</h2>
+<div class="card"><table>
+<thead><tr><th>cell</th><th>DSL task%</th><th>Iter task%</th><th>DSL roundTrips</th><th>Iter roundTrips</th><th>DSL ingress</th><th>Iter ingress</th><th>DSL tokens</th><th>Iter tokens</th><th>DSL runtimeB</th><th>DSL execMs</th><th>Iter execMs</th></tr></thead>
+<tbody>
+<tr><td><b>R4e|15</b></td>
+<td>100%</td><td>100%</td>
+<td>1.0</td><td>4.0</td>
+<td>4.3 KB</td><td>15.9 KB</td>
+<td>1.7k</td><td>11.5k</td>
+<td>2.2 KB</td>
+<td>0ms</td><td>0ms</td></tr><tr><td><b>R4e|30</b></td>
+<td>100%</td><td>100%</td>
+<td>1.3</td><td>4.1</td>
+<td>5.8 KB</td><td>24.6 KB</td>
+<td>2.3k</td><td>18.7k</td>
+<td>4.5 KB</td>
+<td>0ms</td><td>0ms</td></tr>
+</tbody></table></div>
+</body></html>
