@@ -1,0 +1,277 @@
+{
+  "task": "请用 Agent Execution DSL 编写程序：搜索 GitHub 上活跃的 TypeScript agent 框架仓库（query 用 \"agent framework language:typescript\"），取前 10 个，然后并行获取每个仓库的详细信息（用 full_name），最后截取前 3 个作为最终结果并返回。",
+  "task_spec": {
+    "query": "agent framework",
+    "limit": 10,
+    "mapKey": "full_name",
+    "takeCount": 3
+  },
+  "arms": [
+    {
+      "arm": "A",
+      "syntax": "named",
+      "few_shot": false,
+      "samples": 1,
+      "success_count": 0,
+      "success_rate": 0,
+      "first_attempt_count": 0,
+      "first_attempt_rate": 0,
+      "parse_success_rate": 1,
+      "task_correctness_rate": 0,
+      "avg_rounds_to_success": 0,
+      "total_rounds": 3,
+      "error_code_counts": {
+        "POSITIONAL_ARG_NOT_ALLOWED": 3
+      },
+      "usage_total": {
+        "input": 520,
+        "output": 53,
+        "cacheRead": 0,
+        "totalTokens": 573
+      },
+      "runs": [
+        {
+          "success": false,
+          "rounds_used": 3,
+          "first_attempt": false,
+          "first_round_parse_ok": true,
+          "task_pass": false,
+          "task_failures": [
+            "达到最大轮数仍未成功"
+          ],
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "POSITIONAL_ARG_NOT_ALLOWED",
+            "POSITIONAL_ARG_NOT_ALLOWED",
+            "POSITIONAL_ARG_NOT_ALLOWED"
+          ],
+          "usage": {
+            "input": 520,
+            "output": 53,
+            "cacheRead": 0,
+            "totalTokens": 573
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(search, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\nresult = take(details, count=3)\nreturn result",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "POSITIONAL_ARG_NOT_ALLOWED",
+                  "message": "map 不支持位置参数（语言要求 <key>=<value>）"
+                },
+                {
+                  "line": 3,
+                  "code": "POSITIONAL_ARG_NOT_ALLOWED",
+                  "message": "take 不支持位置参数（语言要求 <key>=<value>）"
+                },
+                {
+                  "line": 4,
+                  "code": "POSITIONAL_ARG_NOT_ALLOWED",
+                  "message": "return 不支持位置参数（语言要求 <key>=<value>）"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arm": "B",
+      "syntax": "named",
+      "few_shot": true,
+      "samples": 1,
+      "success_count": 1,
+      "success_rate": 1,
+      "first_attempt_count": 1,
+      "first_attempt_rate": 1,
+      "parse_success_rate": 1,
+      "task_correctness_rate": 1,
+      "avg_rounds_to_success": 1,
+      "total_rounds": 1,
+      "error_code_counts": {},
+      "usage_total": {
+        "input": 582,
+        "output": 61,
+        "cacheRead": 0,
+        "totalTokens": 643
+      },
+      "runs": [
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 582,
+            "output": 61,
+            "cacheRead": 0,
+            "totalTokens": 643
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arm": "C",
+      "syntax": "positional",
+      "few_shot": false,
+      "samples": 1,
+      "success_count": 0,
+      "success_rate": 0,
+      "first_attempt_count": 0,
+      "first_attempt_rate": 0,
+      "parse_success_rate": 0,
+      "task_correctness_rate": 0,
+      "avg_rounds_to_success": 0,
+      "total_rounds": 3,
+      "error_code_counts": {
+        "syntax": 1,
+        "undefined_reference": 2
+      },
+      "usage_total": {
+        "input": 523,
+        "output": 58,
+        "cacheRead": 0,
+        "totalTokens": 581
+      },
+      "runs": [
+        {
+          "success": false,
+          "rounds_used": 3,
+          "first_attempt": false,
+          "first_round_parse_ok": false,
+          "task_pass": false,
+          "task_failures": [
+            "达到最大轮数仍未成功"
+          ],
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "undefined_reference",
+            "undefined_reference"
+          ],
+          "usage": {
+            "input": 523,
+            "output": 58,
+            "cacheRead": 0,
+            "totalTokens": 581
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "search_results = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nrepos = take(search_results, 10)\ndetails = map(repos, \"github.get_repository\", concurrency=4)\ntop = take(details, 3)\nreturn top",
+              "diagnostics": [
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "map 缺少必填参数“key”"
+                },
+                {
+                  "line": 4,
+                  "code": "undefined_reference",
+                  "message": "take 引用了未定义的变量“details”"
+                },
+                {
+                  "line": 5,
+                  "code": "undefined_reference",
+                  "message": "return 引用了未定义的变量“top”"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arm": "D",
+      "syntax": "positional",
+      "few_shot": true,
+      "samples": 1,
+      "success_count": 1,
+      "success_rate": 1,
+      "first_attempt_count": 1,
+      "first_attempt_rate": 1,
+      "parse_success_rate": 1,
+      "task_correctness_rate": 1,
+      "avg_rounds_to_success": 1,
+      "total_rounds": 1,
+      "error_code_counts": {},
+      "usage_total": {
+        "input": 578,
+        "output": 53,
+        "cacheRead": 0,
+        "totalTokens": 631
+      },
+      "runs": [
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, \"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 578,
+            "output": 53,
+            "cacheRead": 0,
+            "totalTokens": 631
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, \"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(details, 3)\nreturn top",
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "effects": {
+    "parse_syntax_effect": -1,
+    "parse_fewshot_effect": 1,
+    "conformance_syntax_effect": 0,
+    "conformance_fewshot_effect": 2,
+    "conformance_interaction": 0,
+    "task_syntax_effect": 0,
+    "task_fewshot_effect": 2
+  }
+}

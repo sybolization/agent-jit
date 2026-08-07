@@ -1,0 +1,53 @@
+{
+  "task": "请用 Agent Execution DSL 编写程序：搜索 GitHub 上活跃的 TypeScript agent 框架仓库（query 用 \"agent framework language:typescript\"），取前 10 个，然后并行获取每个仓库的详细信息（用 full_name），最后截取前 3 个作为最终结果并返回。",
+  "rounds_used": 2,
+  "max_rounds": 5,
+  "success": true,
+  "final_dsl": "",
+  "compile_diagnostics": [],
+  "execution": {
+    "ok": true,
+    "result_size": 0,
+    "result_sample": [],
+    "trace": []
+  },
+  "usage_total": {
+    "input": 529,
+    "output": 72,
+    "cacheRead": 0,
+    "totalTokens": 601
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "llm_output": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nrepos = take(source=search, count=10)\ndetails = map(source=repos, tool=github.get_repository, key=\"full_name\", concurrency=5)\nresult = take(source=details, count=3)\nreturn(value=result)",
+      "diagnostics": [
+        {
+          "line": 3,
+          "code": "invalid_reference",
+          "message": "map 的参数“tool”需要字面量，不能引用节点"
+        },
+        {
+          "line": 3,
+          "code": "unknown_tool",
+          "message": "map 引用了未注册的工具：undefined"
+        },
+        {
+          "line": 4,
+          "code": "undefined_reference",
+          "message": "take 引用了未定义的变量“details”"
+        },
+        {
+          "line": 5,
+          "code": "undefined_reference",
+          "message": "return 引用了未定义的变量“result”"
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "llm_output": "",
+      "diagnostics": []
+    }
+  ]
+}

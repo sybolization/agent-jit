@@ -6,8 +6,7 @@ node_modules/
 dist/
 *.log
 
-# 实验产物
-logs/
+# 实验产物：logs/ 纳入版本控制（实验可复现性要求保留原始 report.json）
 
 # 环境变量（含 API key，绝不提交）
 .env

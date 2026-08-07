@@ -1,0 +1,78 @@
+{
+  "task": "请用 Agent Execution DSL 编写程序：搜索 GitHub 上活跃的 TypeScript agent 框架仓库（query 用 \"agent framework language:typescript\"），取前 10 个，然后并行获取每个仓库的详细信息（用 full_name），最后截取前 3 个作为最终结果并返回。",
+  "rounds_used": 1,
+  "max_rounds": 5,
+  "success": true,
+  "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+  "compile_diagnostics": [],
+  "execution": {
+    "ok": true,
+    "result_size": 3,
+    "result_sample": [
+      {
+        "full_name": "mock/org-repo-0",
+        "stars": 100,
+        "archived": false,
+        "language": "TypeScript"
+      },
+      {
+        "full_name": "mock/org-repo-1",
+        "stars": 100,
+        "archived": false,
+        "language": "TypeScript"
+      },
+      {
+        "full_name": "mock/org-repo-2",
+        "stars": 100,
+        "archived": false,
+        "language": "TypeScript"
+      }
+    ],
+    "trace": [
+      {
+        "id": "repos",
+        "kind": "tool",
+        "status": "success",
+        "durationMs": 0,
+        "outputSize": 10
+      },
+      {
+        "id": "details",
+        "kind": "map",
+        "status": "success",
+        "durationMs": 161,
+        "fanout": 10,
+        "concurrency": 5,
+        "outputSize": 10
+      },
+      {
+        "id": "top",
+        "kind": "compute.take",
+        "status": "success",
+        "durationMs": 0,
+        "inputSize": 10,
+        "outputSize": 3
+      },
+      {
+        "id": "return",
+        "kind": "return",
+        "status": "success",
+        "durationMs": 0,
+        "outputSize": 3
+      }
+    ]
+  },
+  "usage_total": {
+    "input": 608,
+    "output": 61,
+    "cacheRead": 0,
+    "totalTokens": 669
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+      "diagnostics": []
+    }
+  ]
+}

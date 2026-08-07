@@ -1,0 +1,1345 @@
+{
+  "task": "请用 Agent Execution DSL 编写程序：搜索 GitHub 上活跃的 TypeScript agent 框架仓库（query 用 \"agent framework language:typescript\"），取前 10 个，然后并行获取每个仓库的详细信息（用 full_name），最后截取前 3 个作为最终结果并返回。",
+  "arms": [
+    {
+      "arm": "A",
+      "label": "quoted-zero-shot",
+      "samples": 10,
+      "success_count": 0,
+      "success_rate": 0,
+      "first_attempt_count": 0,
+      "first_attempt_rate": 0,
+      "avg_rounds_to_success": 0,
+      "total_rounds": 50,
+      "error_code_counts": {
+        "syntax": 26,
+        "undefined_reference": 4
+      },
+      "usage_total": {
+        "input": 782,
+        "output": 570,
+        "cacheRead": 4608,
+        "totalTokens": 5960
+      },
+      "runs": [
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "syntax",
+            "syntax"
+          ],
+          "usage": {
+            "input": 539,
+            "output": 52,
+            "cacheRead": 0,
+            "totalTokens": 591
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "frameworks = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(frameworks, tool=\"github.get_repository\", key=\"full_name\")\nresult = take(details, count=3)\nreturn(result)",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“frameworks”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "参数“details”后缺少等号"
+                },
+                {
+                  "line": 4,
+                  "code": "syntax",
+                  "message": "参数“result”后缺少等号"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "syntax",
+            "syntax"
+          ],
+          "usage": {
+            "input": 27,
+            "output": 55,
+            "cacheRead": 512,
+            "totalTokens": 594
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nrepos = map(search, full_name=\"full_name\", tool=\"github.get_repository\", concurrency=5)\nresult = take(repos, count=3)\nreturn result",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“search”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "参数“repos”后缺少等号"
+                },
+                {
+                  "line": 4,
+                  "code": "syntax",
+                  "message": "“return”后缺少等号"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "syntax",
+            "syntax"
+          ],
+          "usage": {
+            "input": 27,
+            "output": 57,
+            "cacheRead": 512,
+            "totalTokens": 596
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "searched = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(searched, key=\"full_name\", callee=\"github.get_repository\", concurrency=5)\nresult = take(details, count=3)\nreturn result",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“searched”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "参数“details”后缺少等号"
+                },
+                {
+                  "line": 4,
+                  "code": "syntax",
+                  "message": "“return”后缺少等号"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "syntax",
+            "syntax"
+          ],
+          "usage": {
+            "input": 27,
+            "output": 55,
+            "cacheRead": 512,
+            "totalTokens": 594
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\nresult = take(details, count=3)\nreturn result",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“repos”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "参数“details”后缺少等号"
+                },
+                {
+                  "line": 4,
+                  "code": "syntax",
+                  "message": "“return”后缺少等号"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "syntax",
+            "syntax"
+          ],
+          "usage": {
+            "input": 27,
+            "output": 56,
+            "cacheRead": 512,
+            "totalTokens": 595
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, callee=\"github.get_repository\", arg=\"full_name\", concurrency=5)\nresult = take(details, count=3)\nreturn result",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“repos”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "参数“details”后缺少等号"
+                },
+                {
+                  "line": 4,
+                  "code": "syntax",
+                  "message": "“return”后缺少等号"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "syntax",
+            "syntax"
+          ],
+          "usage": {
+            "input": 27,
+            "output": 58,
+            "cacheRead": 512,
+            "totalTokens": 597
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nrepo_details = map(repos, full_name=\"full_name\", tool=\"github.get_repository\", concurrency=5)\nresult = take(repo_details, count=3)\nreturn result",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“repos”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "参数“repo_details”后缺少等号"
+                },
+                {
+                  "line": 4,
+                  "code": "syntax",
+                  "message": "“return”后缺少等号"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "undefined_reference",
+            "undefined_reference"
+          ],
+          "usage": {
+            "input": 27,
+            "output": 64,
+            "cacheRead": 512,
+            "totalTokens": 603
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, source=repos, key=\"full_name\", tool=\"github.get_repository\", concurrency=5)\nfinal = take(source=details, count=3)\nreturn(value=final)",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“repos”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "undefined_reference",
+                  "message": "take 引用了未定义的变量“details”"
+                },
+                {
+                  "line": 4,
+                  "code": "undefined_reference",
+                  "message": "return 引用了未定义的变量“final”"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "undefined_reference",
+            "undefined_reference"
+          ],
+          "usage": {
+            "input": 27,
+            "output": 59,
+            "cacheRead": 512,
+            "totalTokens": 598
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, key=\"full_name\", tool=\"github.get_repository\", concurrency=5)\nresult = take(source=details, count=3)\nreturn(value=result)",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“repos”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "undefined_reference",
+                  "message": "take 引用了未定义的变量“details”"
+                },
+                {
+                  "line": 4,
+                  "code": "undefined_reference",
+                  "message": "return 引用了未定义的变量“result”"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "syntax",
+            "syntax"
+          ],
+          "usage": {
+            "input": 27,
+            "output": 58,
+            "cacheRead": 512,
+            "totalTokens": 597
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, callee=\"github.get_repository\", full_name=\"full_name\", concurrency=5)\nresult = take(details, count=3)\nreturn = result",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“repos”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "参数“details”后缺少等号"
+                },
+                {
+                  "line": 4,
+                  "code": "syntax",
+                  "message": "“result”后缺少左括号"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "syntax",
+            "syntax"
+          ],
+          "usage": {
+            "input": 27,
+            "output": 56,
+            "cacheRead": 512,
+            "totalTokens": 595
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, callee=\"github.get_repository\", key=\"full_name\", concurrency=5)\nresult = take(details, count=3)\nreturn result",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“repos”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "参数“details”后缺少等号"
+                },
+                {
+                  "line": 4,
+                  "code": "syntax",
+                  "message": "“return”后缺少等号"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arm": "B",
+      "label": "quoted-few-shot",
+      "samples": 10,
+      "success_count": 10,
+      "success_rate": 1,
+      "first_attempt_count": 10,
+      "first_attempt_rate": 1,
+      "avg_rounds_to_success": 1,
+      "total_rounds": 10,
+      "error_code_counts": {},
+      "usage_total": {
+        "input": 1402,
+        "output": 606,
+        "cacheRead": 4608,
+        "totalTokens": 6616
+      },
+      "runs": [
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 601,
+            "output": 61,
+            "cacheRead": 0,
+            "totalTokens": 662
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 89,
+            "output": 61,
+            "cacheRead": 512,
+            "totalTokens": 662
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 89,
+            "output": 61,
+            "cacheRead": 512,
+            "totalTokens": 662
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 89,
+            "output": 61,
+            "cacheRead": 512,
+            "totalTokens": 662
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=search, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 89,
+            "output": 59,
+            "cacheRead": 512,
+            "totalTokens": 660
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=search, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 89,
+            "output": 61,
+            "cacheRead": 512,
+            "totalTokens": 662
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=search, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 89,
+            "output": 59,
+            "cacheRead": 512,
+            "totalTokens": 660
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=search, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 89,
+            "output": 61,
+            "cacheRead": 512,
+            "totalTokens": 662
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 89,
+            "output": 61,
+            "cacheRead": 512,
+            "totalTokens": 662
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 89,
+            "output": 61,
+            "cacheRead": 512,
+            "totalTokens": 662
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, tool=\"github.get_repository\", key=\"full_name\", concurrency=5)\ntop = take(source=details, count=3)\nreturn(value=top)",
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arm": "C",
+      "label": "symbolic-zero-shot",
+      "samples": 10,
+      "success_count": 4,
+      "success_rate": 0.4,
+      "first_attempt_count": 4,
+      "first_attempt_rate": 0.4,
+      "avg_rounds_to_success": 1,
+      "total_rounds": 30,
+      "error_code_counts": {
+        "syntax": 12,
+        "undefined_reference": 6,
+        "unknown_parameter": 2,
+        "unknown_tool": 2
+      },
+      "usage_total": {
+        "input": 812,
+        "output": 653,
+        "cacheRead": 4608,
+        "totalTokens": 6073
+      },
+      "runs": [
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "undefined_reference",
+            "undefined_reference"
+          ],
+          "usage": {
+            "input": 542,
+            "output": 61,
+            "cacheRead": 0,
+            "totalTokens": 603
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map source=repos, key=\"full_name\", tool=github.get_repository, concurrency=5\nresult = take(source=details, count=3)\nreturn(value=result)",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "“map”后缺少左括号"
+                },
+                {
+                  "line": 3,
+                  "code": "undefined_reference",
+                  "message": "take 引用了未定义的变量“details”"
+                },
+                {
+                  "line": 4,
+                  "code": "undefined_reference",
+                  "message": "return 引用了未定义的变量“result”"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ntop10 = take(source=search, count=10)\nrepos = map(source=top10, key=\"full_name\", tool=github.get_repository, concurrency=5)\nfinal = take(source=repos, count=3)\nreturn(value=final)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 30,
+            "output": 74,
+            "cacheRead": 512,
+            "totalTokens": 616
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ntop10 = take(source=search, count=10)\nrepos = map(source=top10, key=\"full_name\", tool=github.get_repository, concurrency=5)\nfinal = take(source=repos, count=3)\nreturn(value=final)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "syntax",
+            "syntax",
+            "undefined_reference",
+            "syntax",
+            "unknown_parameter",
+            "unknown_tool"
+          ],
+          "usage": {
+            "input": 30,
+            "output": 68,
+            "cacheRead": 512,
+            "totalTokens": 610
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ntop10 = take(search, count=10)\ndetails = map(source=top10, key=\"full_name\", callee=github.get_repository, concurrency=5)\nresult = take(details, count=3)\nreturn(result)",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“search”后缺少等号"
+                },
+                {
+                  "line": 4,
+                  "code": "syntax",
+                  "message": "参数“details”后缺少等号"
+                },
+                {
+                  "line": 5,
+                  "code": "syntax",
+                  "message": "参数“result”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "undefined_reference",
+                  "message": "map 引用了未定义的变量“top10”"
+                },
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "map 缺少必填参数“tool”"
+                },
+                {
+                  "line": 3,
+                  "code": "unknown_parameter",
+                  "message": "map 不支持参数“callee”"
+                },
+                {
+                  "line": 3,
+                  "code": "unknown_tool",
+                  "message": "map 引用了未注册的工具：undefined"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "syntax",
+            "syntax",
+            "syntax"
+          ],
+          "usage": {
+            "input": 30,
+            "output": 59,
+            "cacheRead": 512,
+            "totalTokens": 601
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nrepos = take(search, count=10)\ndetails = map(repos, full_name=full_name, concurrency=5)\nfinal = take(details, count=3)\nreturn(final)",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“search”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "参数“repos”后缺少等号"
+                },
+                {
+                  "line": 4,
+                  "code": "syntax",
+                  "message": "参数“details”后缺少等号"
+                },
+                {
+                  "line": 5,
+                  "code": "syntax",
+                  "message": "参数“final”后缺少等号"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "unknown_parameter",
+            "unknown_tool",
+            "undefined_reference",
+            "undefined_reference"
+          ],
+          "usage": {
+            "input": 30,
+            "output": 62,
+            "cacheRead": 512,
+            "totalTokens": 604
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, key=\"full_name\", callee=github.get_repository, concurrency=5)\nresult = take(source=details, count=3)\nreturn(value=result)",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "map 缺少必填参数“tool”"
+                },
+                {
+                  "line": 2,
+                  "code": "unknown_parameter",
+                  "message": "map 不支持参数“callee”"
+                },
+                {
+                  "line": 2,
+                  "code": "unknown_tool",
+                  "message": "map 引用了未注册的工具：undefined"
+                },
+                {
+                  "line": 3,
+                  "code": "undefined_reference",
+                  "message": "take 引用了未定义的变量“details”"
+                },
+                {
+                  "line": 4,
+                  "code": "undefined_reference",
+                  "message": "return 引用了未定义的变量“result”"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nrepos = take(source=search, count=10)\ndetails = map(source=repos, key=\"full_name\", tool=github.get_repository, concurrency=5)\ntop3 = take(source=details, count=3)\nreturn(value=top3)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 30,
+            "output": 74,
+            "cacheRead": 512,
+            "totalTokens": 616
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nrepos = take(source=search, count=10)\ndetails = map(source=repos, key=\"full_name\", tool=github.get_repository, concurrency=5)\ntop3 = take(source=details, count=3)\nreturn(value=top3)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 1,
+          "first_attempt": false,
+          "final_dsl": "github_search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nrepos_full = github.get_repository(full_name=github_search)\ntop_repos = take(source=repos_full, count=3)\nreturn(value=top_repos)",
+          "result_size": 0,
+          "error_codes": [],
+          "usage": {
+            "input": 30,
+            "output": 57,
+            "cacheRead": 512,
+            "totalTokens": 599
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "github_search = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nrepos_full = github.get_repository(full_name=github_search)\ntop_repos = take(source=repos_full, count=3)\nreturn(value=top_repos)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, key=\"full_name\", tool=github.get_repository, concurrency=5)\nresult = take(source=details, count=3)\nreturn(value=result)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 30,
+            "output": 61,
+            "cacheRead": 512,
+            "totalTokens": 603
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(source=repos, key=\"full_name\", tool=github.get_repository, concurrency=5)\nresult = take(source=details, count=3)\nreturn(value=result)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nrepos_taken = take(source=repos, count=10)\ndetails = map(source=repos_taken, key=\"full_name\", tool=github.get_repository, concurrency=5)\nresult = take(source=details, count=3)\nreturn(value=result)",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 30,
+            "output": 78,
+            "cacheRead": 512,
+            "totalTokens": 620
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nrepos_taken = take(source=repos, count=10)\ndetails = map(source=repos_taken, key=\"full_name\", tool=github.get_repository, concurrency=5)\nresult = take(source=details, count=3)\nreturn(value=result)",
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": false,
+          "rounds_used": 5,
+          "first_attempt": false,
+          "final_dsl": "",
+          "result_size": 0,
+          "error_codes": [
+            "syntax",
+            "syntax",
+            "undefined_reference"
+          ],
+          "usage": {
+            "input": 30,
+            "output": 59,
+            "cacheRead": 512,
+            "totalTokens": 601
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, full_name=full_name, concurrency=5, tool=github.get_repository)\nresult = take(details, count=3)\nreturn(value=result)",
+              "diagnostics": [
+                {
+                  "line": 2,
+                  "code": "syntax",
+                  "message": "参数“repos”后缺少等号"
+                },
+                {
+                  "line": 3,
+                  "code": "syntax",
+                  "message": "参数“details”后缺少等号"
+                },
+                {
+                  "line": 4,
+                  "code": "undefined_reference",
+                  "message": "return 引用了未定义的变量“result”"
+                }
+              ]
+            },
+            {
+              "round": 2,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 3,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 4,
+              "llm_output": "",
+              "diagnostics": []
+            },
+            {
+              "round": 5,
+              "llm_output": "",
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
