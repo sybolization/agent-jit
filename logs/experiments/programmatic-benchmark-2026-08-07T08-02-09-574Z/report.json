@@ -1,0 +1,230 @@
+{
+  "mode": "r4b-programmatic-benchmark",
+  "samples": 1,
+  "groundTruth": {
+    "2": [
+      "heygen-com/hyperframes",
+      "medusajs/medusa"
+    ],
+    "5": [
+      "heygen-com/hyperframes",
+      "medusajs/medusa",
+      "mastra-ai/mastra"
+    ],
+    "10": [
+      "heygen-com/hyperframes",
+      "medusajs/medusa",
+      "mastra-ai/mastra"
+    ],
+    "20": [
+      "heygen-com/hyperframes",
+      "medusajs/medusa",
+      "mastra-ai/mastra"
+    ]
+  },
+  "results": [
+    {
+      "arm": "dsl",
+      "n": 2,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 371,
+          "llm_ms": 1633.7883330000004,
+          "runtime_ms": 1348.8964159999996,
+          "e2e_ms": 2990.1430839999994,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "n": 5,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 459,
+          "llm_ms": 1766.5715,
+          "runtime_ms": 1584.0261660000006,
+          "e2e_ms": 3352.2981250000003,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "n": 10,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1400.2298330000012,
+          "runtime_ms": 2185.4694579999996,
+          "e2e_ms": 3586.764542,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "n": 20,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1275.7815419999997,
+          "runtime_ms": 3445.3585000000003,
+          "e2e_ms": 4724.157541,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "n": 2,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 2,
+          "exposed_bytes": 0,
+          "llm_ms": 261.0744169999998,
+          "tool_ms": 0,
+          "e2e_ms": 261.3459579999999,
+          "usage": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "totalTokens": 0
+          },
+          "final_text": "",
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "n": 5,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 2,
+          "exposed_bytes": 0,
+          "llm_ms": 303.55012499999975,
+          "tool_ms": 0,
+          "e2e_ms": 303.7212500000005,
+          "usage": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "totalTokens": 0
+          },
+          "final_text": "",
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "n": 10,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 2,
+          "exposed_bytes": 0,
+          "llm_ms": 501.47437499999796,
+          "tool_ms": 0,
+          "e2e_ms": 501.53683400000045,
+          "usage": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "totalTokens": 0
+          },
+          "final_text": "",
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "n": 20,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 2,
+          "exposed_bytes": 0,
+          "llm_ms": 251.14454099999966,
+          "tool_ms": 0,
+          "e2e_ms": 251.1974169999994,
+          "usage": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "totalTokens": 0
+          },
+          "final_text": "",
+          "answered": [],
+          "task_pass": false,
+          "maxed_out": false
+        }
+      ]
+    }
+  ]
+}

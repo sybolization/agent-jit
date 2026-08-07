@@ -1,0 +1,1786 @@
+{
+  "mode": "r4b-programmatic-benchmark",
+  "samples": 10,
+  "groundTruth": {
+    "2": [
+      "heygen-com/hyperframes",
+      "medusajs/medusa"
+    ],
+    "5": [
+      "heygen-com/hyperframes",
+      "medusajs/medusa",
+      "mastra-ai/mastra"
+    ],
+    "10": [
+      "heygen-com/hyperframes",
+      "medusajs/medusa",
+      "mastra-ai/mastra"
+    ],
+    "20": [
+      "heygen-com/hyperframes",
+      "medusajs/medusa",
+      "mastra-ai/mastra"
+    ]
+  },
+  "results": [
+    {
+      "arm": "dsl",
+      "n": 2,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 371,
+          "llm_ms": 1196.591125,
+          "runtime_ms": 1212.2546670000002,
+          "e2e_ms": 2416.13775,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 371,
+          "llm_ms": 1259.0303750000003,
+          "runtime_ms": 1063.811917,
+          "e2e_ms": 2325.2053749999995,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 371,
+          "llm_ms": 1276.8075840000001,
+          "runtime_ms": 2445.1832079999986,
+          "e2e_ms": 3722.49625,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 371,
+          "llm_ms": 1025.1444169999995,
+          "runtime_ms": 1236.4684580000012,
+          "e2e_ms": 2262.97825,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 371,
+          "llm_ms": 953.0035000000007,
+          "runtime_ms": 1211.7624589999996,
+          "e2e_ms": 2165.497875000001,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 392,
+          "llm_ms": 1261.2160409999997,
+          "runtime_ms": 1049.5651670000007,
+          "e2e_ms": 2311.472667000002,
+          "usage": {
+            "input": 81,
+            "output": 101,
+            "cacheRead": 768,
+            "totalTokens": 950
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 371,
+          "llm_ms": 1571.0405419999988,
+          "runtime_ms": 1462.7123749999992,
+          "e2e_ms": 3034.245708999999,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 371,
+          "llm_ms": 1180.6897500000014,
+          "runtime_ms": 1135.6357919999973,
+          "e2e_ms": 2317.039582999998,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 371,
+          "llm_ms": 961.7249999999985,
+          "runtime_ms": 1097.7597499999974,
+          "e2e_ms": 2060.4068750000006,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 371,
+          "llm_ms": 1018.822874999998,
+          "runtime_ms": 1649.3079579999976,
+          "e2e_ms": 2668.4883340000015,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "n": 5,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 459,
+          "llm_ms": 1320.0738339999998,
+          "runtime_ms": 1963.7077080000008,
+          "e2e_ms": 3286.5703329999997,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 459,
+          "llm_ms": 1168.4309999999996,
+          "runtime_ms": 1163.3179999999993,
+          "e2e_ms": 2333.0169590000005,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 459,
+          "llm_ms": 963.8383329999997,
+          "runtime_ms": 3064.058792,
+          "e2e_ms": 4029.9264170000006,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 459,
+          "llm_ms": 1074.196750000001,
+          "runtime_ms": 1357.7135829999988,
+          "e2e_ms": 2432.8092499999984,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 459,
+          "llm_ms": 897.3727910000016,
+          "runtime_ms": 1581.6031659999971,
+          "e2e_ms": 2480.4087500000005,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 459,
+          "llm_ms": 957.7157499999994,
+          "runtime_ms": 1256.6413749999992,
+          "e2e_ms": 2214.829540999999,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 459,
+          "llm_ms": 1043.8431249999994,
+          "runtime_ms": 1235.4062919999997,
+          "e2e_ms": 2279.795167,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 459,
+          "llm_ms": 1205.4127090000002,
+          "runtime_ms": 1652.426958,
+          "e2e_ms": 2859.1631670000024,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 459,
+          "llm_ms": 1029.3641669999997,
+          "runtime_ms": 1214.6453340000007,
+          "e2e_ms": 2245.434707999997,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 459,
+          "llm_ms": 1150.287083000003,
+          "runtime_ms": 1125.4133340000008,
+          "e2e_ms": 2276.1740420000024,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "n": 10,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 462,
+          "llm_ms": 1056.4121250000026,
+          "runtime_ms": 2196.3276250000017,
+          "e2e_ms": 3253.2580830000006,
+          "usage": {
+            "input": 81,
+            "output": 93,
+            "cacheRead": 768,
+            "totalTokens": 942
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 466,
+          "llm_ms": 1074.848915999999,
+          "runtime_ms": 2364.6424170000028,
+          "e2e_ms": 3440.412166999995,
+          "usage": {
+            "input": 81,
+            "output": 95,
+            "cacheRead": 768,
+            "totalTokens": 944
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1051.1302090000027,
+          "runtime_ms": 1883.6435000000056,
+          "e2e_ms": 2935.232916000001,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 884.4626250000001,
+          "runtime_ms": 2335.4900409999973,
+          "e2e_ms": 3220.4289169999975,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1078.3506249999991,
+          "runtime_ms": 2102.8608749999985,
+          "e2e_ms": 3181.722625000002,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1273.9009579999984,
+          "runtime_ms": 2593.9677080000038,
+          "e2e_ms": 3868.2847079999992,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 809.5983750000014,
+          "runtime_ms": 1838.8927919999987,
+          "e2e_ms": 2648.9789170000004,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1021.8138749999998,
+          "runtime_ms": 2066.8334999999934,
+          "e2e_ms": 3089.261792000005,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1077.583584,
+          "runtime_ms": 2523.735333000004,
+          "e2e_ms": 3603.0028749999983,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 470,
+          "llm_ms": 1261.2937079999974,
+          "runtime_ms": 1884.0305000000008,
+          "e2e_ms": 3145.9227080000055,
+          "usage": {
+            "input": 81,
+            "output": 93,
+            "cacheRead": 768,
+            "totalTokens": 942
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "n": 20,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1115.884791999997,
+          "runtime_ms": 4043.9560840000013,
+          "e2e_ms": 5160.402958000002,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 961.0008329999982,
+          "runtime_ms": 3766.2622499999998,
+          "e2e_ms": 4727.672292000003,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1097.5691670000015,
+          "runtime_ms": 3513.233874999998,
+          "e2e_ms": 4611.4390829999975,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1051.4697910000032,
+          "runtime_ms": 3809.5142909999995,
+          "e2e_ms": 4861.4389999999985,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 470,
+          "llm_ms": 1223.8028750000012,
+          "runtime_ms": 3314.6458330000023,
+          "e2e_ms": 4538.899375000001,
+          "usage": {
+            "input": 81,
+            "output": 94,
+            "cacheRead": 768,
+            "totalTokens": 943
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1046.6708749999962,
+          "runtime_ms": 3541.1428749999977,
+          "e2e_ms": 4588.453166000007,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1169.369375000002,
+          "runtime_ms": 3566.4798749999973,
+          "e2e_ms": 4736.736333000001,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1182.5294170000052,
+          "runtime_ms": 3247.1585420000047,
+          "e2e_ms": 4430.7796670000025,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1153.2460419999989,
+          "runtime_ms": 3686.6900840000017,
+          "e2e_ms": 4841.132207999995,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "exposed_bytes": 460,
+          "llm_ms": 1172.2134579999984,
+          "runtime_ms": 3439.8386670000036,
+          "e2e_ms": 4612.837958000004,
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "n": 2,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 431,
+          "llm_ms": 3287.3445000000065,
+          "tool_ms": 1643.054210000002,
+          "e2e_ms": 4930.744416999994,
+          "usage": {
+            "input": 363,
+            "output": 230,
+            "cacheRead": 2688,
+            "totalTokens": 3281
+          },
+          "final_text": "前 2 个 TypeScript agent 框架仓库的完整名称（owner/repo）如下：\n\n```\nheygen-com/hyperframes\nmedusajs/medusa\n```",
+          "answered": [
+            "owner/repo",
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 431,
+          "llm_ms": 4153.800124999994,
+          "tool_ms": 1788.6933759999956,
+          "e2e_ms": 5942.679041999989,
+          "usage": {
+            "input": 417,
+            "output": 260,
+            "cacheRead": 2688,
+            "totalTokens": 3365
+          },
+          "final_text": "根据任务要求，查询 \"agent framework language:typescript\" 并获取了前 2 个仓库的详细信息，最终结果如下：\n\nheygen-com/hyperframes\nmedusajs/medusa",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 431,
+          "llm_ms": 3602.1434169999848,
+          "tool_ms": 1772.1219179999898,
+          "e2e_ms": 5374.572333000004,
+          "usage": {
+            "input": 218,
+            "output": 220,
+            "cacheRead": 2816,
+            "totalTokens": 3254
+          },
+          "final_text": "搜索到的最活跃的 2 个 TypeScript agent 框架仓库的完整名称（owner/repo）为：\n\nheygen-com/hyperframes\nmedusajs/medusa",
+          "answered": [
+            "owner/repo",
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 9,
+          "exposed_bytes": 665,
+          "llm_ms": 9998.432498999988,
+          "tool_ms": 2993.2224170000263,
+          "e2e_ms": 12991.774749999997,
+          "usage": {
+            "input": 874,
+            "output": 730,
+            "cacheRead": 8704,
+            "totalTokens": 10308
+          },
+          "final_text": "I have completed the task. Here are the results:\n\n**答案：**\n\nheygen-com/hyperframes\nmedusajs/medusa",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 431,
+          "llm_ms": 4448.711082999987,
+          "tool_ms": 1973.2557080000115,
+          "e2e_ms": 6422.025665999987,
+          "usage": {
+            "input": 218,
+            "output": 206,
+            "cacheRead": 2816,
+            "totalTokens": 3240
+          },
+          "final_text": "前 2 个仓库的完整名称如下：\n\nheygen-com/hyperframes\nmedusajs/medusa",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 431,
+          "llm_ms": 3822.5549170000013,
+          "tool_ms": 1729.7365419999842,
+          "e2e_ms": 5552.437999999995,
+          "usage": {
+            "input": 426,
+            "output": 245,
+            "cacheRead": 2688,
+            "totalTokens": 3359
+          },
+          "final_text": "The task is complete. Here are the full names of the top 2 repositories:\n\nheygen-com/hyperframes\nmedusajs/medusa",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 431,
+          "llm_ms": 4043.1015420000185,
+          "tool_ms": 1634.0398339999956,
+          "e2e_ms": 5677.193542000008,
+          "usage": {
+            "input": 433,
+            "output": 270,
+            "cacheRead": 2688,
+            "totalTokens": 3391
+          },
+          "final_text": "抱歉，我意识到上面的总结格式不佳。任务要求将答案以每条一行给出。\n\n以下是前 2 个 TypeScript agent 框架仓库的完整名称，每条一行：\n\nheygen-com/hyperframes\nmedusajs/medusa",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 431,
+          "llm_ms": 3644.94791599999,
+          "tool_ms": 1554.9849160000012,
+          "e2e_ms": 5199.996708000006,
+          "usage": {
+            "input": 300,
+            "output": 258,
+            "cacheRead": 2816,
+            "totalTokens": 3374
+          },
+          "final_text": "任务完成。以下是前 2 个 TypeScript agent 框架仓库的完整名称：\n\nheygen-com/hyperframes\n\nmedusajs/medusa",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 431,
+          "llm_ms": 4063.870373999991,
+          "tool_ms": 1656.713665000003,
+          "e2e_ms": 5720.648958999998,
+          "usage": {
+            "input": 294,
+            "output": 246,
+            "cacheRead": 2816,
+            "totalTokens": 3356
+          },
+          "final_text": "前 2 个仓库的完整名称如下：\n\nheygen-com/hyperframes\nmedusajs/medusa",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 431,
+          "llm_ms": 4026.5310010000103,
+          "tool_ms": 1708.7318749999977,
+          "e2e_ms": 5735.307665999993,
+          "usage": {
+            "input": 431,
+            "output": 251,
+            "cacheRead": 2688,
+            "totalTokens": 3370
+          },
+          "final_text": "以下是前 2 个仓库的完整名称：\n\nheygen-com/hyperframes\nmedusajs/medusa",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "n": 5,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 1077,
+          "llm_ms": 4490.413333000019,
+          "tool_ms": 3893.2190409999894,
+          "e2e_ms": 8383.708165999997,
+          "usage": {
+            "input": 579,
+            "output": 362,
+            "cacheRead": 3328,
+            "totalTokens": 4269
+          },
+          "final_text": "前 3 个 TypeScript agent 框架仓库的完整名称如下：\n\nheygen-com/hyperframes\n\nmedusajs/medusa\n\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 1077,
+          "llm_ms": 5732.238499999992,
+          "tool_ms": 3365.262582999989,
+          "e2e_ms": 9097.575207999995,
+          "usage": {
+            "input": 445,
+            "output": 355,
+            "cacheRead": 3456,
+            "totalTokens": 4256
+          },
+          "final_text": "前 3 个仓库的完整名称（owner/repo）如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "owner/repo",
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 1077,
+          "llm_ms": 4630.202959000002,
+          "tool_ms": 3430.549499999979,
+          "e2e_ms": 8060.822625000001,
+          "usage": {
+            "input": 706,
+            "output": 363,
+            "cacheRead": 3200,
+            "totalTokens": 4269
+          },
+          "final_text": "以下是前 3 个仓库的完整名称（owner/repo），每条一行：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "owner/repo",
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 1077,
+          "llm_ms": 4582.284291999997,
+          "tool_ms": 3276.1212499999965,
+          "e2e_ms": 7858.485459000003,
+          "usage": {
+            "input": 625,
+            "output": 377,
+            "cacheRead": 3328,
+            "totalTokens": 4330
+          },
+          "final_text": "以下是前 3 个仓库的完整名称（owner/repo）：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "owner/repo",
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 1077,
+          "llm_ms": 4523.407791999998,
+          "tool_ms": 3514.5725820000225,
+          "e2e_ms": 8038.045582999999,
+          "usage": {
+            "input": 592,
+            "output": 360,
+            "cacheRead": 3328,
+            "totalTokens": 4280
+          },
+          "final_text": "以下是前 3 个仓库的完整名称：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 1077,
+          "llm_ms": 4787.532250000004,
+          "tool_ms": 3309.3447089999827,
+          "e2e_ms": 8096.965416999999,
+          "usage": {
+            "input": 654,
+            "output": 425,
+            "cacheRead": 3328,
+            "totalTokens": 4407
+          },
+          "final_text": "根据任务要求，我已搜索到 TypeScript agent 框架仓库并获取了详细信息。搜索结果按活跃度排序，前 3 个仓库的完整名称如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 1077,
+          "llm_ms": 4771.957083000001,
+          "tool_ms": 3594.1988749999728,
+          "e2e_ms": 8366.224833999993,
+          "usage": {
+            "input": 626,
+            "output": 379,
+            "cacheRead": 3328,
+            "totalTokens": 4333
+          },
+          "final_text": "以下为前 3 个仓库的完整名称（每条一行）：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 1077,
+          "llm_ms": 4878.713541000034,
+          "tool_ms": 3360.4380000000237,
+          "e2e_ms": 8239.263333999988,
+          "usage": {
+            "input": 327,
+            "output": 371,
+            "cacheRead": 3584,
+            "totalTokens": 4282
+          },
+          "final_text": "根据搜索结果，前 3 个活跃的 TypeScript agent 框架仓库的完整名称如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 1077,
+          "llm_ms": 4809.055206999998,
+          "tool_ms": 4260.285999999935,
+          "e2e_ms": 9069.415083,
+          "usage": {
+            "input": 632,
+            "output": 375,
+            "cacheRead": 3328,
+            "totalTokens": 4335
+          },
+          "final_text": "以下是前 3 个仓库的完整名称（owner/repo），每条一行：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "owner/repo",
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 1077,
+          "llm_ms": 5131.5112500000105,
+          "tool_ms": 3954.0407500000147,
+          "e2e_ms": 9085.637958000007,
+          "usage": {
+            "input": 645,
+            "output": 384,
+            "cacheRead": 3328,
+            "totalTokens": 4357
+          },
+          "final_text": "以下是前 3 个仓库的完整名称：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "n": 10,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2195,
+          "llm_ms": 6038.935455999992,
+          "tool_ms": 6448.221957000016,
+          "e2e_ms": 12487.270333000008,
+          "usage": {
+            "input": 1073,
+            "output": 631,
+            "cacheRead": 4352,
+            "totalTokens": 6056
+          },
+          "final_text": "以下是搜索到的前 3 个 TypeScript agent 框架仓库的完整名称（按搜索结果排序）：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2195,
+          "llm_ms": 6057.530457999994,
+          "tool_ms": 6757.577418000088,
+          "e2e_ms": 12815.211582999997,
+          "usage": {
+            "input": 1081,
+            "output": 614,
+            "cacheRead": 4352,
+            "totalTokens": 6047
+          },
+          "final_text": "前 3 个仓库的完整名称（owner/repo）如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "owner/repo",
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2195,
+          "llm_ms": 5219.829748999997,
+          "tool_ms": 6587.182998999953,
+          "e2e_ms": 11807.124542000005,
+          "usage": {
+            "input": 1126,
+            "output": 580,
+            "cacheRead": 4224,
+            "totalTokens": 5930
+          },
+          "final_text": "以下是搜索到的前 3 个 TypeScript agent 框架仓库的完整名称（按 star 数排序）：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2195,
+          "llm_ms": 5041.154792000016,
+          "tool_ms": 5968.814834999997,
+          "e2e_ms": 11013.232334,
+          "usage": {
+            "input": 1175,
+            "output": 601,
+            "cacheRead": 4224,
+            "totalTokens": 6000
+          },
+          "final_text": "以下是根据搜索结果前 3 个仓库的完整名称（按星星数从高到低排序）：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2195,
+          "llm_ms": 5564.206707000034,
+          "tool_ms": 5992.656372000027,
+          "e2e_ms": 11556.965790999995,
+          "usage": {
+            "input": 1174,
+            "output": 606,
+            "cacheRead": 4224,
+            "totalTokens": 6004
+          },
+          "final_text": "以下是前 3 个仓库的完整名称（每条一行）：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra\n\n这些是搜索结果中按星标数排名前3的 TypeScript agent 框架仓库。",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2195,
+          "llm_ms": 5377.220250999962,
+          "tool_ms": 6497.629332999961,
+          "e2e_ms": 11874.983707999985,
+          "usage": {
+            "input": 606,
+            "output": 573,
+            "cacheRead": 4736,
+            "totalTokens": 5915
+          },
+          "final_text": "以下是前 3 个仓库的完整名称（按 stars 从高到低排序），每条一行：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2195,
+          "llm_ms": 6087.960040999984,
+          "tool_ms": 5651.590125000017,
+          "e2e_ms": 11739.735915999976,
+          "usage": {
+            "input": 1116,
+            "output": 634,
+            "cacheRead": 4352,
+            "totalTokens": 6102
+          },
+          "final_text": "heygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2195,
+          "llm_ms": 5353.747542000026,
+          "tool_ms": 6522.901501000015,
+          "e2e_ms": 11876.762583000003,
+          "usage": {
+            "input": 1154,
+            "output": 575,
+            "cacheRead": 4224,
+            "totalTokens": 5953
+          },
+          "final_text": "前 3 个仓库的完整名称为：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2195,
+          "llm_ms": 5041.407333000039,
+          "tool_ms": 5862.216750000021,
+          "e2e_ms": 10903.725333999988,
+          "usage": {
+            "input": 1154,
+            "output": 591,
+            "cacheRead": 4224,
+            "totalTokens": 5969
+          },
+          "final_text": "我已成功完成搜索和获取详细信息。按 star 数量排序后的前 3 个 TypeScript agent 框架仓库完整名称如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2195,
+          "llm_ms": 5340.4776249999995,
+          "tool_ms": 6274.219042000041,
+          "e2e_ms": 11614.817540999997,
+          "usage": {
+            "input": 1186,
+            "output": 592,
+            "cacheRead": 4224,
+            "totalTokens": 6002
+          },
+          "final_text": "根据搜索结果和获取的详细信息，前 3 个 TypeScript agent 框架仓库的完整名称如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "n": 20,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4351,
+          "llm_ms": 7054.373375999974,
+          "tool_ms": 11785.045584999985,
+          "e2e_ms": 18839.730584000004,
+          "usage": {
+            "input": 1849,
+            "output": 1064,
+            "cacheRead": 6400,
+            "totalTokens": 9313
+          },
+          "final_text": "根据按 star 数从高到低排列的搜索结果，前 3 个仓库的完整名称（owner/repo）如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "owner/repo",
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4351,
+          "llm_ms": 6788.461750000017,
+          "tool_ms": 12387.031084999937,
+          "e2e_ms": 19175.666999999987,
+          "usage": {
+            "input": 1781,
+            "output": 979,
+            "cacheRead": 6400,
+            "totalTokens": 9160
+          },
+          "final_text": "按星标数排序后，前 3 个 TypeScript agent 框架仓库的完整名称如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4351,
+          "llm_ms": 8008.5901259999955,
+          "tool_ms": 11607.768586000078,
+          "e2e_ms": 19616.524417000008,
+          "usage": {
+            "input": 1797,
+            "output": 999,
+            "cacheRead": 6400,
+            "totalTokens": 9196
+          },
+          "final_text": "根据搜索结果，前 20 个活跃的 TypeScript agent 框架仓库中，按 star 数排名前 3 的仓库完整名称为：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4351,
+          "llm_ms": 7204.266667000018,
+          "tool_ms": 11451.25858199998,
+          "e2e_ms": 18655.761375000002,
+          "usage": {
+            "input": 1849,
+            "output": 1055,
+            "cacheRead": 6400,
+            "totalTokens": 9304
+          },
+          "final_text": "我已经成功完成了任务。以下是搜索结果的前 3 个仓库完整名称（owner/repo），每条一行：\n\n**前 3 个 TypeScript agent 框架仓库：**\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "owner/repo",
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4351,
+          "llm_ms": 8221.83262599996,
+          "tool_ms": 14029.791666999954,
+          "e2e_ms": 22251.873541999987,
+          "usage": {
+            "input": 1811,
+            "output": 1023,
+            "cacheRead": 6400,
+            "totalTokens": 9234
+          },
+          "final_text": "我已经完成了对 GitHub 上活跃的 TypeScript agent 框架仓库的搜索，并获取了前 20 个仓库的详细信息。\n\n根据搜索结果（按受欢迎程度/活跃度排序），前 3 个仓库的完整名称如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4351,
+          "llm_ms": 8014.778041999933,
+          "tool_ms": 12967.55740999995,
+          "e2e_ms": 20982.521500000003,
+          "usage": {
+            "input": 1795,
+            "output": 997,
+            "cacheRead": 6400,
+            "totalTokens": 9192
+          },
+          "final_text": "搜索已完成，成功获取了 20 个 TypeScript agent 框架仓库的详细信息。以下是排名前 3 的仓库完整名称：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2802,
+          "llm_ms": 4377.899124999996,
+          "tool_ms": 2832.7994159999653,
+          "e2e_ms": 7210.789624999976,
+          "usage": {
+            "input": 1193,
+            "output": 309,
+            "cacheRead": 4480,
+            "totalTokens": 5982
+          },
+          "final_text": "根据搜索结果，前 3 个 TypeScript agent 框架仓库的完整名称（owner/repo）如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "owner/repo",
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4351,
+          "llm_ms": 8078.5487489999505,
+          "tool_ms": 13054.96970899991,
+          "e2e_ms": 21133.716999999946,
+          "usage": {
+            "input": 1906,
+            "output": 1032,
+            "cacheRead": 6400,
+            "totalTokens": 9338
+          },
+          "final_text": "根据搜索和获取的详细信息，前 3 个 TypeScript agent 框架仓库的完整名称如下（按 star 数排序）：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4351,
+          "llm_ms": 8183.621583000058,
+          "tool_ms": 12076.50178900006,
+          "e2e_ms": 20260.33600000001,
+          "usage": {
+            "input": 1777,
+            "output": 994,
+            "cacheRead": 6400,
+            "totalTokens": 9171
+          },
+          "final_text": "任务已完成。根据搜索结果，前 20 个 TypeScript agent 框架仓库中，排名前 3 的仓库完整名称（owner/repo）如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "owner/repo",
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4351,
+          "llm_ms": 7996.061041000008,
+          "tool_ms": 12314.191330000118,
+          "e2e_ms": 20310.480457999976,
+          "usage": {
+            "input": 1767,
+            "output": 978,
+            "cacheRead": 6400,
+            "totalTokens": 9145
+          },
+          "final_text": "我已完成了任务。根据搜索结果，前 3 个 TypeScript agent 框架仓库的完整名称如下：\n\nheygen-com/hyperframes\nmedusajs/medusa\nmastra-ai/mastra",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    }
+  ]
+}

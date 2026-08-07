@@ -12,21 +12,25 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function renderToolSignature(tool: ToolSpec): string {
+function renderToolSignature(tool: ToolSpec, nameTransform: (id: string) => string): string {
   const args = tool.parameters
     .map((parameter) => `${parameter.key}=${parameter.kind}${parameter.required ? "*" : ""}`)
     .join(", ");
   const description = tool.description ? `  # ${tool.description}` : "";
-  return `${tool.id}(${args}) -> ${tool.outputKind}${description}`;
+  return `${nameTransform(tool.id)}(${args}) -> ${tool.outputKind}${description}`;
 }
 
-export function renderExecutionToolCatalog(tools: readonly ToolSpec[]): string {
+/**
+ * 渲染工具目录。nameTransform 用于与 pi-ai 工具定义的命名保持一致
+ * （如把 "github.search_repositories" 映射为 "github_search_repositories"）。
+ */
+export function renderExecutionToolCatalog(tools: readonly ToolSpec[], nameTransform: (id: string) => string = (id) => id): string {
   const sorted = [...tools].sort((left, right) => compareText(left.id, right.id));
   const lines = [
     `# 工具目录（DSL 调用签名）— 共 ${sorted.length} 个`,
     "# 参数格式 <名称>=<类型>*（* = 必填）；参数名必须与签名完全一致，不得自创参数",
     "",
-    ...sorted.map(renderToolSignature),
+    ...sorted.map((tool) => renderToolSignature(tool, nameTransform)),
   ];
   return lines.join("\n");
 }

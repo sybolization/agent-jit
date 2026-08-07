@@ -1,0 +1,226 @@
+import { describe, expect, test } from "vitest";
+
+import type { ToolSpec } from "../src/compiler/registry.js";
+import type { LlmGateway, LlmMessage, LlmResult } from "../src/llm/gateway.js";
+import type { RuntimeTool } from "../src/runtime/runtime.js";
+import { extractFullNames, matchAnswer, runIterativeToolCalling, toPiTools } from "../src/experiments/iterativeToolCalling.js";
+
+// ---------------------------------------------------------------------------
+// 纯逻辑：答案提取
+// ---------------------------------------------------------------------------
+
+describe("extractFullNames — 从模型文本提取 owner/repo", () => {
+  test("提取基本 owner/repo 对", () => {
+    expect(extractFullNames("答案：\nowner/repo-a\nowner/repo-b")).toEqual(["owner/repo-a", "owner/repo-b"]);
+  });
+
+  test("Markdown 链接 / 反引号包裹不污染", () => {
+    expect(extractFullNames("- [repo](https://github.com/owner/repo)\n- `owner/repo-b`")).toEqual([
+      "owner/repo",
+      "owner/repo-b",
+    ]);
+  });
+
+  test("去重且保序", () => {
+    expect(extractFullNames("a/b\na/b\nc/d\nc/d")).toEqual(["a/b", "c/d"]);
+  });
+
+  test("空文本返回空数组", () => {
+    expect(extractFullNames("")).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 纯逻辑：集合匹配
+// ---------------------------------------------------------------------------
+
+describe("matchAnswer — 与 ground truth 集合交集匹配", () => {
+  const truth = ["owner/a", "owner/b", "owner/c"];
+
+  test("命中 ≥ required 通过（不看顺序）", () => {
+    expect(matchAnswer(["owner/c", "owner/a"], truth, 2)).toBe(true);
+  });
+
+  test("命中 < required 失败", () => {
+    expect(matchAnswer(["owner/a"], truth, 2)).toBe(false);
+  });
+
+  test("required=0 恒通过", () => {
+    expect(matchAnswer([], truth, 0)).toBe(true);
+  });
+
+  test("幻觉名称不命中", () => {
+    expect(matchAnswer(["owner/not-in-truth"], truth, 1)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 纯逻辑：ToolSpec → pi-ai 工具定义
+// ---------------------------------------------------------------------------
+
+describe("toPiTools — ToolSpec 转 pi-ai Tool", () => {
+  const specs: readonly ToolSpec[] = [
+    {
+      id: "github.search_repositories",
+      label: "Search",
+      description: "按查询搜索仓库",
+      outputKind: "list",
+      parameters: [
+        { key: "query", kind: "string", required: true },
+        { key: "limit", kind: "int" },
+      ],
+    },
+  ];
+
+  test("name/description 从 spec 映射（点号转下划线，避开 OpenAI 工具名限制）", () => {
+    const tools = toPiTools(specs);
+    expect(tools[0]!.name).toBe("github_search_repositories");
+    expect(tools[0]!.description).toBe("按查询搜索仓库");
+  });
+
+  test("required 参数进 required 列表，可选参数不进", () => {
+    const schema = toPiTools(specs)[0]!.parameters as { properties: Record<string, unknown>; required?: string[] };
+    expect(Object.keys(schema.properties)).toEqual(["query", "limit"]);
+    expect(schema.required).toEqual(["query"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 工具循环（mock gateway 注入）
+// ---------------------------------------------------------------------------
+
+const SEARCH_TOOL: RuntimeTool = {
+  spec: {
+    id: "github.search_repositories",
+    label: "Search",
+    outputKind: "list",
+    parameters: [{ key: "query", kind: "string", required: true }],
+  },
+  execute: async () => [{ full_name: "owner/a" }, { full_name: "owner/b" }, { full_name: "owner/c" }],
+};
+
+function makeGateway(
+  script: Array<(messages: readonly LlmMessage[]) => LlmResult>,
+): { gateway: LlmGateway; received: readonly LlmMessage[][] } {
+  const received: LlmMessage[][] = [];
+  let index = 0;
+  const gateway: LlmGateway = {
+    async complete(messages) {
+      received.push([...messages]);
+      const step = script[Math.min(index, script.length - 1)]!;
+      index += 1;
+      return step(messages);
+    },
+  };
+  return { gateway, received };
+}
+
+const USAGE = { input: 10, output: 5, cacheRead: 0, totalTokens: 15 };
+const toolCall = (id: string, name: string, args: Record<string, unknown>) => ({ id, name, arguments: args });
+
+describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
+  test("正常路径：工具轮 + 两轮无工具调用后结束，消息累积正确", async () => {
+    const { gateway, received } = makeGateway([
+      () => ({ content: "", toolCalls: [toolCall("c1", "github_search_repositories", { query: "x" })], usage: USAGE }),
+      () => ({ content: "中间轮", toolCalls: [], usage: USAGE }),
+      () => ({ content: "结果：owner/a\nowner/b", toolCalls: [], usage: USAGE }),
+    ]);
+    const result = await runIterativeToolCalling({
+      gateway,
+      initialMessages: [
+        { role: "system", content: "sys" },
+        { role: "user", content: "任务" },
+      ],
+      tools: [SEARCH_TOOL],
+      toolSpecs: [SEARCH_TOOL.spec],
+      maxSteps: 5,
+      groundTruth: ["owner/a", "owner/b", "owner/c"],
+      required: 2,
+    });
+
+    // 3 次 complete 调用；第 2 次调用时 messages 应含 assistant + toolResult
+    expect(result.ok).toBe(true);
+    expect(result.round_trips).toBe(3);
+    expect(result.maxed_out).toBe(false);
+    expect(result.task_pass).toBe(true);
+    expect(result.answered).toEqual(["owner/a", "owner/b"]);
+    expect(result.exposed_bytes).toBeGreaterThan(0);
+    expect(result.usage.totalTokens).toBe(45);
+
+    expect(received).toHaveLength(3);
+    expect(received[0]!.map((m) => m.role)).toEqual(["system", "user"]);
+    const secondCall = received[1]!;
+    const toolResult = secondCall.find((m) => m.role === "toolResult");
+    expect(toolResult).toBeDefined();
+    expect(toolResult!.role === "toolResult" && toolResult.toolName).toBe("github_search_repositories");
+    expect(toolResult!.role === "toolResult" && toolResult.isError).toBe(false);
+  });
+
+  test("未知工具：注入 isError toolResult，循环继续", async () => {
+    const { gateway } = makeGateway([
+      () => ({ content: "", toolCalls: [toolCall("c1", "no.such_tool", {})], usage: USAGE }),
+      () => ({ content: "好了", toolCalls: [], usage: USAGE }),
+      () => ({ content: "结果：owner/a", toolCalls: [], usage: USAGE }),
+    ]);
+    const result = await runIterativeToolCalling({
+      gateway,
+      initialMessages: [{ role: "user", content: "任务" }],
+      tools: [SEARCH_TOOL],
+      toolSpecs: [SEARCH_TOOL.spec],
+      maxSteps: 5,
+      groundTruth: ["owner/a"],
+      required: 1,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.task_pass).toBe(true);
+    expect(result.round_trips).toBe(3);
+  });
+
+  test("工具执行抛错：错误进 toolResult，不中断循环", async () => {
+    const failingTool: RuntimeTool = {
+      spec: {
+        id: "boom",
+        label: "Boom",
+        outputKind: "object",
+        parameters: [],
+      },
+      execute: async () => {
+        throw new Error("rate limited");
+      },
+    };
+    const { gateway } = makeGateway([
+      () => ({ content: "", toolCalls: [toolCall("c1", "boom", {})], usage: USAGE }),
+      () => ({ content: "结果：owner/a", toolCalls: [], usage: USAGE }),
+      () => ({ content: "结果：owner/a", toolCalls: [], usage: USAGE }),
+    ]);
+    const result = await runIterativeToolCalling({
+      gateway,
+      initialMessages: [{ role: "user", content: "任务" }],
+      tools: [failingTool],
+      toolSpecs: [failingTool.spec],
+      maxSteps: 5,
+      groundTruth: ["owner/a"],
+      required: 1,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.exposed_bytes).toBeGreaterThan(0);
+  });
+
+  test("maxed_out：达到 maxSteps 仍未结束", async () => {
+    const { gateway } = makeGateway([
+      () => ({ content: "", toolCalls: [toolCall("c1", "github.search_repositories", { query: "x" })], usage: USAGE }),
+    ]);
+    const result = await runIterativeToolCalling({
+      gateway,
+      initialMessages: [{ role: "user", content: "任务" }],
+      tools: [SEARCH_TOOL],
+      toolSpecs: [SEARCH_TOOL.spec],
+      maxSteps: 2,
+      groundTruth: ["owner/a"],
+      required: 1,
+    });
+    expect(result.maxed_out).toBe(true);
+    expect(result.round_trips).toBe(2);
+    expect(result.answered).toEqual([]);
+  });
+});
