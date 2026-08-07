@@ -5,3 +5,11 @@
 node_modules/
 dist/
 *.log
+
+# 实验产物
+logs/
+
+# 环境变量（含 API key，绝不提交）
+.env
+.env.*
+!.env.example

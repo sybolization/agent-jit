@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Execution DSL — 模块总览</title>
+<style>
+  :root {
+    --front: #3b82f6;   /* 语言前端 */
+    --compiler: #10b981;/* 编译后端 */
+    --runtime: #f59e0b; /* 执行 runtime */
+    --canvas: #8b5cf6;  /* canvas 遗留 */
+    --contract: #06b6d4;/* 契约 */
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --bg: #f6f8fa;
+    --card: #ffffff;
+    --line: #e5e7eb;
+    --shadow: 0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.6;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }
+
+  /* ---------- Header ---------- */
+  header { margin-bottom: 28px; }
+  header h1 { font-size: 26px; letter-spacing: .5px; }
+  header .tagline { color: var(--muted); margin-top: 6px; font-size: 15px; }
+  .status-bar {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px;
+  }
+  .chip {
+    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+    padding: 4px 14px; font-size: 13px; color: var(--ink); box-shadow: var(--shadow);
+  }
+  .chip.done { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+  .chip.todo { border-color: #fde68a; background: #fffbeb; color: #b45309; }
+
+  /* ---------- Pipeline ---------- */
+  section.panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 24px; }
+  section.panel h2 { font-size: 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .pipeline { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; }
+  .pipe {
+    flex: 1 1 120px; min-width: 120px; border-radius: 10px; padding: 12px 10px;
+    text-align: center; cursor: pointer; transition: transform .15s, box-shadow .15s;
+    border: 1px solid transparent;
+  }
+  .pipe:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(16,24,40,.12); }
+  .pipe.flash { outline: 3px solid #fbbf24; }
+  .pipe .t { font-weight: 600; font-size: 14px; }
+  .pipe .d { font-size: 11.5px; opacity: .85; margin-top: 2px; }
+  .pipe .f { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; opacity: .7; margin-top: 6px; display: block; }
+  .arrow { align-self: center; color: var(--muted); font-weight: 700; padding: 0 2px; }
+  .pipe.front  { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .pipe.compiler { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  .pipe.runtime { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+  .pipe.canvas { background: #f5f3ff; border-color: #ddd6fe; color: #6d28d9; }
+  .pipe.contract { background: #ecfeff; border-color: #a5f3fc; color: #0e7490; }
+  .pipe.idle { background: #f9fafb; border-color: var(--line); color: var(--muted); }
+  .branch { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .branch-label { font-size: 12px; color: var(--muted); margin-right: 4px; }
+
+  /* ---------- Module cards ---------- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .mod { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .mod > summary {
+    list-style: none; cursor: pointer; padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .mod > summary::-webkit-details-marker { display: none; }
+  .mod > summary .badge {
+    width: 10px; height: 34px; border-radius: 4px; flex-shrink: 0;
+  }
+  .mod.front > summary .badge { background: var(--front); }
+  .mod.compiler > summary .badge { background: var(--compiler); }
+  .mod.runtime > summary .badge { background: var(--runtime); }
+  .mod.canvas > summary .badge { background: var(--canvas); }
+  .mod.contract > summary .badge { background: var(--contract); }
+  .mod > summary .title { font-weight: 600; font-size: 14.5px; }
+  .mod > summary .sub { color: var(--muted); font-size: 12px; margin-top: 1px; }
+  .mod > summary .meta { margin-left: auto; text-align: right; flex-shrink: 0; }
+  .mod > summary .loc { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .mod > summary .arrow-ic { color: var(--muted); font-size: 12px; }
+  .mod[open] > summary .arrow-ic { transform: rotate(90deg); }
+  .mod .body { padding: 0 16px 14px; border-top: 1px solid var(--line); }
+  .mod .body .desc { font-size: 13px; color: var(--ink); padding: 10px 0 6px; }
+  table.files { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 6px 0 10px; }
+  table.files th, table.files td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.files th { color: var(--muted); font-weight: 600; width: 40%; }
+  table.files td.loc { font-family: ui-monospace, monospace; text-align: right; width: 12%; white-space: nowrap; }
+  .points { list-style: none; font-size: 13px; }
+  .points li { padding: 3px 0 3px 18px; position: relative; }
+  .points li::before { content: ""; position: absolute; left: 2px; top: 11px; width: 6px; height: 6px; border-radius: 50%; background: var(--ink); opacity: .35; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: #f3f4f6; padding: 1px 5px; border-radius: 4px; }
+
+  /* ---------- Tests ---------- */
+  .tests { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .tcard { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: #fafbfc; }
+  .tcard .name { font-family: ui-monospace, monospace; font-size: 12.5px; font-weight: 600; }
+  .tcard .count { font-size: 22px; font-weight: 700; color: var(--compiler); margin: 4px 0 2px; }
+  .tcard .what { font-size: 12.5px; color: var(--muted); }
+  .total-line { margin-top: 14px; font-size: 13.5px; color: var(--ink); }
+  .total-line b { color: var(--compiler); }
+
+  /* ---------- Footer ---------- */
+  footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 14px; }
+  code.block { display: block; font-family: ui-monospace, monospace; font-size: 12px; background: #111827; color: #d1d5db; padding: 12px 14px; border-radius: 8px; overflow-x: auto; white-space: pre; }
+  @media (max-width: 640px) { .pipeline .arrow { display: none; } .pipe { flex: 1 1 100%; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Agent Execution DSL</h1>
+    <p class="tagline">让 LLM 用一门小语言描述异构计算图，Harness 统一调度程序、工具与 Agent —— 变量引用定义数据流边，DSL 描述的是程序，Harness 执行的是图。</p>
+    <div class="status-bar">
+      <span class="chip done">P0 基座 已落地</span>
+      <span class="chip done">P1 前端解耦 已落地</span>
+      <span class="chip done">P2 ExecutionIR 已落地</span>
+      <span class="chip done">P3 mock runtime 已落地</span>
+      <span class="chip done">41 用例全绿</span>
+      <span class="chip todo">P4 真实 GitHub 待做</span>
+      <span class="chip todo">P5 agent node 待做</span>
+      <span class="chip todo">P6 A/B benchmark 待做</span>
+    </div>
+  </header>
+
+  <!-- ================= Pipeline ================= -->
+  <section class="panel">
+    <h2>数据流全景</h2>
+    <div class="pipeline" id="pipeline">
+      <div class="pipe front" data-mod="lang">
+        <span class="t">DSL 源码</span>
+        <span class="d">文本：name = callee(key=value)</span>
+        <span class="f">*.dsl / string</span>
+      </div>
+      <div class="arrow">→</div>
+      <div class="pipe front" data-mod="lang">
+        <span class="t">语言前端</span>
+        <span class="d">tokenizer + parser，错误恢复批量诊断</span>
+        <span class="f">src/language/</span>
+      </div>
+      <div class="arrow">→</div>
+      <div class="pipe front" data-mod="lang">
+        <span class="t">AST</span>
+        <span class="d">ParsedStatement[]，中性无业务概念</span>
+        <span class="f">{ name, callee, args }</span>
+      </div>
+      <div class="arrow">→</div>
+      <div class="pipe compiler" data-mod="exe">
+        <span class="t">编译后端</span>
+        <span class="d">compileExecutionDsl：construct + 参数校验</span>
+        <span class="f">src/compiler/</span>
+      </div>
+      <div class="arrow">→</div>
+      <div class="pipe compiler" data-mod="exe">
+        <span class="t">ExecutionIR</span>
+        <span class="d">tool / map / compute / return，ref 即边</span>
+        <span class="f">src/compiler/ir.ts</span>
+      </div>
+      <div class="arrow">→</div>
+      <div class="pipe runtime" data-mod="rt">
+        <span class="t">Runtime</span>
+        <span class="d">依赖图调度，不依赖节点顺序</span>
+        <span class="f">src/runtime/</span>
+      </div>
+      <div class="arrow">→</div>
+      <div class="pipe runtime" data-mod="rt">
+        <span class="t">Result + Trace</span>
+        <span class="d">return 值 + 每节点执行记录</span>
+        <span class="f">ExecutionResult</span>
+      </div>
+      <div class="branch">
+        <span class="branch-label">并行链（回归参照，不删除）：</span>
+        <div class="pipe front" data-mod="canvas">
+          <span class="t">AST</span><span class="f">同一份</span>
+        </div>
+        <div class="arrow">→</div>
+        <div class="pipe canvas" data-mod="canvas">
+          <span class="t">compileCanvasDsl</span>
+          <span class="d">canvas 语义编译层</span>
+          <span class="f">src/domain/canvas/</span>
+        </div>
+        <div class="arrow">→</div>
+        <div class="pipe canvas" data-mod="canvas">
+          <span class="t">SemanticGraphV1</span>
+          <span class="d">DSL 结果 == JSON 结果（测试对照）</span>
+          <span class="f">src/contracts/</span>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin-top:10px;">点击任意层/模块可联动定位；展开下方卡片查看模块细节。</p>
+  </section>
+
+  <!-- ================= Modules ================= -->
+  <section class="panel">
+    <h2>模块总览</h2>
+    <div class="grid">
+
+      <details class="mod front" id="mod-lang">
+        <summary>
+          <span class="badge"></span>
+          <span>
+            <span class="title">语言前端</span>
+            <div class="sub">与业务无关的通用 DSL 前端</div>
+          </span>
+          <span class="meta"><span class="loc">430 行</span></span>
+          <span class="arrow-ic">›</span>
+        </summary>
+        <div class="body">
+          <p class="desc">DSL 的"读入"端：把文本切成 token、再解析成中性 AST。两个编译后端（canvas / execution）复用同一份前端，前端不认识任何业务概念。</p>
+          <table class="files">
+            <tr><th>diagnostics.ts <span class="loc">12</span></th><td>诊断类型 <span class="mono">DslDiagnostic { line, code, message, suggestion? }</span></td></tr>
+            <tr><th>ast.ts <span class="loc">53</span></th><td>Token / ParsedStatement / 值（literal 或 ref）</td></tr>
+            <tr><th>tokenizer.ts <span class="loc">106</span></th><td>词法分析：标识符支持点号命名空间</td></tr>
+            <tr><th>parser.ts <span class="loc">259</span></th><td>递归下降 + 错误恢复（跳到行尾继续）</td></tr>
+          </table>
+          <ul class="points">
+            <li><span class="mono">github.search_repositories</span> 被识别为单个 ident（P2 为 tool 命名空间引入）</li>
+            <li><span class="mono">return(...)</span> 无赋值形态是语言关键字特判（name 占位 "return"）</li>
+            <li>单条语句失败不中断 → 一次返回全部诊断，agent 一轮修完</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="mod compiler" id="mod-exe">
+        <summary>
+          <span class="badge"></span>
+          <span>
+            <span class="title">编译后端（ExecutionIR）</span>
+            <div class="sub">DSL → 确定性的执行图</div>
+          </span>
+          <span class="meta"><span class="loc">567 行</span></span>
+          <span class="arrow-ic">›</span>
+        </summary>
+        <div class="body">
+          <p class="desc">把 AST 编译为通用 ExecutionIR：tool / map / compute / return 四类节点。只做签名级校验，不做执行。</p>
+          <table class="files">
+            <tr><th>ir.ts <span class="loc">97</span></th><td>IR schema（typebox）：四节点 + ValueExpr(literal|ref)</td></tr>
+            <tr><th>registry.ts <span class="loc">59</span></th><td>ToolSpec：4 个 GitHub 只读工具签名（无 execute）</td></tr>
+            <tr><th>compiler.ts <span class="loc">411</span></th><td>compileExecutionDsl：map/take/return construct + 参数校验</td></tr>
+          </table>
+          <ul class="points">
+            <li><b>ref 即边</b>：无独立 edges 数组，依赖内嵌在节点里</li>
+            <li>编译期拒绝幻觉参数（<span class="mono">unknown_parameter</span>）与类型不匹配（<span class="mono">config_type_mismatch</span>）</li>
+            <li><span class="mono">filter / sort / agent</span> 显式占位，遇到报 unknown_tool，不静默</li>
+            <li>确定性：同一 DSL → 同一图（按 id 排序 + schema 自校验）</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="mod runtime" id="mod-rt">
+        <summary>
+          <span class="badge"></span>
+          <span>
+            <span class="title">执行 Runtime</span>
+            <div class="sub">把 IR 变成真实执行 + trace</div>
+          </span>
+          <span class="meta"><span class="loc">367 行</span></span>
+          <span class="arrow-ic">›</span>
+        </summary>
+        <div class="body">
+          <p class="desc">依赖图调度器 + 节点执行器。不依赖 nodes 数组顺序；同一批就绪节点自动并发；map 以 DSL 声明的 concurrency 限流 fan-out。</p>
+          <table class="files">
+            <tr><th>runtime.ts <span class="loc">97</span></th><td>execute(graph, registry)：依赖计数 → 就绪队列 → 批次并发</td></tr>
+            <tr><th>executor.ts <span class="loc">120</span></th><td>节点执行 + mapLimit 并发池（保持输出顺序）</td></tr>
+            <tr><th>dependencies.ts <span class="loc">21</span></th><td>从 ref / source / value 提取依赖</td></tr>
+            <tr><th>valueStore.ts <span class="loc">17</span></th><td>变量名 → 执行结果</td></tr>
+            <tr><th>trace.ts <span class="loc">42</span></th><td>TraceEntry（duration/fanout/concurrency/size）+ 文本渲染</td></tr>
+            <tr><th>mockTools.ts <span class="loc">70</span></th><td>与 registry 同 spec 的假实现（P4 换真实 adapter）</td></tr>
+          </table>
+          <ul class="points">
+            <li><b>逻辑并行度 vs 实际调度</b>：DSL 写 concurrency，runtime 决定真实并发（测试 1/2/5/10 实证）</li>
+            <li>反转节点数组执行结果一致（调度与顺序解耦）</li>
+            <li>trace 第一版内置，为 benchmark 打底（后续扩展 tokens / cache_read）</li>
+            <li>错误语义是"全有或全无"：任一节点失败即整体失败（V0 明确）</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="mod canvas" id="mod-canvas">
+        <summary>
+          <span class="badge"></span>
+          <span>
+            <span class="title">canvas 遗留层</span>
+            <div class="sub">已验证的回归参照，迁移式并存</div>
+          </span>
+          <span class="meta"><span class="loc">881 行</span></span>
+          <span class="arrow-ic">›</span>
+        </summary>
+        <div class="body">
+          <p class="desc">canvas 专用后端：与 execution 共用前端、独立产出 SemanticCanvasGraphV1。保留为第一份已验证 evidence，不删除。</p>
+          <table class="files">
+            <tr><th>canvasDsl.ts <span class="loc">525</span></th><td>compileCanvasDsl：语义编译层（复用 src/language/）</td></tr>
+            <tr><th>canvasDslCatalog.ts <span class="loc">89</span></th><td>workflow_tools 自动渲染为 DSL 调用签名</td></tr>
+            <tr><th>canvasDslGrammar.ts <span class="loc">102</span></th><td>语法规范 prompt（给 LLM）</td></tr>
+            <tr><th>semanticGraph.ts <span class="loc">165</span></th><td>canvas JSON → 语义图（测试对照用）</td></tr>
+          </table>
+          <ul class="points">
+            <li>测试断言：DSL 编译结果 == 手写 JSON 转换结果（<span class="mono">toEqual</span> 逐字段）</li>
+            <li>与 execution 并存 = 增量迁移，比推倒重写稳健</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="mod contract" id="mod-contract">
+        <summary>
+          <span class="badge"></span>
+          <span>
+            <span class="title">契约层</span>
+            <div class="sub">typebox schema，编译器与测试共用</div>
+          </span>
+          <span class="meta"><span class="loc">438 行</span></span>
+          <span class="arrow-ic">›</span>
+        </summary>
+        <div class="body">
+          <p class="desc">编译输入 / 输出的正式契约，同时被编译器自校验与测试复用。</p>
+          <table class="files">
+            <tr><th>canvas.ts <span class="loc">80</span></th><td>CanvasWorkflowTool（canvas 编译输入）</td></tr>
+            <tr><th>semanticCanvas.ts <span class="loc">145</span></th><td>SemanticCanvasGraphV1（canvas 编译输出）</td></tr>
+            <tr><th>subgraphTransaction.ts <span class="loc">213</span></th><td>图补丁事务契约</td></tr>
+          </table>
+          <ul class="points">
+            <li>IR 层（src/compiler/ir.ts）同样用 typebox 定义，模式一致</li>
+            <li>编译产物 schema 自校验 = 回归防线（编译器 bug 提前暴露）</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="mod idle" id="mod-exp">
+        <summary>
+          <span class="badge"></span>
+          <span>
+            <span class="title">实验层 + 测试</span>
+            <div class="sub">41 用例分层守护 + 旧 harness 遗留</div>
+          </span>
+          <span class="meta"><span class="loc">810 行测试</span></span>
+          <span class="arrow-ic">›</span>
+        </summary>
+        <div class="body">
+          <p class="desc">src/experiments/dslHarness.ts（684 行）是旧实验 harness，import 了 seed 中缺失的运行时模块（P6 迁移时补齐）。tests/ 四个文件分层覆盖。</p>
+          <table class="files">
+            <tr><th>canvasDsl.test.ts <span class="loc">19</span></th><td>前端行为 + canvas 语义回归网</td></tr>
+            <tr><th>canvasDslCatalog.test.ts <span class="loc">4</span></th><td>目录渲染确定性</td></tr>
+            <tr><th>executionDsl.test.ts <span class="loc">10</span></th><td>IR 编译 + 7 类诊断</td></tr>
+            <tr><th>runtime.test.ts <span class="loc">8</span></th><td>执行、顺序无关、并发 1/2/5/10、trace</td></tr>
+          </table>
+          <ul class="points">
+            <li>41 = 19 + 4 + 10 + 8，四条链各有所守</li>
+            <li>并发探针测试实证"逻辑并行度由 DSL 描述、实际调度由 runtime 决定"</li>
+          </ul>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <!-- ================= Four-line demo ================= -->
+  <section class="panel">
+    <h2>闭环示例（已跑通）</h2>
+    <code class="block">repos   = github.search_repositories(query="agent framework", limit=10)
+details = map(source=repos, tool="github.get_repository", key="full_name", concurrency=5)
+top     = take(source=details, count=5)
+return(value=top)</code>
+    <p style="font-size:13px;margin-top:10px;">编译为 4 个 typed nodes → runtime 真实执行：search 返回 10 条 → map 并发 fan-out 调 get_repository（≤5 并发）→ take 截取 5 条 → return 输出。全程产出 trace，不碰 LLM、不碰真实 API。</p>
+  </section>
+
+  <footer>
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>Agent Execution DSL — 模块总览（2026-08-07）</span>
+      <span>总量 4177 行 TS · 6 模块 · 4 测试文件</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+  // 卡片与 pipeline 双向联动
+  const pipeEls = document.querySelectorAll("#pipeline .pipe[data-mod]");
+  const flash = (el) => {
+    el.classList.add("flash");
+    setTimeout(() => el.classList.remove("flash"), 900);
+  };
+  pipeEls.forEach((pipe) => {
+    pipe.addEventListener("click", () => {
+      const mod = document.getElementById("mod-" + pipe.dataset.mod);
+      if (mod) { mod.open = true; mod.scrollIntoView({ behavior: "smooth", block: "center" }); flash(mod); }
+    });
+  });
+  document.querySelectorAll(".mod").forEach((mod) => {
+    mod.addEventListener("click", () => {
+      const target = mod.id.replace("mod-", "");
+      pipeEls.forEach((p) => { if (p.dataset.mod === target) flash(p); });
+    });
+  });
+</script>
+</body>
+</html>
