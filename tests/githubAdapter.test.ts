@@ -82,6 +82,43 @@ describe("createRealGithubTools — 真实 GitHub adapter（mock fetch）", () =
     expect(result).toEqual([{ login: "alice", contributions: 50 }]);
   });
 
+  test("get_contributor_stats：per_page=100，返回人数与总贡献量（Σ）", async () => {
+    const { fn, calls } = makeFetch([
+      jsonResponse([
+        { login: "alice", contributions: 50 },
+        { login: "bob", contributions: 30 },
+        { login: "carol", contributions: 20 },
+      ]),
+    ]);
+    const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
+    const result = await tools.find((tool) => tool.spec.id === "github.get_contributor_stats")!.execute({ full_name: "owner/repo" });
+    expect(calls[0]!.url).toBe("https://api.test/repos/owner/repo/contributors?per_page=100");
+    expect(result).toEqual({ full_name: "owner/repo", contributor_count: 3, total_contributions: 100 });
+  });
+
+  test("list_commits：per_page=1 + Link rel=last 页号 = 总提交数，latest_commit_at 取最新一条", async () => {
+    const { fn, calls } = makeFetch([
+      jsonResponse([{ sha: "abc", commit: { committer: { date: "2026-07-01T00:00:00Z" } } }], {
+        headers: { link: '<https://api.test/repos/owner/repo/commits?per_page=1&page=2>; rel="next", <https://api.test/repos/owner/repo/commits?per_page=1&page=386>; rel="last"' },
+      }),
+    ]);
+    const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
+    const result = await tools.find((tool) => tool.spec.id === "github.list_commits")!.execute({ full_name: "owner/repo" });
+    expect(calls[0]!.url).toBe("https://api.test/repos/owner/repo/commits?per_page=1");
+    expect(result).toEqual({
+      full_name: "owner/repo",
+      total_commits: 386,
+      latest_commit_at: "2026-07-01T00:00:00Z",
+    });
+  });
+
+  test("list_commits：无 Link 头 → total_commits 回退为返回条数", async () => {
+    const { fn } = makeFetch([jsonResponse([{ sha: "abc", commit: { committer: { date: null } } }])]);
+    const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
+    const result = await tools.find((tool) => tool.spec.id === "github.list_commits")!.execute({ full_name: "owner/repo" });
+    expect(result).toMatchObject({ full_name: "owner/repo", total_commits: 1, latest_commit_at: null });
+  });
+
   test("429/403：重试耗尽后抛 rate limit 错误（含 remaining/reset）", async () => {
     const rateLimited = () => jsonResponse({ message: "rate limit" }, { status: 429, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "1800000000" } });
     const { fn } = makeFetch([rateLimited(), rateLimited(), rateLimited()]);

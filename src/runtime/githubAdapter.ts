@@ -47,6 +47,10 @@ interface Contributor {
   contributions: number;
 }
 
+interface CommitItem {
+  commit?: { committer?: { date?: string } };
+}
+
 export function createRealGithubTools(options: RealGithubAdapterOptions = {}): RuntimeTool[] {
   const token = options.token ?? process.env.GITHUB_TOKEN;
   const fetchFn = options.fetch ?? globalThis.fetch;
@@ -68,10 +72,17 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
   const maxRetryWaitMs = options.maxRetryWaitMs ?? 15_000;
 
   async function getJson<T>(path: string): Promise<T> {
+    return (await getJsonWithMeta<T>(path)).data;
+  }
+
+  /** 同 getJson，但额外返回响应头（list_commits 需要 Link 头解析总页数）。 */
+  async function getJsonWithMeta<T>(path: string): Promise<{ data: T; headers: Headers }> {
     let lastError: Error | undefined;
     for (let attempt = 0; attempt <= retryAttempts; attempt += 1) {
       const response = await fetchFn(`${baseUrl}${path}`, { headers, signal: AbortSignal.timeout(15_000) });
-      if (response.ok) return (await response.json()) as T;
+      if (response.ok) {
+        return { data: (await response.json()) as T, headers: response.headers };
+      }
       const remaining = response.headers.get("x-ratelimit-remaining");
       const reset = Number(response.headers.get("x-ratelimit-reset") ?? "0");
       if (response.status === 403 || response.status === 429) {
@@ -154,6 +165,35 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
           repoPath(full_name ?? "") + `/contributors?per_page=${clampPerPage(per_page, 30)}`,
         );
         return data.map((item) => ({ login: item.login, contributions: item.contributions }));
+      },
+    },
+    {
+      spec: specOf("github.get_contributor_stats"),
+      execute: async (args) => {
+        const { full_name } = args as { full_name?: string };
+        // 只读前 100 位贡献者的统计快照（确定性，够作排序依据）
+        const data = await getJson<Contributor[]>(repoPath(full_name ?? "") + "/contributors?per_page=100");
+        return {
+          full_name: full_name ?? "",
+          contributor_count: data.length,
+          total_contributions: data.reduce((sum, item) => sum + item.contributions, 0),
+        };
+      },
+    },
+    {
+      spec: specOf("github.list_commits"),
+      execute: async (args) => {
+        const { full_name, per_page } = args as { full_name?: string; per_page?: number };
+        // per_page=1：只要最新一条；Link 头 rel="last" 的页号即总提交数（一次请求拿到总数）
+        const { data, headers } = await getJsonWithMeta<CommitItem[]>(
+          repoPath(full_name ?? "") + `/commits?per_page=${clampPerPage(per_page, 1)}`,
+        );
+        const lastPage = /page=(\d+)>;\s*rel="last"/.exec(headers.get("link") ?? "");
+        return {
+          full_name: full_name ?? "",
+          total_commits: lastPage ? Number(lastPage[1]) : data.length,
+          latest_commit_at: data[0]?.commit?.committer?.date ?? null,
+        };
       },
     },
   ];

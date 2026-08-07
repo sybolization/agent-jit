@@ -29,6 +29,11 @@ export interface TaskSpec {
   sortKey?: string;
   /** R4c：sort 期望的降序标记，缺省不检查 desc */
   sortDesc?: boolean;
+  /** R4d：return 数据流上按序（return 侧在前）出现的阶段工具 id；缺省不检查。
+   *  "按序"判定 = 路径中 tool 节点 id 序列包含 stageTools 作为子序列（允许多余节点，如源工具）。 */
+  stageTools?: readonly string[];
+  /** R4d：return 数据流上按序出现的 take count（return 侧在前），如 D3=[3,5]；缺省只用 takeCount 检查最近一个 */
+  takeCounts?: readonly number[];
 }
 
 export interface TaskCorrectness {
@@ -162,6 +167,34 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
       if (spec.sortDesc !== undefined && sortNode.args["desc"] !== spec.sortDesc) {
         failures.push(`sort 的 desc 应为 ${spec.sortDesc}（实际 ${JSON.stringify(sortNode.args["desc"])}）`);
       }
+    }
+  }
+
+  // R4d：多阶段图——阶段工具按序出现（return 侧在前）。
+  // 阶段工具以 map 节点（绑定调用）或 tool 节点（顶层调用）存在，两者都计。
+  if (spec.stageTools && spec.stageTools.length > 0) {
+    const stageIds: string[] = [];
+    for (const node of path) {
+      if (node.kind === "tool" || node.kind === "map") stageIds.push(node.tool);
+    }
+    let matched = 0;
+    for (const toolId of stageIds) {
+      if (matched < spec.stageTools.length && toolId === spec.stageTools[matched]) matched += 1;
+    }
+    if (matched < spec.stageTools.length) {
+      failures.push(
+        `return 数据流阶段工具顺序应为 ${spec.stageTools.join(" → ")}（实际 ${stageIds.join(" → ") || "无"}）`,
+      );
+    }
+  }
+
+  // R4d：多阶段 take 序列（return 侧在前），如 D3 = [3, 5]
+  if (spec.takeCounts) {
+    const counts = path
+      .filter((node) => node.kind === "compute" && node.op === "take")
+      .map((node) => node.args["count"]);
+    if (JSON.stringify(counts) !== JSON.stringify(spec.takeCounts)) {
+      failures.push(`take 序列应为 ${JSON.stringify(spec.takeCounts)}（实际 ${JSON.stringify(counts)}）`);
     }
   }
 

@@ -153,78 +153,162 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
   });
 });
 
-describe("checkTaskCorrectness — R4c filter/sort 语义检查", () => {
-  const CORRECT_R4C = [
-    'repos = github.search_repositories(query="agent framework language:typescript", limit=20)',
+describe("checkTaskCorrectness — R4d filter/sort 语义检查（D2 风格）", () => {
+  const CORRECT_D2 = [
+    'repos = github.search_repositories(query="agent framework", limit=20)',
     "details = map(repos, github.get_repository(full_name=_.full_name))",
-    'active = filter(details, archived=false, language="TypeScript")',
-    'ranked = sort(active, key="forks", desc=true)',
+    'active = filter(details, language="TypeScript")',
+    "contribs = map(active, github.get_contributor_stats(full_name=_.full_name))",
+    'ranked = sort(contribs, key="total_contributions", desc=true)',
     "top = take(ranked, 3)",
     "return top",
   ].join("\n");
-  const r4cSpec: TaskSpec = {
+  const d2Spec: TaskSpec = {
     query: "agent framework",
-    queryTokens: ["agent framework", "language:typescript"],
+    queryTokens: ["agent framework"],
     limit: 20,
     takeCount: 3,
     bindings: { full_name: "full_name" },
-    filterConditions: { archived: false, language: "TypeScript" },
-    sortKey: "forks",
+    filterConditions: { language: "TypeScript" },
+    sortKey: "total_contributions",
     sortDesc: true,
+    stageTools: ["github.get_contributor_stats", "github.get_repository"],
   };
-  const compileR4c = (dsl: string) =>
+  const compileD2 = (dsl: string) =>
     compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
 
-  test("L2 正确程序通过 filter/sort 检查", () => {
-    const result = checkTaskCorrectness(compileR4c(CORRECT_R4C), r4cSpec);
+  test("D2 正确程序通过 filter/sort/stageTools 检查", () => {
+    const result = checkTaskCorrectness(compileD2(CORRECT_D2), d2Spec);
     expect(result.pass).toBe(true);
     expect(result.failures).toEqual([]);
   });
 
   test("缺少 filter 节点 → 失败", () => {
-    const dsl = CORRECT_R4C.replace('active = filter(details, archived=false, language="TypeScript")\n', "").replace(
-      "sort(active",
+    const dsl = CORRECT_D2.replace('active = filter(details, language="TypeScript")\n', "").replace(
+      "sort(contribs",
       "sort(details",
-    );
-    const result = checkTaskCorrectness(compileR4c(dsl), r4cSpec);
+    ).replace("map(active", "map(details");
+    const result = checkTaskCorrectness(compileD2(dsl), d2Spec);
     expect(result.pass).toBe(false);
     expect(result.failures.some((item) => item.includes("filter"))).toBe(true);
   });
 
   test("filter 条件值不符（language 写成 Python）→ 失败", () => {
-    const dsl = CORRECT_R4C.replace('language="TypeScript"', 'language="Python"');
-    const result = checkTaskCorrectness(compileR4c(dsl), r4cSpec);
+    const dsl = CORRECT_D2.replace('language="TypeScript"', 'language="Python"');
+    const result = checkTaskCorrectness(compileD2(dsl), d2Spec);
     expect(result.pass).toBe(false);
     expect(result.failures.some((item) => item.includes("language"))).toBe(true);
   });
 
-  test("filter 多余条件（多写了 archived=true 冲突之外的条件）→ 失败", () => {
-    const dsl = CORRECT_R4C.replace('language="TypeScript"', 'language="TypeScript", stars=100');
-    const result = checkTaskCorrectness(compileR4c(dsl), r4cSpec);
+  test("filter 多余条件 → 失败", () => {
+    const dsl = CORRECT_D2.replace('language="TypeScript"', 'language="TypeScript", stars=100');
+    const result = checkTaskCorrectness(compileD2(dsl), d2Spec);
     expect(result.pass).toBe(false);
     expect(result.failures.some((item) => item.includes("多余条件"))).toBe(true);
   });
 
-  test("sort key 错误（stars 而非 forks）→ 失败", () => {
-    const dsl = CORRECT_R4C.replace('key="forks"', 'key="stars"');
-    const result = checkTaskCorrectness(compileR4c(dsl), r4cSpec);
+  test("sort key 错误（forks 而非 total_contributions）→ 失败", () => {
+    const dsl = CORRECT_D2.replace('key="total_contributions"', 'key="forks"');
+    const result = checkTaskCorrectness(compileD2(dsl), d2Spec);
     expect(result.pass).toBe(false);
     expect(result.failures.some((item) => item.includes("sort 的 key"))).toBe(true);
   });
 
   test("sort desc 错误（升序）→ 失败", () => {
-    const dsl = CORRECT_R4C.replace("desc=true", "desc=false");
-    const result = checkTaskCorrectness(compileR4c(dsl), r4cSpec);
+    const dsl = CORRECT_D2.replace("desc=true", "desc=false");
+    const result = checkTaskCorrectness(compileD2(dsl), d2Spec);
     expect(result.pass).toBe(false);
     expect(result.failures.some((item) => item.includes("sort 的 desc"))).toBe(true);
   });
 
-  test("L1 任务（无 filterConditions）不要求 filter 节点存在", () => {
-    const dsl = CORRECT_R4C.replace('active = filter(details, archived=false, language="TypeScript")\n', "").replace(
-      "sort(active",
-      "sort(details",
-    );
-    const spec: TaskSpec = { ...r4cSpec, filterConditions: undefined };
-    expect(checkTaskCorrectness(compileR4c(dsl), spec).pass).toBe(true);
+  test("stageTools 缺失（跳过了 get_contributor_stats）→ 失败", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="agent framework", limit=20)',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      'active = filter(details, language="TypeScript")',
+      "commits = map(active, github.list_commits(full_name=_.full_name))",
+      'ranked = sort(commits, key="total_commits", desc=true)',
+      "top = take(ranked, 3)",
+      "return top",
+    ].join("\n");
+    const result = checkTaskCorrectness(compileD2(dsl), d2Spec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("阶段工具顺序"))).toBe(true);
+  });
+
+  test("D1 任务（无 filterConditions/stageTools）不要求 filter 节点存在", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="agent framework", limit=20)',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      'ranked = sort(details, key="forks", desc=true)',
+      "top = take(ranked, 3)",
+      "return top",
+    ].join("\n");
+    const spec: TaskSpec = {
+      query: "agent framework",
+      queryTokens: ["agent framework"],
+      limit: 20,
+      takeCount: 3,
+      bindings: { full_name: "full_name" },
+      sortKey: "forks",
+      sortDesc: true,
+    };
+    expect(checkTaskCorrectness(compileD2(dsl), spec).pass).toBe(true);
+  });
+});
+
+describe("checkTaskCorrectness — R4d 多阶段图检查（D3：双 take / 阶段工具按序）", () => {
+  const CORRECT_D3 = [
+    'repos = github.search_repositories(query="agent framework", limit=30)',
+    "details = map(repos, github.get_repository(full_name=_.full_name))",
+    'active = filter(details, language="TypeScript")',
+    "contribs = map(active, github.get_contributor_stats(full_name=_.full_name))",
+    'ranked = sort(contribs, key="total_contributions", desc=true)',
+    "cands = take(ranked, 5)",
+    "commits = map(cands, github.list_commits(full_name=_.full_name))",
+    'final = sort(commits, key="total_commits", desc=true)',
+    "top = take(final, 3)",
+    "return top",
+  ].join("\n");
+  const d3Spec: TaskSpec = {
+    query: "agent framework",
+    queryTokens: ["agent framework"],
+    limit: 30,
+    takeCount: 3,
+    bindings: { full_name: "full_name" },
+    filterConditions: { language: "TypeScript" },
+    sortKey: "total_commits",
+    sortDesc: true,
+    stageTools: ["github.list_commits", "github.get_contributor_stats", "github.get_repository"],
+    takeCounts: [3, 5],
+  };
+  const compileD3 = (dsl: string) =>
+    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+
+  test("D3 正确程序通过（双 take 序列 + 阶段工具按序）", () => {
+    const result = checkTaskCorrectness(compileD3(CORRECT_D3), d3Spec);
+    expect(result.pass).toBe(true);
+    expect(result.failures).toEqual([]);
+  });
+
+  test("缺少中间 take(5) → take 序列不匹配", () => {
+    const dsl = CORRECT_D3.replace("cands = take(ranked, 5)\n", "").replace("map(cands", "map(ranked");
+    const result = checkTaskCorrectness(compileD3(dsl), d3Spec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("take 序列"))).toBe(true);
+  });
+
+  test("中间 take 数量错（6 而非 5）→ take 序列不匹配", () => {
+    const dsl = CORRECT_D3.replace("take(ranked, 5)", "take(ranked, 6)");
+    const result = checkTaskCorrectness(compileD3(dsl), d3Spec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("take 序列"))).toBe(true);
+  });
+
+  test("缺少 final take(3)（return 直接引用 final sort）→ 缺少 take 节点", () => {
+    const dsl = CORRECT_D3.replace("top = take(final, 3)\n", "").replace("return top", "return final");
+    const result = checkTaskCorrectness(compileD3(dsl), d3Spec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("take"))).toBe(true);
   });
 });

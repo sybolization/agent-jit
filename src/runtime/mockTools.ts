@@ -70,6 +70,28 @@ export function createMockGithubTools(options: MockGithubOptions = {}): RuntimeT
         return [{ login: "mock-user", contributions: 42 }];
       },
     },
+    {
+      spec: specOf("github.get_contributor_stats"),
+      execute: async (args) => {
+        await delay();
+        return {
+          full_name: String((args as Record<string, unknown>).full_name ?? ""),
+          contributor_count: 3,
+          total_contributions: 120,
+        };
+      },
+    },
+    {
+      spec: specOf("github.list_commits"),
+      execute: async (args) => {
+        await delay();
+        return {
+          full_name: String((args as Record<string, unknown>).full_name ?? ""),
+          total_commits: 456,
+          latest_commit_at: "2026-07-01T00:00:00Z",
+        };
+      },
+    },
   ];
 }
 

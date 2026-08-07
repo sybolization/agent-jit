@@ -56,4 +56,21 @@ export const githubTools: readonly ToolSpec[] = [
       { key: "per_page", kind: "int" },
     ],
   },
+  {
+    id: "github.get_contributor_stats",
+    label: "Get repository contributor stats",
+    description: "获取仓库贡献者统计（贡献者人数与总贡献量）。R4d 阶段工具：贡献者数据只在 get_contributor_stats 返回。",
+    outputKind: "ContributorStats",
+    parameters: [{ key: "full_name", kind: "string", required: true }],
+  },
+  {
+    id: "github.list_commits",
+    label: "List repository commits",
+    description: "获取仓库提交统计（总提交数与最近提交时间）。R4d 阶段工具：提交数据只在 list_commits 返回。",
+    outputKind: "CommitStats",
+    parameters: [
+      { key: "full_name", kind: "string", required: true },
+      { key: "per_page", kind: "int" },
+    ],
+  },
 ];

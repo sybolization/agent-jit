@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import type { ToolSpec } from "../src/compiler/registry.js";
 import type { LlmGateway, LlmMessage, LlmResult } from "../src/llm/gateway.js";
 import type { RuntimeTool } from "../src/runtime/runtime.js";
-import { extractFullNames, matchAnswer, runIterativeToolCalling, toPiTools } from "../src/experiments/iterativeToolCalling.js";
+import { exactAnswerMatch, extractFullNames, matchAnswer, runIterativeToolCalling, toPiTools } from "../src/experiments/iterativeToolCalling.js";
 
 // ---------------------------------------------------------------------------
 // 纯逻辑：答案提取
@@ -51,6 +51,38 @@ describe("matchAnswer — 与 ground truth 集合交集匹配", () => {
 
   test("幻觉名称不命中", () => {
     expect(matchAnswer(["owner/not-in-truth"], truth, 1)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 纯逻辑：严格答案匹配（R4d）
+// ---------------------------------------------------------------------------
+
+describe("exactAnswerMatch — 长度 + 逐元素 + 顺序严格匹配", () => {
+  const truth = ["owner/a", "owner/b", "owner/c"];
+
+  test("完全相同（长度/顺序/元素）→ 通过", () => {
+    expect(exactAnswerMatch(["owner/a", "owner/b", "owner/c"], truth)).toBe(true);
+  });
+
+  test("顺序错 → 失败", () => {
+    expect(exactAnswerMatch(["owner/c", "owner/b", "owner/a"], truth)).toBe(false);
+  });
+
+  test("长度不足 → 失败", () => {
+    expect(exactAnswerMatch(["owner/a", "owner/b"], truth)).toBe(false);
+  });
+
+  test("多余元素 → 失败", () => {
+    expect(exactAnswerMatch(["owner/a", "owner/b", "owner/c", "owner/d"], truth)).toBe(false);
+  });
+
+  test("集合相同但缺一个 → 失败", () => {
+    expect(exactAnswerMatch(["owner/a", "owner/b", "owner/d"], truth)).toBe(false);
+  });
+
+  test("双空 → 通过", () => {
+    expect(exactAnswerMatch([], [])).toBe(true);
   });
 });
 
@@ -279,5 +311,97 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
     expect(result.maxed_out).toBe(true);
     expect(result.round_trips).toBe(2);
     expect(result.answered).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// R4d：strictAnswer（submit_answer 机器接口）
+// ---------------------------------------------------------------------------
+
+describe("runIterativeToolCalling — strictAnswer（submit_answer 严格答案接口）", () => {
+  const TRUTH = ["owner/a", "owner/b", "owner/c"];
+  const run = (script: Array<(messages: readonly LlmMessage[]) => LlmResult>, maxSteps = 5) =>
+    runIterativeToolCalling({
+      gateway: makeGateway(script).gateway,
+      initialMessages: [{ role: "user", content: "任务" }],
+      tools: [SEARCH_TOOL],
+      toolSpecs: [SEARCH_TOOL.spec],
+      maxSteps,
+      groundTruth: TRUTH,
+      required: 3,
+      strictAnswer: true,
+    });
+
+  test("调用 submit_answer → 提取 repositories，精确匹配通过", async () => {
+    const result = await run([
+      () => ({ content: "", toolCalls: [toolCall("c1", "github.search_repositories", { query: "x" })], usage: USAGE }),
+      () => ({
+        content: "",
+        toolCalls: [toolCall("c2", "submit_answer", { repositories: ["owner/a", "owner/b", "owner/c"] })],
+        usage: USAGE,
+      }),
+    ]);
+    expect(result.ok).toBe(true);
+    expect(result.round_trips).toBe(2);
+    expect(result.answered).toEqual(TRUTH);
+    expect(result.task_pass).toBe(true);
+    expect(result.maxed_out).toBe(false);
+  });
+
+  test("顺序错 → 失败（strict 判定，不看集合）", async () => {
+    const result = await run([
+      () => ({ content: "", toolCalls: [toolCall("c1", "github.search_repositories", { query: "x" })], usage: USAGE }),
+      () => ({
+        content: "",
+        toolCalls: [toolCall("c2", "submit_answer", { repositories: ["owner/c", "owner/b", "owner/a"] })],
+        usage: USAGE,
+      }),
+    ]);
+    expect(result.task_pass).toBe(false);
+  });
+
+  test("长度不足 → 失败", async () => {
+    const result = await run([
+      () => ({ content: "", toolCalls: [toolCall("c1", "github.search_repositories", { query: "x" })], usage: USAGE }),
+      () => ({
+        content: "",
+        toolCalls: [toolCall("c2", "submit_answer", { repositories: ["owner/a", "owner/b"] })],
+        usage: USAGE,
+      }),
+    ]);
+    expect(result.task_pass).toBe(false);
+  });
+
+  test("repositories 非数组 → answered=[] 且失败", async () => {
+    const result = await run([
+      () => ({ content: "", toolCalls: [toolCall("c1", "github.search_repositories", { query: "x" })], usage: USAGE }),
+      () => ({
+        content: "",
+        toolCalls: [toolCall("c2", "submit_answer", { repositories: "owner/a" })],
+        usage: USAGE,
+      }),
+    ]);
+    expect(result.answered).toEqual([]);
+    expect(result.task_pass).toBe(false);
+  });
+
+  test("正文作答未调用 submit_answer → answered=[] 且失败（不再 regex 捞答案）", async () => {
+    const result = await run([
+      () => ({ content: "", toolCalls: [toolCall("c1", "github.search_repositories", { query: "x" })], usage: USAGE }),
+      () => ({ content: "答案：\nowner/a\nowner/b\nowner/c", toolCalls: [], usage: USAGE }),
+    ]);
+    expect(result.round_trips).toBe(2);
+    expect(result.answered).toEqual([]);
+    expect(result.task_pass).toBe(false);
+  });
+
+  test("maxed_out 且未 submit_answer → answered=[]、失败、maxed_out=true", async () => {
+    const result = await run(
+      [() => ({ content: "", toolCalls: [toolCall("c1", "github.search_repositories", { query: "x" })], usage: USAGE })],
+      2,
+    );
+    expect(result.maxed_out).toBe(true);
+    expect(result.answered).toEqual([]);
+    expect(result.task_pass).toBe(false);
   });
 });

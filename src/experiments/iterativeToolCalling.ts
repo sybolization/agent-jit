@@ -122,6 +122,28 @@ export function matchAnswer(answered: readonly string[], groundTruth: readonly s
   return hit >= required;
 }
 
+/**
+ * 严格答案匹配（R4d）：长度相等 + 逐元素相等 + 顺序一致。
+ * 两臂共用同一判定——不再从正文 regex 抽答案。
+ */
+export function exactAnswerMatch(submitted: readonly string[], groundTruth: readonly string[]): boolean {
+  if (submitted.length !== groundTruth.length) return false;
+  for (let i = 0; i < submitted.length; i += 1) {
+    if (submitted[i] !== groundTruth[i]) return false;
+  }
+  return true;
+}
+
+/** R4d：结构化答案提交工具——模型必须调用它提交最终仓库列表（机器接口，非正文文本）。 */
+export const SUBMIT_ANSWER_TOOL: Tool = {
+  name: "submit_answer",
+  description:
+    "提交最终答案。任务完成时调用此工具，把最终前 k 个仓库的完整名称（owner/repo）按排名从高到低放入 repositories 数组；这是唯一被接受的答案提交方式，不要在文本中作答。",
+  parameters: Type.Object({
+    repositories: Type.Array(Type.String({ description: "按排名从高到低排列的仓库完整名称列表" })),
+  }),
+};
+
 export interface IterativeOptions {
   gateway: LlmGateway;
   initialMessages: LlmMessage[];
@@ -135,13 +157,18 @@ export interface IterativeOptions {
   required: number;
   /** 连续无工具调用视为结束的轮数（默认 1：给出答案的 no-tool 轮即结束） */
   minConsecutiveNoTool?: number;
+  /** R4d：严格答案接口。true 时暴露 submit_answer 工具，模型必须调用它提交 repositories 数组；
+   *  未调用 submit_answer（正文作答 / maxed_out）→ answered=[]、task_pass=false。
+   *  缺省 false 保持 R4b 的正文 regex 抽取行为。 */
+  strictAnswer?: boolean;
 }
 
 export async function runIterativeToolCalling(options: IterativeOptions): Promise<IterativeToolResult> {
   const { gateway, initialMessages, tools, toolSpecs, maxSteps, groundTruth, required } = options;
   const minConsecutiveNoTool = options.minConsecutiveNoTool ?? 1;
+  const strictAnswer = options.strictAnswer ?? false;
 
-  const piTools = toPiTools(toolSpecs);
+  const piTools = strictAnswer ? [...toPiTools(toolSpecs), SUBMIT_ANSWER_TOOL] : toPiTools(toolSpecs);
   // toolCalls 返回的是映射名（github_search_repositories），按映射名建键反查
   const toolById = new Map(tools.map((tool) => [toPiToolName(tool.spec.id), tool]));
 
@@ -176,10 +203,14 @@ export async function runIterativeToolCalling(options: IterativeOptions): Promis
     finalText = content;
     messages.push({ role: "assistant", content, toolCalls });
 
-    if (toolCalls.length === 0) {
-      consecutiveNoTool += 1;
-      if (consecutiveNoTool >= minConsecutiveNoTool) {
-        answered = extractFullNames(finalText);
+    // R4d 严格答案：模型调用 submit_answer 即终止（不执行同轮其他 tool call），按精确匹配判定
+    if (strictAnswer) {
+      const submit = toolCalls.find((call) => call.name === "submit_answer");
+      if (submit) {
+        const args = (submit.arguments ?? {}) as { repositories?: unknown };
+        answered = Array.isArray(args.repositories)
+          ? args.repositories.filter((item): item is string => typeof item === "string")
+          : [];
         return {
           ok: true,
           round_trips: roundTrips,
@@ -193,7 +224,31 @@ export async function runIterativeToolCalling(options: IterativeOptions): Promis
           usage,
           final_text: finalText,
           answered,
-          task_pass: matchAnswer(answered, groundTruth, required),
+          task_pass: exactAnswerMatch(answered, groundTruth),
+          maxed_out: false,
+        };
+      }
+    }
+
+    if (toolCalls.length === 0) {
+      consecutiveNoTool += 1;
+      if (consecutiveNoTool >= minConsecutiveNoTool) {
+        // 严格答案：正文作答不算提交 → answered=[]（不 rescue）
+        answered = strictAnswer ? [] : extractFullNames(finalText);
+        return {
+          ok: true,
+          round_trips: roundTrips,
+          exposed_bytes: exposedBytes,
+          model_ingress_bytes: modelIngressBytes,
+          model_egress_bytes: modelEgressBytes,
+          runtime_internal_bytes: 0,
+          llm_ms: llmMs,
+          tool_ms: toolMs,
+          e2e_ms: performance.now() - started,
+          usage,
+          final_text: finalText,
+          answered,
+          task_pass: strictAnswer ? exactAnswerMatch(answered, groundTruth) : matchAnswer(answered, groundTruth, required),
           maxed_out: false,
         };
       }
@@ -226,7 +281,7 @@ export async function runIterativeToolCalling(options: IterativeOptions): Promis
     }
   }
 
-  answered = extractFullNames(finalText);
+  answered = strictAnswer ? [] : extractFullNames(finalText);
   return {
     ok: true,
     round_trips: roundTrips,
@@ -240,7 +295,7 @@ export async function runIterativeToolCalling(options: IterativeOptions): Promis
     usage,
     final_text: finalText,
     answered,
-    task_pass: matchAnswer(answered, groundTruth, required),
+    task_pass: strictAnswer ? exactAnswerMatch(answered, groundTruth) : matchAnswer(answered, groundTruth, required),
     maxed_out: true,
   };
 }
