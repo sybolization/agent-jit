@@ -23,6 +23,76 @@ function collectCodes(fn: () => unknown): string[] {
   throw new Error("expected ExecutionDslCompileError");
 }
 
+describe("compileExecutionDsl — R4c filter/sort closed operators", () => {
+  const FILTER_SORT = [
+    'repos = github.search_repositories(query="agent framework language:typescript", limit=20)',
+    "details = map(repos, github.get_repository(full_name=_.full_name))",
+    'active = filter(details, archived=false, language="TypeScript")',
+    'ranked = sort(active, key="forks", desc=true)',
+    "top = take(ranked, 3)",
+    "return top",
+  ].join("\n");
+  const compileR4c = (dsl: string) =>
+    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" });
+
+  test("filter/sort 编译为 compute 节点（等值条件 args + desc 恒写入）", () => {
+    const { graph, diagnostics } = compileR4c(FILTER_SORT);
+    expect(diagnostics).toEqual([]);
+    const nodes = byId(graph.nodes);
+    expect(nodes.get("active")).toEqual({
+      id: "active",
+      kind: "compute",
+      op: "filter",
+      source: "details",
+      args: { archived: false, language: "TypeScript" },
+    });
+    expect(nodes.get("ranked")).toEqual({
+      id: "ranked",
+      kind: "compute",
+      op: "sort",
+      source: "active",
+      args: { key: "forks", desc: true },
+    });
+  });
+
+  test("sort 缺 desc → 默认 false（升序）且恒写入", () => {
+    const dsl = FILTER_SORT.replace(', desc=true', "");
+    const nodes = byId(compileR4c(dsl).graph.nodes);
+    expect(nodes.get("ranked")).toEqual({
+      id: "ranked",
+      kind: "compute",
+      op: "sort",
+      source: "active",
+      args: { key: "forks", desc: false },
+    });
+  });
+
+  test("sort 缺 key → 编译失败（syntax：缺少必填参数）", () => {
+    const dsl = FILTER_SORT.replace('key="forks"', "");
+    expect(collectCodes(() => compileR4c(dsl))).toContain("syntax");
+  });
+
+  test("sort 的 desc 非布尔 → config_type_mismatch", () => {
+    const dsl = FILTER_SORT.replace("desc=true", 'desc="yes"');
+    expect(collectCodes(() => compileR4c(dsl))).toContain("config_type_mismatch");
+  });
+
+  test("sort 未知参数 → unknown_parameter", () => {
+    const dsl = FILTER_SORT.replace('key="forks"', 'field="forks"');
+    expect(collectCodes(() => compileR4c(dsl))).toContain("unknown_parameter");
+  });
+
+  test("filter 条件引用节点 → invalid_reference（条件必须是字面量）", () => {
+    const dsl = FILTER_SORT.replace('language="TypeScript"', "language=other");
+    expect(collectCodes(() => compileR4c(dsl))).toContain("invalid_reference");
+  });
+
+  test("filter 多余位置参数 → TOO_MANY_POSITIONAL_ARGS", () => {
+    const dsl = FILTER_SORT.replace('language="TypeScript"', 'false, language="TypeScript"');
+    expect(collectCodes(() => compileR4c(dsl))).toContain("TOO_MANY_POSITIONAL_ARGS");
+  });
+});
+
 describe("compileExecutionDsl — four-line minimal closed loop", () => {
   test("compiles search -> map -> take -> return into 4 typed nodes", () => {
     const { graph, diagnostics } = compileExecutionDsl(FOUR_LINE, { tools: githubTools });
@@ -72,9 +142,9 @@ describe("compileExecutionDsl — four-line minimal closed loop", () => {
 });
 
 describe("compileExecutionDsl — diagnostics", () => {
-  test("reports unknown tool for an unregistered callee (filter/sort/agent are future constructs)", () => {
+  test("reports unknown tool for an unregistered callee (agent 仍是未来 construct)", () => {
     const codes = collectCodes(() =>
-      compileExecutionDsl('out = filter(source=repos, where="stars > 100")', { tools: githubTools }),
+      compileExecutionDsl('out = agent(source=repos, role="assistant")', { tools: githubTools }),
     );
     expect(codes).toContain("unknown_tool");
   });

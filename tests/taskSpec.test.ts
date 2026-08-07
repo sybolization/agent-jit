@@ -152,3 +152,79 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
     expect(result.bindingFailures?.some((item) => item.includes("多余绑定 name"))).toBe(true);
   });
 });
+
+describe("checkTaskCorrectness — R4c filter/sort 语义检查", () => {
+  const CORRECT_R4C = [
+    'repos = github.search_repositories(query="agent framework language:typescript", limit=20)',
+    "details = map(repos, github.get_repository(full_name=_.full_name))",
+    'active = filter(details, archived=false, language="TypeScript")',
+    'ranked = sort(active, key="forks", desc=true)',
+    "top = take(ranked, 3)",
+    "return top",
+  ].join("\n");
+  const r4cSpec: TaskSpec = {
+    query: "agent framework",
+    queryTokens: ["agent framework", "language:typescript"],
+    limit: 20,
+    takeCount: 3,
+    bindings: { full_name: "full_name" },
+    filterConditions: { archived: false, language: "TypeScript" },
+    sortKey: "forks",
+    sortDesc: true,
+  };
+  const compileR4c = (dsl: string) =>
+    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+
+  test("L2 正确程序通过 filter/sort 检查", () => {
+    const result = checkTaskCorrectness(compileR4c(CORRECT_R4C), r4cSpec);
+    expect(result.pass).toBe(true);
+    expect(result.failures).toEqual([]);
+  });
+
+  test("缺少 filter 节点 → 失败", () => {
+    const dsl = CORRECT_R4C.replace('active = filter(details, archived=false, language="TypeScript")\n', "").replace(
+      "sort(active",
+      "sort(details",
+    );
+    const result = checkTaskCorrectness(compileR4c(dsl), r4cSpec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("filter"))).toBe(true);
+  });
+
+  test("filter 条件值不符（language 写成 Python）→ 失败", () => {
+    const dsl = CORRECT_R4C.replace('language="TypeScript"', 'language="Python"');
+    const result = checkTaskCorrectness(compileR4c(dsl), r4cSpec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("language"))).toBe(true);
+  });
+
+  test("filter 多余条件（多写了 archived=true 冲突之外的条件）→ 失败", () => {
+    const dsl = CORRECT_R4C.replace('language="TypeScript"', 'language="TypeScript", stars=100');
+    const result = checkTaskCorrectness(compileR4c(dsl), r4cSpec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("多余条件"))).toBe(true);
+  });
+
+  test("sort key 错误（stars 而非 forks）→ 失败", () => {
+    const dsl = CORRECT_R4C.replace('key="forks"', 'key="stars"');
+    const result = checkTaskCorrectness(compileR4c(dsl), r4cSpec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("sort 的 key"))).toBe(true);
+  });
+
+  test("sort desc 错误（升序）→ 失败", () => {
+    const dsl = CORRECT_R4C.replace("desc=true", "desc=false");
+    const result = checkTaskCorrectness(compileR4c(dsl), r4cSpec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("sort 的 desc"))).toBe(true);
+  });
+
+  test("L1 任务（无 filterConditions）不要求 filter 节点存在", () => {
+    const dsl = CORRECT_R4C.replace('active = filter(details, archived=false, language="TypeScript")\n', "").replace(
+      "sort(active",
+      "sort(details",
+    );
+    const spec: TaskSpec = { ...r4cSpec, filterConditions: undefined };
+    expect(checkTaskCorrectness(compileR4c(dsl), spec).pass).toBe(true);
+  });
+});

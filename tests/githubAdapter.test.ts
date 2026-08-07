@@ -44,15 +44,27 @@ describe("createRealGithubTools — 真实 GitHub adapter（mock fetch）", () =
     ]);
   });
 
-  test("get_repository：全名编码为 %2F，字段映射与 mock 对齐", async () => {
+  test("get_repository：全名编码为 %2F，字段映射与 mock 对齐（含 R4c 的 forks）", async () => {
     const { fn, calls } = makeFetch([
-      jsonResponse({ full_name: "owner/repo", stargazers_count: 99, archived: false, language: "Python" }),
+      jsonResponse({ full_name: "owner/repo", stargazers_count: 99, forks_count: 12, archived: false, language: "Python" }),
     ]);
     const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
     const result = await tools.find((tool) => tool.spec.id === "github.get_repository")!.execute({ full_name: "owner/repo" });
 
     expect(calls[0]!.url).toBe("https://api.test/repos/owner/repo");
-    expect(result).toEqual({ full_name: "owner/repo", stars: 99, archived: false, language: "Python" });
+    expect(result).toEqual({ full_name: "owner/repo", stars: 99, forks: 12, archived: false, language: "Python" });
+  });
+
+  test("R4c 语义依赖：get_repository 返回 forks，search 返回不含 forks", async () => {
+    const { fn } = makeFetch([
+      jsonResponse({ full_name: "owner/repo", stargazers_count: 99, forks_count: 12, archived: false, language: "TypeScript" }),
+      jsonResponse({ items: [{ full_name: "owner/a", stargazers_count: 1, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" }] }),
+    ]);
+    const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
+    const detail = (await tools.find((tool) => tool.spec.id === "github.get_repository")!.execute({ full_name: "owner/repo" })) as Record<string, unknown>;
+    expect(detail.forks).toBe(12);
+    const search = (await tools.find((tool) => tool.spec.id === "github.search_repositories")!.execute({ query: "x", limit: 5 })) as Array<Record<string, unknown>>;
+    expect(search[0]).not.toHaveProperty("forks");
   });
 
   test("get_languages：原样返回语言对象", async () => {
@@ -70,12 +82,26 @@ describe("createRealGithubTools — 真实 GitHub adapter（mock fetch）", () =
     expect(result).toEqual([{ login: "alice", contributions: 50 }]);
   });
 
-  test("429/403：抛 rate limit 错误（含 remaining/reset）", async () => {
-    const { fn } = makeFetch([
-      jsonResponse({ message: "rate limit" }, { status: 429, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "1800000000" } }),
-    ]);
-    const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
+  test("429/403：重试耗尽后抛 rate limit 错误（含 remaining/reset）", async () => {
+    const rateLimited = () => jsonResponse({ message: "rate limit" }, { status: 429, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "1800000000" } });
+    const { fn } = makeFetch([rateLimited(), rateLimited(), rateLimited()]);
+    const tools = createRealGithubTools({
+      token: "test-token",
+      fetch: fn,
+      baseUrl: "https://api.test",
+      sleep: async () => {}, // 测试不真实等待
+    });
     await expect(tools.find((tool) => tool.spec.id === "github.get_repository")!.execute({ full_name: "a/b" })).rejects.toThrow(/rate limit/);
+  });
+
+  test("429 后重试成功：限流是瞬时的，重试拿到数据", async () => {
+    const { fn } = makeFetch([
+      jsonResponse({ message: "rate limit" }, { status: 429, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(Math.floor(Date.now() / 1000)) } }),
+      jsonResponse({ full_name: "owner/repo", stargazers_count: 99, forks_count: 12, archived: false, language: "TypeScript" }),
+    ]);
+    const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test", sleep: async () => {} });
+    const result = await tools.find((tool) => tool.spec.id === "github.get_repository")!.execute({ full_name: "owner/repo" });
+    expect(result).toMatchObject({ full_name: "owner/repo", forks: 12 });
   });
 
   test("404：抛资源不存在错误", async () => {

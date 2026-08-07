@@ -4,7 +4,7 @@ import { compileExecutionDsl } from "../src/compiler/compiler.js";
 import type { ExecutionGraph } from "../src/compiler/ir.js";
 import { githubTools } from "../src/compiler/registry.js";
 import { createMockGithubTools, createMockDomainTools, mockDomainToolSpecs } from "../src/runtime/mockTools.js";
-import { execute, type RuntimeRegistry } from "../src/runtime/runtime.js";
+import { execute, type RuntimeRegistry, type RuntimeTool } from "../src/runtime/runtime.js";
 import { renderTraceText } from "../src/runtime/trace.js";
 
 const FOUR_LINE = [
@@ -152,5 +152,107 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
     expect(result.ok).toBe(true);
     const items = result.result as Array<Record<string, unknown>>;
     expect(items[0]).toMatchObject({ to: "user1@example.com", name: "User 1" });
+  });
+});
+
+describe("runtime — R4c compute filter/sort", () => {
+  const specOf = (id: string): RuntimeTool["spec"] => githubTools.find((tool) => tool.id === id)!;
+
+  function literalSourceRegistry(items: unknown[]): RuntimeRegistry {
+    return new Map<string, RuntimeTool>([
+      ["github.search_repositories", { spec: specOf("github.search_repositories"), execute: async () => items }],
+    ]);
+  }
+
+  test("filter 等值条件：多条件 AND，缺字段/非对象丢弃", async () => {
+    const dsl = [
+      'src = github.search_repositories(query="x", limit=10)',
+      'active = filter(src, archived=false, language="TypeScript")',
+      "return active",
+    ].join("\n");
+    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true }).graph;
+    const result = await execute(graph, literalSourceRegistry([
+      { full_name: "a", archived: false, language: "TypeScript" },
+      { full_name: "b", archived: false, language: "Python" }, // language 不符
+      { full_name: "c", archived: true, language: "TypeScript" }, // archived 不符
+      { full_name: "d" }, // 缺字段
+      "not-an-object", // 非对象
+    ]));
+    expect(result.ok).toBe(true);
+    const items = result.result as Array<Record<string, unknown>>;
+    expect(items.map((item) => item.full_name)).toEqual(["a"]);
+  });
+
+  test("sort：数值降序，缺失字段排末尾（desc），稳定且不改源数组", async () => {
+    const dsl = [
+      'src = github.search_repositories(query="x", limit=10)',
+      'ranked = sort(src, key="forks", desc=true)',
+      "return ranked",
+    ].join("\n");
+    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true }).graph;
+    const source = [
+      { full_name: "a", forks: 5 },
+      { full_name: "b", forks: 1 },
+      { full_name: "c" }, // 缺字段 → -Infinity，desc 时最后
+      { full_name: "d", forks: 5 },
+      { full_name: "e", forks: 3 },
+    ];
+    const result = await execute(graph, literalSourceRegistry(source));
+    expect(result.ok).toBe(true);
+    const items = result.result as Array<Record<string, unknown>>;
+    // forks 相等时保持原序（a 在 d 前）；c（缺字段）排最后
+    expect(items.map((item) => item.full_name)).toEqual(["a", "d", "e", "b", "c"]);
+    // 源数组未被修改
+    expect(source.map((item) => item.full_name)).toEqual(["a", "b", "c", "d", "e"]);
+  });
+
+  test("sort：字符串字典序升序（缺 desc 默认 false）", async () => {
+    const dsl = [
+      'src = github.search_repositories(query="x", limit=10)',
+      'ranked = sort(src, key="name")',
+      "return ranked",
+    ].join("\n");
+    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true }).graph;
+    const result = await execute(graph, literalSourceRegistry([
+      { full_name: "b", name: "beta" },
+      { full_name: "a", name: "alpha" },
+      { full_name: "c", name: "gamma" },
+    ]));
+    const items = result.result as Array<Record<string, unknown>>;
+    expect(items.map((item) => item.full_name)).toEqual(["a", "b", "c"]);
+  });
+
+  test("filter+sort+take 端到端：语义依赖任务（forks 只来自 get_repository）", async () => {
+    const details = [
+      { full_name: "owner/a", stars: 1, forks: 10, archived: false, language: "TypeScript" },
+      { full_name: "owner/b", stars: 2, forks: 30, archived: false, language: "TypeScript" },
+      { full_name: "owner/c", stars: 3, forks: 20, archived: true, language: "TypeScript" },
+      { full_name: "owner/d", stars: 4, forks: 5, archived: false, language: "JavaScript" },
+    ];
+    const registry = new Map<string, RuntimeTool>([
+      ["github.search_repositories", { spec: specOf("github.search_repositories"), execute: async () => details }],
+      [
+        "github.get_repository",
+        {
+          spec: specOf("github.get_repository"),
+          execute: async (args) => details.find((d) => d.full_name === (args as { full_name: string }).full_name),
+        },
+      ],
+    ]);
+    const dsl = [
+      'repos = github.search_repositories(query="agent framework language:typescript", limit=20)',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      'active = filter(details, archived=false, language="TypeScript")',
+      'ranked = sort(active, key="forks", desc=true)',
+      "top = take(ranked, 3)",
+      "return top",
+    ].join("\n");
+    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const result = await execute(graph, registry);
+    expect(result.ok).toBe(true);
+    const items = result.result as Array<Record<string, unknown>>;
+    expect(items.map((item) => item.full_name)).toEqual(["owner/b", "owner/a"]);
+    expect(result.trace.find((entry) => entry.id === "active")).toMatchObject({ kind: "compute.filter", inputSize: 4, outputSize: 2 });
+    expect(result.trace.find((entry) => entry.id === "ranked")).toMatchObject({ kind: "compute.sort", inputSize: 2, outputSize: 2 });
   });
 });

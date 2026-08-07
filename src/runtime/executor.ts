@@ -63,6 +63,25 @@ export async function mapLimit<T, R>(
   return results;
 }
 
+/**
+ * 通用值比较（sort 的 closed comparator）：两侧都是 number → 数值比较；
+ * 都是 string → 字典序；字段缺失（undefined）视为最小；其余类型先转数值，
+ * NaN 视为最小。executor 的 compute.sort 与 benchmark 的确定性答案共用，
+ * 保证"执行语义 == oracle 语义"。
+ */
+export function compareValues(a: unknown, b: unknown): number {
+  if (a === b) return 0;
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  if (typeof a === "string" && typeof b === "string") return a < b ? -1 : 1;
+  if (a === undefined) return -1;
+  if (b === undefined) return 1;
+  const aNum = typeof a === "number" ? a : Number(a);
+  const bNum = typeof b === "number" ? b : Number(b);
+  if (Number.isNaN(aNum)) return -1;
+  if (Number.isNaN(bNum)) return 1;
+  return aNum - bNum;
+}
+
 async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceEntry): Promise<unknown> {
   switch (node.kind) {
     case "tool": {
@@ -97,6 +116,30 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
       if (node.op === "take") {
         const count = Number(node.args.count ?? 0);
         return source.slice(0, count);
+      }
+      if (node.op === "filter") {
+        // 等值条件筛选：元素需满足全部 <字段> == <字面量> 才保留；非对象或缺字段 → 丢弃
+        const filtered = source.filter((item) => {
+          if (typeof item !== "object" || item === null) return false;
+          const record = item as Record<string, unknown>;
+          for (const [field, literal] of Object.entries(node.args)) {
+            if (record[field] !== literal) return false;
+          }
+          return true;
+        });
+        return filtered;
+      }
+      if (node.op === "sort") {
+        const key = String(node.args.key ?? "");
+        const desc = node.args.desc === true;
+        const compare = (left: unknown, right: unknown): number => {
+          const a = (left as Record<string, unknown> | null)?.[key];
+          const b = (right as Record<string, unknown> | null)?.[key];
+          const base = compareValues(a, b);
+          return desc ? -base : base;
+        };
+        // 稳定排序（ES2019 起 Array.prototype.sort 稳定），不修改源数组
+        return [...source].sort((left, right) => compare(left, right));
       }
       throw new Error(`compute op “${node.op}” 尚未实现`);
     }

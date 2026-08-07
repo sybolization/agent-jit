@@ -119,10 +119,9 @@ const USAGE = { input: 10, output: 5, cacheRead: 0, totalTokens: 15 };
 const toolCall = (id: string, name: string, args: Record<string, unknown>) => ({ id, name, arguments: args });
 
 describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
-  test("正常路径：工具轮 + 两轮无工具调用后结束，消息累积正确", async () => {
+  test("正常路径：工具轮 + 无工具调用即结束（默认 minConsecutiveNoTool=1），消息累积正确", async () => {
     const { gateway, received } = makeGateway([
       () => ({ content: "", toolCalls: [toolCall("c1", "github_search_repositories", { query: "x" })], usage: USAGE }),
-      () => ({ content: "中间轮", toolCalls: [], usage: USAGE }),
       () => ({ content: "结果：owner/a\nowner/b", toolCalls: [], usage: USAGE }),
     ]);
     const result = await runIterativeToolCalling({
@@ -138,16 +137,19 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
       required: 2,
     });
 
-    // 3 次 complete 调用；第 2 次调用时 messages 应含 assistant + toolResult
+    // 2 次 complete 调用；第 2 次调用时 messages 应含 assistant + toolResult
     expect(result.ok).toBe(true);
-    expect(result.round_trips).toBe(3);
+    expect(result.round_trips).toBe(2);
     expect(result.maxed_out).toBe(false);
     expect(result.task_pass).toBe(true);
     expect(result.answered).toEqual(["owner/a", "owner/b"]);
     expect(result.exposed_bytes).toBeGreaterThan(0);
-    expect(result.usage.totalTokens).toBe(45);
+    expect(result.model_ingress_bytes).toBeGreaterThan(0);
+    expect(result.model_egress_bytes).toBeGreaterThan(0);
+    expect(result.runtime_internal_bytes).toBe(0);
+    expect(result.usage.totalTokens).toBe(30);
 
-    expect(received).toHaveLength(3);
+    expect(received).toHaveLength(2);
     expect(received[0]!.map((m) => m.role)).toEqual(["system", "user"]);
     const secondCall = received[1]!;
     const toolResult = secondCall.find((m) => m.role === "toolResult");
@@ -156,10 +158,28 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
     expect(toolResult!.role === "toolResult" && toolResult.isError).toBe(false);
   });
 
+  test("minConsecutiveNoTool=2 显式指定时仍需要连续两轮无工具调用", async () => {
+    const { gateway } = makeGateway([
+      () => ({ content: "", toolCalls: [toolCall("c1", "github_search_repositories", { query: "x" })], usage: USAGE }),
+      () => ({ content: "中间轮", toolCalls: [], usage: USAGE }),
+      () => ({ content: "结果：owner/a\nowner/b", toolCalls: [], usage: USAGE }),
+    ]);
+    const result = await runIterativeToolCalling({
+      gateway,
+      initialMessages: [{ role: "user", content: "任务" }],
+      tools: [SEARCH_TOOL],
+      toolSpecs: [SEARCH_TOOL.spec],
+      maxSteps: 5,
+      groundTruth: ["owner/a", "owner/b", "owner/c"],
+      required: 2,
+      minConsecutiveNoTool: 2,
+    });
+    expect(result.round_trips).toBe(3);
+  });
+
   test("未知工具：注入 isError toolResult，循环继续", async () => {
     const { gateway } = makeGateway([
       () => ({ content: "", toolCalls: [toolCall("c1", "no.such_tool", {})], usage: USAGE }),
-      () => ({ content: "好了", toolCalls: [], usage: USAGE }),
       () => ({ content: "结果：owner/a", toolCalls: [], usage: USAGE }),
     ]);
     const result = await runIterativeToolCalling({
@@ -173,7 +193,7 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
     });
     expect(result.ok).toBe(true);
     expect(result.task_pass).toBe(true);
-    expect(result.round_trips).toBe(3);
+    expect(result.round_trips).toBe(2);
   });
 
   test("工具执行抛错：错误进 toolResult，不中断循环", async () => {
@@ -204,6 +224,43 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
     });
     expect(result.ok).toBe(true);
     expect(result.exposed_bytes).toBeGreaterThan(0);
+  });
+
+  test("同一 completion 的多个 toolCalls 并行执行，toolResult 按调用顺序回填", async () => {
+    const order: string[] = [];
+    const slowTool: RuntimeTool = {
+      spec: { id: "slow", label: "Slow", outputKind: "object", parameters: [] },
+      execute: async () => {
+        order.push("start");
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        order.push("end");
+        return { value: 1 };
+      },
+    };
+    const { gateway, received } = makeGateway([
+      () => ({ content: "", toolCalls: [toolCall("c1", "slow", {}), toolCall("c2", "slow", {})], usage: USAGE }),
+      () => ({ content: "结果：x/y", toolCalls: [], usage: USAGE }),
+    ]);
+    const result = await runIterativeToolCalling({
+      gateway,
+      initialMessages: [{ role: "user", content: "任务" }],
+      tools: [slowTool],
+      toolSpecs: [slowTool.spec],
+      maxSteps: 5,
+      groundTruth: ["x/y"],
+      required: 1,
+    });
+    // 并行：两个 start 都先于任何 end（顺序执行会是 start,end,start,end）
+    expect(order[0]).toBe("start");
+    expect(order[1]).toBe("start");
+    // toolResult 按 toolCall 顺序回填（c1 在 c2 前）
+    const secondCall = received[1]!;
+    const toolResultIds = secondCall
+      .filter((m) => m.role === "toolResult")
+      .map((m) => (m as { toolCallId: string }).toolCallId);
+    expect(toolResultIds).toEqual(["c1", "c2"]);
+    expect(result.ok).toBe(true);
+    expect(result.round_trips).toBe(2);
   });
 
   test("maxed_out：达到 maxSteps 仍未结束", async () => {

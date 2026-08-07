@@ -16,6 +16,12 @@ export interface RealGithubAdapterOptions {
   fetch?: typeof fetch;
   /** 测试注入用；默认 https://api.github.com */
   baseUrl?: string;
+  /** 测试注入用：限流重试的等待函数（默认 setTimeout），测试可传空函数避免真实等待 */
+  sleep?: (ms: number) => Promise<void>;
+  /** 限流重试次数（默认 2：最多 1 次初始 + 2 次重试） */
+  retryAttempts?: number;
+  /** 单次限流等待上限（ms，默认 15s），reset 远在未来时避免挂死 */
+  maxRetryWaitMs?: number;
 }
 
 const GITHUB_API_BASE = "https://api.github.com";
@@ -31,6 +37,7 @@ interface SearchItem {
 interface RepoResult {
   full_name: string;
   stargazers_count: number;
+  forks_count: number;
   archived: boolean;
   language: string | null;
 }
@@ -56,23 +63,33 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
     "user-agent": "agent-dsl-r4-experiment",
   };
 
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const retryAttempts = Math.max(0, options.retryAttempts ?? 2);
+  const maxRetryWaitMs = options.maxRetryWaitMs ?? 15_000;
+
   async function getJson<T>(path: string): Promise<T> {
-    const response = await fetchFn(`${baseUrl}${path}`, { headers, signal: AbortSignal.timeout(15_000) });
-    if (!response.ok) {
+    let lastError: Error | undefined;
+    for (let attempt = 0; attempt <= retryAttempts; attempt += 1) {
+      const response = await fetchFn(`${baseUrl}${path}`, { headers, signal: AbortSignal.timeout(15_000) });
+      if (response.ok) return (await response.json()) as T;
       const remaining = response.headers.get("x-ratelimit-remaining");
       const reset = Number(response.headers.get("x-ratelimit-reset") ?? "0");
       if (response.status === 403 || response.status === 429) {
-        throw new Error(
+        lastError = new Error(
           `GitHub rate limit（HTTP ${response.status}，remaining=${remaining ?? "?"}` +
             (reset ? `，reset=${new Date(reset * 1000).toISOString()}` : "") + "）",
         );
+        // 有界等待：reset 远在未来（如次级限流）时不挂死，等满 maxRetryWaitMs 后重试
+        const waitMs = Math.min(Math.max(0, reset * 1000 - Date.now()) + 1000, maxRetryWaitMs);
+        await sleep(waitMs);
+        continue;
       }
       if (response.status === 404) {
         throw new Error(`GitHub 404：${path}（资源不存在或无权访问）`);
       }
       throw new Error(`GitHub API HTTP ${response.status}：${path}`);
     }
-    return (await response.json()) as T;
+    throw lastError ?? new Error(`GitHub API 请求失败：${path}`);
   }
 
   const byId = new Map(githubTools.map((tool) => [tool.id, tool]));
@@ -116,6 +133,7 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
         return {
           full_name: data.full_name,
           stars: data.stargazers_count,
+          forks: data.forks_count,
           archived: data.archived,
           language: data.language ?? "Unknown",
         };

@@ -23,6 +23,12 @@ export interface TaskSpec {
   takeCount: number;
   /** R3：期望 map 的 element→argument 绑定映射（如 { full_name: "full_name" }）；缺省不检查 binding */
   bindings?: Record<string, string>;
+  /** R4c：filter 期望的等值条件（字段 → 字面量），缺省不检查 filter 节点 */
+  filterConditions?: Record<string, unknown>;
+  /** R4c：sort 期望的排序键（字段名），缺省不检查 sort 节点 */
+  sortKey?: string;
+  /** R4c：sort 期望的降序标记，缺省不检查 desc */
+  sortDesc?: boolean;
 }
 
 export interface TaskCorrectness {
@@ -122,6 +128,41 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
     failures.push("return 数据流中缺少 take 节点");
   } else if (takeNode.args["count"] !== spec.takeCount) {
     failures.push(`take 的 count 应为 ${spec.takeCount}`);
+  }
+
+  // R4c：filter 等值条件检查（期望提供时才要求 filter 节点存在）
+  if (spec.filterConditions) {
+    const filterNode = path.find((node) => node.kind === "compute" && node.op === "filter");
+    if (!filterNode) {
+      failures.push("return 数据流中缺少 filter 节点");
+    } else {
+      const actual = filterNode.args;
+      for (const [field, literal] of Object.entries(spec.filterConditions)) {
+        if (actual[field] !== literal) {
+          failures.push(`filter 条件 ${field} 应为 ${JSON.stringify(literal)}（实际 ${JSON.stringify(actual[field])}）`);
+        }
+      }
+      for (const field of Object.keys(actual)) {
+        if (!(field in spec.filterConditions)) {
+          failures.push(`filter 多余条件 ${field}（期望仅 ${Object.keys(spec.filterConditions).join("、")}）`);
+        }
+      }
+    }
+  }
+
+  // R4c：sort 键/方向检查
+  if (spec.sortKey) {
+    const sortNode = path.find((node) => node.kind === "compute" && node.op === "sort");
+    if (!sortNode) {
+      failures.push(`return 数据流中缺少 sort 节点（key=${spec.sortKey}）`);
+    } else {
+      if (sortNode.args["key"] !== spec.sortKey) {
+        failures.push(`sort 的 key 应为 ${spec.sortKey}（实际 ${JSON.stringify(sortNode.args["key"])}）`);
+      }
+      if (spec.sortDesc !== undefined && sortNode.args["desc"] !== spec.sortDesc) {
+        failures.push(`sort 的 desc 应为 ${spec.sortDesc}（实际 ${JSON.stringify(sortNode.args["desc"])}）`);
+      }
+    }
   }
 
   return {

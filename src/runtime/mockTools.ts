@@ -34,6 +34,8 @@ export function createMockGithubTools(options: MockGithubOptions = {}): RuntimeT
     archived: i % 4 === 0,
     pushed_at: new Date(Date.now() - i * 86_400_000).toISOString(),
     language: "TypeScript",
+    // 注意：search 刻意不含 forks —— R4c 的"语义依赖"要求答案必须经过
+    // get_repository（forks 只有 get_repository 返回）。
   }));
 
   return [
@@ -48,6 +50,7 @@ export function createMockGithubTools(options: MockGithubOptions = {}): RuntimeT
         return {
           full_name: String((args as Record<string, unknown>).full_name ?? ""),
           stars: 100,
+          forks: 200,
           archived: false,
           language: "TypeScript",
         };

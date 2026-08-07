@@ -496,6 +496,93 @@ function buildTakeNode(
   return { id: statement.name, kind: "compute", op: "take", source, args: { count } };
 }
 
+/**
+ * filter：等值条件筛选（R4c closed operator）。
+ * `filter(<source>, <字段>=<字面量>, ...)` — source 是位置参数（引用），
+ * 其余命名参数为"字段 == 字面量"条件，元素需满足全部条件才保留。
+ * 所有命名参数都是条件，无额外参数概念。
+ */
+function buildFilterNode(
+  statement: ParsedStatement,
+  options: CompileExecutionDslOptions,
+  defined: ReadonlySet<string>,
+  diagnostics: DslDiagnostic[],
+): ExecutionNode | undefined {
+  const effective = applyPositionalArgs(statement, ["source"], options.allowPositionalArgs ?? false, diagnostics);
+  if (!effective) return undefined;
+  const source = refArg(effective, "source", defined, diagnostics);
+
+  const args: Record<string, LiteralValue> = {};
+  for (const arg of effective.args) {
+    if (arg.key === "source" || arg.key === undefined) continue;
+    if (arg.value.kind !== "literal") {
+      diagnostics.push({
+        line: arg.line,
+        code: "invalid_reference",
+        message: `filter 的条件“${arg.key}”需要字面量（等值比较），不能引用节点`,
+        suggestion: `把 ${arg.key} 写成字面量（如 ${arg.key}=false 或 ${arg.key}="TypeScript"）`,
+      });
+      continue;
+    }
+    args[arg.key] = arg.value.literal ?? null;
+  }
+
+  if (!source) return undefined;
+  return { id: statement.name, kind: "compute", op: "filter", source, args };
+}
+
+/**
+ * sort：按字段排序（R4c closed operator）。
+ * `sort(<source>, key=<字段名>, desc=<true|false>)` — source 位置参数（引用），
+ * key 必填字符串字面量，desc 可选布尔字面量（默认 false 升序）。
+ */
+function buildSortNode(
+  statement: ParsedStatement,
+  options: CompileExecutionDslOptions,
+  defined: ReadonlySet<string>,
+  diagnostics: DslDiagnostic[],
+): ExecutionNode | undefined {
+  const effective = applyPositionalArgs(statement, ["source"], options.allowPositionalArgs ?? false, diagnostics);
+  if (!effective) return undefined;
+  const source = refArg(effective, "source", defined, diagnostics);
+
+  const key = literalArg(effective, "key", diagnostics, { required: true });
+  let descValue = false;
+  const desc = literalArg(effective, "desc", diagnostics);
+  if (desc !== undefined && typeof desc !== "boolean") {
+    diagnostics.push({
+      line: statement.line,
+      code: "config_type_mismatch",
+      message: "sort 的参数“desc”期望布尔值",
+      suggestion: "如 desc=true 或 desc=false",
+    });
+  } else if (desc !== undefined) {
+    descValue = desc;
+  }
+
+  for (const arg of effective.args) {
+    if (!["source", "key", "desc"].includes(arg.key ?? "")) {
+      diagnostics.push({
+        line: arg.line,
+        code: "unknown_parameter",
+        message: `sort 不支持参数“${arg.key}”`,
+        suggestion: "sort 仅支持 source / key / desc",
+      });
+    }
+  }
+  if (key !== undefined && typeof key !== "string") {
+    diagnostics.push({
+      line: statement.line,
+      code: "config_type_mismatch",
+      message: "sort 的参数“key”应为字符串字段名",
+      suggestion: '如 key="forks"',
+    });
+  }
+
+  if (!source || typeof key !== "string") return undefined;
+  return { id: statement.name, kind: "compute", op: "sort", source, args: { key, desc: descValue } };
+}
+
 function buildReturnNode(
   statement: ParsedStatement,
   options: CompileExecutionDslOptions,
@@ -598,6 +685,8 @@ function buildNode(
 ): ExecutionNode | undefined {
   if (statement.callee === "map") return buildMapNode(statement, options, defined, diagnostics);
   if (statement.callee === "take") return buildTakeNode(statement, options, defined, diagnostics);
+  if (statement.callee === "filter") return buildFilterNode(statement, options, defined, diagnostics);
+  if (statement.callee === "sort") return buildSortNode(statement, options, defined, diagnostics);
   if (statement.callee === "return") return buildReturnNode(statement, options, defined, diagnostics);
 
   const tool = (options.tools ?? []).find((item) => item.id === statement.callee);
