@@ -1,0 +1,2258 @@
+{
+  "mode": "r4c-semantic-benchmark",
+  "samples": 10,
+  "groundTruth": {
+    "L1|5": [
+      "elizaOS/eliza",
+      "medusajs/medusa",
+      "heygen-com/hyperframes"
+    ],
+    "L1|20": [
+      "elizaOS/eliza",
+      "medusajs/medusa",
+      "heygen-com/hyperframes"
+    ],
+    "L2|5": [
+      "elizaOS/eliza",
+      "medusajs/medusa",
+      "heygen-com/hyperframes"
+    ],
+    "L2|20": [
+      "elizaOS/eliza",
+      "medusajs/medusa",
+      "heygen-com/hyperframes"
+    ]
+  },
+  "results": [
+    {
+      "arm": "dsl",
+      "level": "L1",
+      "n": 5,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2622,
+          "model_egress_bytes": 256,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1387.7312089999996,
+          "runtime_ms": 1408.1603749999995,
+          "e2e_ms": 2813.345125,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1408.1603749999995
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2622,
+          "model_egress_bytes": 256,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1019.1600839999992,
+          "runtime_ms": 1290.8559579999983,
+          "e2e_ms": 2311.218958999998,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1290.8559579999983
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2622,
+          "model_egress_bytes": 256,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1157.7923329999976,
+          "runtime_ms": 1370.3103330000013,
+          "e2e_ms": 2528.9559580000023,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1370.3103330000013
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2622,
+          "model_egress_bytes": 256,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1217.0730829999993,
+          "runtime_ms": 1230.6002919999992,
+          "e2e_ms": 2448.392208000001,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1230.6002919999992
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2622,
+          "model_egress_bytes": 256,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1249.7807920000014,
+          "runtime_ms": 1365.1427919999987,
+          "e2e_ms": 2615.816167000001,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1365.1427919999987
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2622,
+          "model_egress_bytes": 256,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1316.6789589999971,
+          "runtime_ms": 1277.1260419999999,
+          "e2e_ms": 2594.3252090000024,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1277.1260419999999
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2622,
+          "model_egress_bytes": 256,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1204.844083,
+          "runtime_ms": 1135.387791000001,
+          "e2e_ms": 2341.0735000000022,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1135.387791000001
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2622,
+          "model_egress_bytes": 256,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1172.976999999999,
+          "runtime_ms": 1378.4952080000003,
+          "e2e_ms": 2553.807458000003,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1378.4952080000003
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2622,
+          "model_egress_bytes": 256,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1204.8574169999993,
+          "runtime_ms": 22849.564458,
+          "e2e_ms": 24055.300833,
+          "usage": {
+            "input": 76,
+            "output": 105,
+            "cacheRead": 896,
+            "totalTokens": 1077
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 22849.564458
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2622,
+          "model_egress_bytes": 256,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1631.4519579999978,
+          "runtime_ms": 1257.0491670000047,
+          "e2e_ms": 2890.505624999998,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1257.0491670000047
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "level": "L1",
+      "n": 20,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2623,
+          "model_egress_bytes": 257,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1466.7873330000002,
+          "runtime_ms": 3184.6088330000002,
+          "e2e_ms": 4652.209583,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3184.6088330000002
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2623,
+          "model_egress_bytes": 257,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1220.753417,
+          "runtime_ms": 3715.4018749999996,
+          "e2e_ms": 4937.026875000003,
+          "usage": {
+            "input": 76,
+            "output": 105,
+            "cacheRead": 896,
+            "totalTokens": 1077
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3715.4018749999996
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2623,
+          "model_egress_bytes": 257,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1218.4022499999992,
+          "runtime_ms": 3783.0005840000013,
+          "e2e_ms": 5002.48775,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3783.0005840000013
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2623,
+          "model_egress_bytes": 257,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1122.2756659999977,
+          "runtime_ms": 3956.862083,
+          "e2e_ms": 5081.575124999999,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3956.862083
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2623,
+          "model_egress_bytes": 257,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1500.461500000005,
+          "runtime_ms": 3514.797833000004,
+          "e2e_ms": 5016.64675,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3514.797833000004
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2623,
+          "model_egress_bytes": 257,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1419.0891669999983,
+          "runtime_ms": 23908.626875,
+          "e2e_ms": 25328.270416000007,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 23908.626875
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2623,
+          "model_egress_bytes": 257,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1315.2255420000001,
+          "runtime_ms": 4361.610666000008,
+          "e2e_ms": 5677.400083,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 4361.610666000008
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2623,
+          "model_egress_bytes": 257,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1257.0882920000004,
+          "runtime_ms": 3488.821125000002,
+          "e2e_ms": 4747.666874999995,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3488.821125000002
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2623,
+          "model_egress_bytes": 257,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1105.1151660000032,
+          "runtime_ms": 3669.2022910000087,
+          "e2e_ms": 4775.070166999998,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3669.2022910000087
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2623,
+          "model_egress_bytes": 257,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1234.1366249999992,
+          "runtime_ms": 3583.583375000002,
+          "e2e_ms": 4818.139666000003,
+          "usage": {
+            "input": 76,
+            "output": 108,
+            "cacheRead": 896,
+            "totalTokens": 1080
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3583.583375000002
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "level": "L2",
+      "n": 5,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2685,
+          "model_egress_bytes": 322,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1574.2342499999995,
+          "runtime_ms": 1386.1573749999989,
+          "e2e_ms": 2961.5954169999986,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1386.1573749999989
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2685,
+          "model_egress_bytes": 349,
+          "runtime_internal_bytes": 1791,
+          "llm_ms": 1288.4170839999988,
+          "runtime_ms": 1486.0129580000012,
+          "e2e_ms": 2775.400125000002,
+          "usage": {
+            "input": 91,
+            "output": 132,
+            "cacheRead": 896,
+            "totalTokens": 1119
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": false,
+          "maxed_out": false,
+          "tool_ms": 1486.0129580000012
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2685,
+          "model_egress_bytes": 347,
+          "runtime_internal_bytes": 1791,
+          "llm_ms": 1265.8096250000017,
+          "runtime_ms": 1825.5688750000008,
+          "e2e_ms": 3092.230792000002,
+          "usage": {
+            "input": 91,
+            "output": 134,
+            "cacheRead": 896,
+            "totalTokens": 1121
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": false,
+          "maxed_out": false,
+          "tool_ms": 1825.5688750000008
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2685,
+          "model_egress_bytes": 346,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1621.2235839999994,
+          "runtime_ms": 1105.502124999999,
+          "e2e_ms": 2728.1533340000024,
+          "usage": {
+            "input": 91,
+            "output": 134,
+            "cacheRead": 896,
+            "totalTokens": 1121
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1105.502124999999
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2685,
+          "model_egress_bytes": 322,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1198.8669169999994,
+          "runtime_ms": 1151.996500000001,
+          "e2e_ms": 2352.0034579999992,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1151.996500000001
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2685,
+          "model_egress_bytes": 417,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1346.7330000000002,
+          "runtime_ms": 1372.3266670000012,
+          "e2e_ms": 2720.623917000001,
+          "usage": {
+            "input": 91,
+            "output": 144,
+            "cacheRead": 896,
+            "totalTokens": 1131
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1372.3266670000012
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2685,
+          "model_egress_bytes": 322,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1293.8723329999993,
+          "runtime_ms": 1153.3035830000008,
+          "e2e_ms": 2448.3121660000033,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1153.3035830000008
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2685,
+          "model_egress_bytes": 416,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1388.6242500000008,
+          "runtime_ms": 1177.1533750000017,
+          "e2e_ms": 2567.1172080000033,
+          "usage": {
+            "input": 91,
+            "output": 147,
+            "cacheRead": 896,
+            "totalTokens": 1134
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1177.1533750000017
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2685,
+          "model_egress_bytes": 322,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1247.4742079999996,
+          "runtime_ms": 21489.060667000005,
+          "e2e_ms": 22737.594917000002,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 21489.060667000005
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2685,
+          "model_egress_bytes": 322,
+          "runtime_internal_bytes": 1142,
+          "llm_ms": 1643.3714590000018,
+          "runtime_ms": 1604.1506660000014,
+          "e2e_ms": 3248.1274580000027,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1604.1506660000014
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "level": "L2",
+      "n": 20,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2686,
+          "model_egress_bytes": 323,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1412.7607079999998,
+          "runtime_ms": 3653.602041,
+          "e2e_ms": 5068.501458000001,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3653.602041
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2686,
+          "model_egress_bytes": 323,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1278.5665410000001,
+          "runtime_ms": 3479.485958000001,
+          "e2e_ms": 4759.34375,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3479.485958000001
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2686,
+          "model_egress_bytes": 323,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1617.7198750000025,
+          "runtime_ms": 3565.1642919999977,
+          "e2e_ms": 5185.153542,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3565.1642919999977
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2686,
+          "model_egress_bytes": 323,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1275.2244580000006,
+          "runtime_ms": 3597.2974170000016,
+          "e2e_ms": 4873.422375000002,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3597.2974170000016
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2686,
+          "model_egress_bytes": 323,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1223.8919590000005,
+          "runtime_ms": 3629.0419170000023,
+          "e2e_ms": 4854.0302079999965,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3629.0419170000023
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2686,
+          "model_egress_bytes": 323,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1306.9192909999983,
+          "runtime_ms": 23417.830125,
+          "e2e_ms": 24725.527167,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 23417.830125
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2686,
+          "model_egress_bytes": 389,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1572.960665999999,
+          "runtime_ms": 3316.724749999994,
+          "e2e_ms": 4890.986833000003,
+          "usage": {
+            "input": 91,
+            "output": 134,
+            "cacheRead": 896,
+            "totalTokens": 1121
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3316.724749999994
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2686,
+          "model_egress_bytes": 323,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1394.0950830000074,
+          "runtime_ms": 3638.5043749999895,
+          "e2e_ms": 5033.560041000004,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3638.5043749999895
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2686,
+          "model_egress_bytes": 323,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1261.0332499999931,
+          "runtime_ms": 3316.623875000005,
+          "e2e_ms": 4579.742666999999,
+          "usage": {
+            "input": 91,
+            "output": 122,
+            "cacheRead": 896,
+            "totalTokens": 1109
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3316.623875000005
+        },
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2686,
+          "model_egress_bytes": 702,
+          "runtime_internal_bytes": 4599,
+          "llm_ms": 1665.0793750000012,
+          "runtime_ms": 3426.98887500001,
+          "e2e_ms": 5092.780375000002,
+          "usage": {
+            "input": 91,
+            "output": 216,
+            "cacheRead": 896,
+            "totalTokens": 1203
+          },
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3426.98887500001
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "level": "L1",
+      "n": 5,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5074,
+          "model_egress_bytes": 789,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4629.723501,
+          "tool_ms": 3917.006085000001,
+          "e2e_ms": 6062.807375000004,
+          "usage": {
+            "input": 662,
+            "output": 443,
+            "cacheRead": 2048,
+            "totalTokens": 3153
+          },
+          "final_text": "我已经获取了所有5个仓库的详细信息。现在按照 forks 从高到低排序：\n\n1. **elizaOS/eliza** - 5,611 forks\n2. **medusajs/medusa** - 5,036 forks\n3. **heygen-com/hyperframes** - 3,781 forks\n4. **mastra-ai/mastra** - 2,584 forks\n5. **humanlayer/12-factor-agents** - 1,902 forks\n\n按 forks 从高到低排序，前3个仓库的完整名称如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5100,
+          "model_egress_bytes": 787,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4332.667083000022,
+          "tool_ms": 3042.8238339999953,
+          "e2e_ms": 5481.594375000001,
+          "usage": {
+            "input": 413,
+            "output": 442,
+            "cacheRead": 2304,
+            "totalTokens": 3159
+          },
+          "final_text": "我已经获取到所有仓库的详细信息。现在按 forks 从高到低排序：\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. **mastra-ai/mastra** - 2584 forks\n5. **humanlayer/12-factor-agents** - 1902 forks\n\n按 forks 从高到低排序，前 3 个仓库为：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5046,
+          "model_egress_bytes": 728,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 3834.843458000003,
+          "tool_ms": 3089.307209999999,
+          "e2e_ms": 4980.960916000011,
+          "usage": {
+            "input": 658,
+            "output": 428,
+            "cacheRead": 2048,
+            "totalTokens": 3134
+          },
+          "final_text": "我已经获取了所有5个仓库的详细信息。现在按 forks 从高到低排序：\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. **mastra-ai/mastra** - 2584 forks\n5. **humanlayer/12-factor-agents** - 1902 forks\n\n按 forks 排序后，前3个仓库为：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5066,
+          "model_egress_bytes": 748,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 3808.3017490000057,
+          "tool_ms": 3408.795248999988,
+          "e2e_ms": 5145.879167000006,
+          "usage": {
+            "input": 531,
+            "output": 430,
+            "cacheRead": 2176,
+            "totalTokens": 3137
+          },
+          "final_text": "Let me sort the repositories by forks from highest to lowest:\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. **mastra-ai/mastra** - 2584 forks\n5. **humanlayer/12-factor-agents** - 1902 forks\n\n前 3 个按 forks 从高到低排序的仓库完整名称如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5038,
+          "model_egress_bytes": 723,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 3992.5967499999824,
+          "tool_ms": 2982.849165999971,
+          "e2e_ms": 5077.4044580000045,
+          "usage": {
+            "input": 654,
+            "output": 423,
+            "cacheRead": 2048,
+            "totalTokens": 3125
+          },
+          "final_text": "我已经获取了所有5个仓库的详细信息。现在按照 forks 从高到低排序：\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. **mastra-ai/mastra** - 2584 forks\n5. **humanlayer/12-factor-agents** - 1902 forks\n\n前3个仓库的完整名称如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5070,
+          "model_egress_bytes": 743,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 3968.954417999994,
+          "tool_ms": 3371.3668329999637,
+          "e2e_ms": 5342.601792000001,
+          "usage": {
+            "input": 404,
+            "output": 430,
+            "cacheRead": 2304,
+            "totalTokens": 3138
+          },
+          "final_text": "I have the fork counts for all 5 repositories. Let me sort them by forks from highest to lowest:\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. **mastra-ai/mastra** - 2584 forks\n5. **humanlayer/12-factor-agents** - 1902 forks\n\nThe top 3 by forks are:\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5130,
+          "model_egress_bytes": 755,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 3893.8189580000035,
+          "tool_ms": 3914.917791,
+          "e2e_ms": 5303.021500000003,
+          "usage": {
+            "input": 673,
+            "output": 430,
+            "cacheRead": 2048,
+            "totalTokens": 3151
+          },
+          "final_text": "I have all the fork data for the 5 repositories. Let me sort them by forks from high to low:\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n4. mastra-ai/mastra - 2584 forks\n5. humanlayer/12-factor-agents - 1902 forks\n\nThe top 3 by forks are:\n\n**elizaOS/eliza**\n**medusajs/medusa**\n**heygen-com/hyperframes**",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5070,
+          "model_egress_bytes": 710,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4457.356583000001,
+          "tool_ms": 13874.641000000003,
+          "e2e_ms": 16190.343041999993,
+          "usage": {
+            "input": 148,
+            "output": 425,
+            "cacheRead": 2560,
+            "totalTokens": 3133
+          },
+          "final_text": "I have all the data. Now let me sort by forks from high to low:\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. **mastra-ai/mastra** - 2584 forks\n5. **humanlayer/12-factor-agents** - 1902 forks\n\nThe top 3 by forks are:\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5072,
+          "model_egress_bytes": 714,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4113.465001000019,
+          "tool_ms": 3328.550500999976,
+          "e2e_ms": 5456.829415999993,
+          "usage": {
+            "input": 405,
+            "output": 428,
+            "cacheRead": 2304,
+            "totalTokens": 3137
+          },
+          "final_text": "I have all the details. Let me sort by forks from highest to lowest:\n\n1. **elizaOS/eliza** - 5,611 forks\n2. **medusajs/medusa** - 5,036 forks\n3. **heygen-com/hyperframes** - 3,781 forks\n4. **mastra-ai/mastra** - 2,584 forks\n5. **humanlayer/12-factor-agents** - 1,902 forks\n\nTop 3 by forks:\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5072,
+          "model_egress_bytes": 867,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4067.180667000037,
+          "tool_ms": 3660.9706649999425,
+          "e2e_ms": 5333.304415999999,
+          "usage": {
+            "input": 404,
+            "output": 478,
+            "cacheRead": 2304,
+            "totalTokens": 3186
+          },
+          "final_text": "Now I have all the fork data. Let me sort by forks from highest to lowest:\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. **mastra-ai/mastra** - 2584 forks\n5. **humanlayer/12-factor-agents** - 1902 forks\n\nTop 3 by forks:\n- elizaOS/eliza (5611)\n- medusajs/medusa (5036)\n- heygen-com/hyperframes (3781)\n\n按 forks 从高到低排序，前 3 个仓库的完整名称如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "level": "L1",
+      "n": 20,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11085,
+          "model_egress_bytes": 2048,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 8251.033374999999,
+          "tool_ms": 10904.46516599998,
+          "e2e_ms": 11335.072583999994,
+          "usage": {
+            "input": 1916,
+            "output": 1275,
+            "cacheRead": 3328,
+            "totalTokens": 6519
+          },
+          "final_text": "Now I have all the fork counts for the 20 repositories. Let me sort them by forks from highest to lowest:\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. mastra-ai/mastra - 2584 forks\n5. open-multi-agent/open-multi-agent - 2416 forks\n6. humanlayer/12-factor-agents - 1902 forks\n7. TencentCloud/TencentDB-Agent-Memory - 1524 forks\n8. mcp-use/mcp-use - 1406 forks\n9. VoltAgent/voltagent - 1076 forks\n10. openai/openai-agents-js - 894 forks\n11. genkit-ai/genkit - 817 forks\n12. withastro/flue - 450 forks\n13. 1weiho/open-slide - 436 forks\n14. vercel/eve - 427 forks\n15. PySpur-Dev/pyspur - 427 forks\n16. BuilderIO/agent-native - 422 forks\n17. darrenhinde/OpenAgentsControl - 379 forks\n18. magnitudedev/browser-agent - 234 forks\n19. formkit/formkit - 207 forks\n20. standardagents/arrow-js - 88 forks\n\nThe top 3 by forks are:\n- **elizaOS/eliza** (5611 forks) - highest\n- **medusajs/medusa** (5036 forks)\n- **heygen-com/hyperframes** (3781 forks)\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "open-multi-agent/open-multi-agent",
+            "humanlayer/12-factor-agents",
+            "TencentCloud/TencentDB-Agent-Memory",
+            "mcp-use/mcp-use",
+            "VoltAgent/voltagent",
+            "openai/openai-agents-js",
+            "genkit-ai/genkit",
+            "withastro/flue",
+            "1weiho/open-slide",
+            "vercel/eve",
+            "PySpur-Dev/pyspur",
+            "BuilderIO/agent-native",
+            "darrenhinde/OpenAgentsControl",
+            "magnitudedev/browser-agent",
+            "formkit/formkit",
+            "standardagents/arrow-js"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11032,
+          "model_egress_bytes": 1740,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 7255.382792000004,
+          "tool_ms": 11111.732830999972,
+          "e2e_ms": 10418.253583999991,
+          "usage": {
+            "input": 1777,
+            "output": 1162,
+            "cacheRead": 3456,
+            "totalTokens": 6395
+          },
+          "final_text": "现在我已经获取了所有20个仓库的详细信息。让我按 forks 数量从高到低进行排序：\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. open-multi-agent/open-multi-agent - 2416 forks\n5. mastra-ai/mastra - 2584 forks\n\n让我重新修正排序（从高到低）：\n1. elizaOS/eliza - 5611\n2. medusajs/medusa - 5036\n3. heygen-com/hyperframes - 3781\n4. mastra-ai/mastra - 2584\n5. open-multi-agent/open-multi-agent - 2416\n...\n\n前3个按 forks 从高到低排序的仓库是：\n\n**elizaOS/eliza** (5611 forks)\n**medusajs/medusa** (5036 forks)\n**heygen-com/hyperframes** (3781 forks)\n\n按 forks 从高到低排序，前 3 个仓库为：\n\n- elizaOS/eliza\n- medusajs/medusa\n- heygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "open-multi-agent/open-multi-agent",
+            "mastra-ai/mastra"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 10992,
+          "model_egress_bytes": 1576,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 7216.970957000012,
+          "tool_ms": 11970.977543999994,
+          "e2e_ms": 10805.318417000002,
+          "usage": {
+            "input": 1767,
+            "output": 1119,
+            "cacheRead": 3456,
+            "totalTokens": 6342
+          },
+          "final_text": "我已获取到所有20个仓库的详细信息。现在根据 forks 从高到低排序：\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n4. open-multi-agent/open-multi-agent - 2416\n5. mastra-ai/mastra - 2584\n...\n\n让我确认排序。按 forks 从高到低：\n\n1. elizaOS/eliza: 5611\n2. medusajs/medusa: 5036\n3. heygen-com/hyperframes: 3781\n4. mastra-ai/mastra: 2584\n5. open-multi-agent/open-multi-agent: 2416\n6. humanlayer/12-factor-agents: 1902\n...\n\n前3个是 elizaOS/eliza (5611), medusajs/medusa (5036), heygen-com/hyperframes (3781)。\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "open-multi-agent/open-multi-agent",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11077,
+          "model_egress_bytes": 2003,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 7602.420291000002,
+          "tool_ms": 12339.107662999944,
+          "e2e_ms": 11270.354584,
+          "usage": {
+            "input": 1016,
+            "output": 1241,
+            "cacheRead": 4224,
+            "totalTokens": 6481
+          },
+          "final_text": "我已经获取到了所有20个仓库的详细信息。现在让我根据 forks 数量从高到低进行排序：\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. mastra-ai/mastra - 2584 forks\n5. open-multi-agent/open-multi-agent - 2416 forks\n6. humanlayer/12-factor-agents - 1902 forks\n7. TencentCloud/TencentDB-Agent-Memory - 1524 forks\n8. mcp-use/mcp-use - 1406 forks\n9. VoltAgent/voltagent - 1076 forks\n10. openai/openai-agents-js - 894 forks\n11. genkit-ai/genkit - 817 forks\n12. withastro/flue - 450 forks\n13. 1weiho/open-slide - 436 forks\n14. PySpur-Dev/pyspur - 427 forks\n15. vercel/eve - 427 forks\n16. BuilderIO/agent-native - 422 forks\n17. darrenhinde/OpenAgentsControl - 379 forks\n18. magnitudedev/browser-agent - 234 forks\n19. formkit/formkit - 207 forks\n20. standardagents/arrow-js - 88 forks\n\n按 forks 从高到低排序，前 3 个仓库的完整名称如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "open-multi-agent/open-multi-agent",
+            "humanlayer/12-factor-agents",
+            "TencentCloud/TencentDB-Agent-Memory",
+            "mcp-use/mcp-use",
+            "VoltAgent/voltagent",
+            "openai/openai-agents-js",
+            "genkit-ai/genkit",
+            "withastro/flue",
+            "1weiho/open-slide",
+            "PySpur-Dev/pyspur",
+            "vercel/eve",
+            "BuilderIO/agent-native",
+            "darrenhinde/OpenAgentsControl",
+            "magnitudedev/browser-agent",
+            "formkit/formkit",
+            "standardagents/arrow-js"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11104,
+          "model_egress_bytes": 1371,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 6916.3004590000055,
+          "tool_ms": 18097.719375000015,
+          "e2e_ms": 17166.407084000006,
+          "usage": {
+            "input": 1915,
+            "output": 1025,
+            "cacheRead": 3328,
+            "totalTokens": 6268
+          },
+          "final_text": "Now I have all the fork data. Let me sort by forks from highest to lowest:\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n\nThe top 3 repos by forks are:\n- elizaOS/eliza (5611)\n- medusajs/medusa (5036)\n- heygen-com/hyperframes (3781)\n\nHere are the results:\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11008,
+          "model_egress_bytes": 1995,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 8272.977584000007,
+          "tool_ms": 11611.934583000111,
+          "e2e_ms": 11617.463416999992,
+          "usage": {
+            "input": 1898,
+            "output": 1254,
+            "cacheRead": 3328,
+            "totalTokens": 6480
+          },
+          "final_text": "I now have the fork counts for all 20 repositories. Let me sort them by forks from highest to lowest:\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n4. mastra-ai/mastra - 2584 forks\n5. open-multi-agent/open-multi-agent - 2416 forks\n6. humanlayer/12-factor-agents - 1902 forks\n7. TencentCloud/TencentDB-Agent-Memory - 1524 forks\n8. mcp-use/mcp-use - 1406 forks\n9. VoltAgent/voltagent - 1076 forks\n10. openai/openai-agents-js - 894 forks\n11. genkit-ai/genkit - 817 forks\n12. withastro/flue - 450 forks\n13. 1weiho/open-slide - 436 forks\n14. vercel/eve - 427 forks\n15. PySpur-Dev/pyspur - 427 forks\n16. BuilderIO/agent-native - 422 forks\n17. darrenhinde/OpenAgentsControl - 379 forks\n18. magnitudedev/browser-agent - 234 forks\n19. formkit/formkit - 207 forks\n20. standardagents/arrow-js - 88 forks\n\nThe top 3 by forks are: elizaOS/eliza, medusajs/medusa, and heygen-com/hyperframes.\n\n按 forks 从高到低排序，前 3 个仓库的完整名称为：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "open-multi-agent/open-multi-agent",
+            "humanlayer/12-factor-agents",
+            "TencentCloud/TencentDB-Agent-Memory",
+            "mcp-use/mcp-use",
+            "VoltAgent/voltagent",
+            "openai/openai-agents-js",
+            "genkit-ai/genkit",
+            "withastro/flue",
+            "1weiho/open-slide",
+            "vercel/eve",
+            "PySpur-Dev/pyspur",
+            "BuilderIO/agent-native",
+            "darrenhinde/OpenAgentsControl",
+            "magnitudedev/browser-agent",
+            "formkit/formkit",
+            "standardagents/arrow-js",
+            "heygen-com/hyperframes."
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11040,
+          "model_egress_bytes": 1898,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 7818.228667000018,
+          "tool_ms": 11721.122916000022,
+          "e2e_ms": 11161.737666,
+          "usage": {
+            "input": 1007,
+            "output": 1216,
+            "cacheRead": 4224,
+            "totalTokens": 6447
+          },
+          "final_text": "I now have the fork counts for all 20 repositories. Let me sort them by forks from highest to lowest:\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n4. mastra-ai/mastra - 2584 forks\n5. open-multi-agent/open-multi-agent - 2416 forks\n6. humanlayer/12-factor-agents - 1902 forks\n7. TencentCloud/TencentDB-Agent-Memory - 1524 forks\n8. mcp-use/mcp-use - 1406 forks\n9. VoltAgent/voltagent - 1076 forks\n10. openai/openai-agents-js - 894 forks\n11. genkit-ai/genkit - 817 forks\n12. withastro/flue - 450 forks\n13. vercel/eve - 427 forks\n14. PySpur-Dev/pyspur - 427 forks\n15. 1weiho/open-slide - 436 forks\n16. BuilderIO/agent-native - 422 forks\n17. darrenhinde/OpenAgentsControl - 379 forks\n18. magnitudedev/browser-agent - 234 forks\n19. formkit/formkit - 207 forks\n20. standardagents/arrow-js - 88 forks\n\nThe top 3 by forks are:\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "open-multi-agent/open-multi-agent",
+            "humanlayer/12-factor-agents",
+            "TencentCloud/TencentDB-Agent-Memory",
+            "mcp-use/mcp-use",
+            "VoltAgent/voltagent",
+            "openai/openai-agents-js",
+            "genkit-ai/genkit",
+            "withastro/flue",
+            "vercel/eve",
+            "PySpur-Dev/pyspur",
+            "1weiho/open-slide",
+            "BuilderIO/agent-native",
+            "darrenhinde/OpenAgentsControl",
+            "magnitudedev/browser-agent",
+            "formkit/formkit",
+            "standardagents/arrow-js"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11057,
+          "model_egress_bytes": 1890,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 8518.022208999988,
+          "tool_ms": 11673.23820699993,
+          "e2e_ms": 11799.621333000017,
+          "usage": {
+            "input": 1910,
+            "output": 1218,
+            "cacheRead": 3328,
+            "totalTokens": 6456
+          },
+          "final_text": "I now have all the fork data for the 20 repositories. Let me sort them by forks from highest to lowest:\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n4. mastra-ai/mastra - 2584 forks\n5. open-multi-agent/open-multi-agent - 2416 forks\n6. humanlayer/12-factor-agents - 1902 forks\n7. TencentCloud/TencentDB-Agent-Memory - 1524 forks\n8. mcp-use/mcp-use - 1406 forks\n9. VoltAgent/voltagent - 1076 forks\n10. openai/openai-agents-js - 894 forks\n11. genkit-ai/genkit - 817 forks\n12. withastro/flue - 450 forks\n13. 1weiho/open-slide - 436 forks\n14. PySpur-Dev/pyspur - 427 forks\n15. vercel/eve - 427 forks\n16. BuilderIO/agent-native - 422 forks\n17. darrenhinde/OpenAgentsControl - 379 forks\n18. magnitudedev/browser-agent - 234 forks\n19. formkit/formkit - 207 forks\n20. standardagents/arrow-js - 88 forks\n\nThe top 3 by forks are:\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "open-multi-agent/open-multi-agent",
+            "humanlayer/12-factor-agents",
+            "TencentCloud/TencentDB-Agent-Memory",
+            "mcp-use/mcp-use",
+            "VoltAgent/voltagent",
+            "openai/openai-agents-js",
+            "genkit-ai/genkit",
+            "withastro/flue",
+            "1weiho/open-slide",
+            "PySpur-Dev/pyspur",
+            "vercel/eve",
+            "BuilderIO/agent-native",
+            "darrenhinde/OpenAgentsControl",
+            "magnitudedev/browser-agent",
+            "formkit/formkit",
+            "standardagents/arrow-js"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11062,
+          "model_egress_bytes": 1321,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 6749.21845700001,
+          "tool_ms": 13169.379082999978,
+          "e2e_ms": 10561.075792000018,
+          "usage": {
+            "input": 1909,
+            "output": 1000,
+            "cacheRead": 3328,
+            "totalTokens": 6237
+          },
+          "final_text": "现在我有了所有20个仓库的 forks 数据。让我按 forks 从高到低排序：\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n\n以下是按 forks 从高到低排序后的前 3 个仓库完整名称（owner/repo）：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "owner/repo"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11086,
+          "model_egress_bytes": 1949,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 8313.88741700002,
+          "tool_ms": 12778.013501999987,
+          "e2e_ms": 11944.164415999985,
+          "usage": {
+            "input": 1783,
+            "output": 1262,
+            "cacheRead": 3456,
+            "totalTokens": 6501
+          },
+          "final_text": "Now I have the forks count for all 20 repositories. Let me sort them by forks from highest to lowest:\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. open-multi-agent/open-multi-agent - 2416\n5. mastra-ai/mastra - 2584\n... etc.\n\nLet me sort properly:\n- elizaOS/eliza: 5611\n- medusajs/medusa: 5036\n- heygen-com/hyperframes: 3781\n- mastra-ai/mastra: 2584\n- open-multi-agent/open-multi-agent: 2416\n- humanlayer/12-factor-agents: 1902\n- TencentCloud/TencentDB-Agent-Memory: 1524\n- mcp-use/mcp-use: 1406\n- VoltAgent/voltagent: 1076\n- openai/openai-agents-js: 894\n- genkit-ai/genkit: 817\n- withastro/flue: 450\n- 1weiho/open-slide: 436\n- PySpur-Dev/pyspur: 427\n- vercel/eve: 427\n- BuilderIO/agent-native: 422\n- darrenhinde/OpenAgentsControl: 379\n- magnitudedev/browser-agent: 234\n- formkit/formkit: 207\n- standardagents/arrow-js: 88\n\nThe top 3 by forks are:\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "open-multi-agent/open-multi-agent",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents",
+            "TencentCloud/TencentDB-Agent-Memory",
+            "mcp-use/mcp-use",
+            "VoltAgent/voltagent",
+            "openai/openai-agents-js",
+            "genkit-ai/genkit",
+            "withastro/flue",
+            "1weiho/open-slide",
+            "PySpur-Dev/pyspur",
+            "vercel/eve",
+            "BuilderIO/agent-native",
+            "darrenhinde/OpenAgentsControl",
+            "magnitudedev/browser-agent",
+            "formkit/formkit",
+            "standardagents/arrow-js"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "level": "L2",
+      "n": 5,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5292,
+          "model_egress_bytes": 809,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4573.1359580000135,
+          "tool_ms": 3177.054084000003,
+          "e2e_ms": 5834.763208999997,
+          "usage": {
+            "input": 713,
+            "output": 448,
+            "cacheRead": 2048,
+            "totalTokens": 3209
+          },
+          "final_text": "All 5 repositories have `archived=false` and `language=\"TypeScript\"`, so all qualify. Now let me sort them by forks from highest to lowest:\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. **mastra-ai/mastra** - 2584 forks\n5. **humanlayer/12-factor-agents** - 1902 forks\n\nThe top 3 by forks are:\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5341,
+          "model_egress_bytes": 790,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 3949.474250000014,
+          "tool_ms": 3834.0949580000015,
+          "e2e_ms": 5680.315457999997,
+          "usage": {
+            "input": 728,
+            "output": 435,
+            "cacheRead": 2048,
+            "totalTokens": 3211
+          },
+          "final_text": "所有 5 个仓库都满足条件：archived=false 且 language=\"TypeScript\"。现在按 forks 从高到低排序：\n\n1. **elizaOS/eliza** - forks: 5611\n2. **medusajs/medusa** - forks: 5036\n3. **heygen-com/hyperframes** - forks: 3781\n\n以下是按 forks 从高到低排序的前 3 个仓库：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5289,
+          "model_egress_bytes": 688,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4227.648084,
+          "tool_ms": 3386.1127479999996,
+          "e2e_ms": 5511.533457999991,
+          "usage": {
+            "input": 583,
+            "output": 404,
+            "cacheRead": 2176,
+            "totalTokens": 3163
+          },
+          "final_text": "所有 5 个仓库都满足条件：archived=false 且 language=\"TypeScript\"。\n\n现在按 forks 从高到低排序：\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n\n前 3 个仓库如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5095,
+          "model_egress_bytes": 703,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 5066.808540999991,
+          "tool_ms": 16714.872291000007,
+          "e2e_ms": 19155.98258299999,
+          "usage": {
+            "input": 549,
+            "output": 434,
+            "cacheRead": 2176,
+            "totalTokens": 3159
+          },
+          "final_text": "所有5个仓库都满足 `archived=false` 且 `language=\"TypeScript\"` 的条件。现在按 forks 从高到低排序：\n\n1. **elizaOS/eliza** - forks: 5611\n2. **medusajs/medusa** - forks: 5036\n3. **heygen-com/hyperframes** - forks: 3781\n4. **mastra-ai/mastra** - forks: 2584\n5. **humanlayer/12-factor-agents** - forks: 1902\n\n前3个仓库按 forks 从高到低排序如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5261,
+          "model_egress_bytes": 698,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4161.876207999987,
+          "tool_ms": 3804.0300840000273,
+          "e2e_ms": 5934.544291999991,
+          "usage": {
+            "input": 577,
+            "output": 404,
+            "cacheRead": 2176,
+            "totalTokens": 3157
+          },
+          "final_text": "All 5 repositories have `archived=false` and `language=\"TypeScript\"`, so all qualify. Now let me sort them by forks from high to low:\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n\nThe top 3 repositories by forks are:\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5269,
+          "model_egress_bytes": 803,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4961.174458000023,
+          "tool_ms": 3223.6570410000277,
+          "e2e_ms": 6216.345791,
+          "usage": {
+            "input": 452,
+            "output": 446,
+            "cacheRead": 2304,
+            "totalTokens": 3202
+          },
+          "final_text": "All 5 repositories have `archived=false` and `language=\"TypeScript\"`, so all qualify. Now let me sort them by forks from high to low:\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. **mastra-ai/mastra** - 2584 forks\n5. **humanlayer/12-factor-agents** - 1902 forks\n\nThe top 3 repositories by forks are:\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5328,
+          "model_egress_bytes": 909,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4759.376291000051,
+          "tool_ms": 3098.423500999954,
+          "e2e_ms": 5872.572291999997,
+          "usage": {
+            "input": 723,
+            "output": 477,
+            "cacheRead": 2048,
+            "totalTokens": 3248
+          },
+          "final_text": "所有5个仓库都满足 archived=false 且 language=\"TypeScript\" 的条件。现在按 forks 从高到低排序：\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n4. mastra-ai/mastra - 2584 forks\n5. humanlayer/12-factor-agents - 1902 forks\n\n前3个仓库为：elizaOS/eliza、medusajs/medusa、heygen-com/hyperframes\n\n按 forks 从高到低排序，前 3 个仓库的完整名称为：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5098,
+          "model_egress_bytes": 634,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4344.738457999978,
+          "tool_ms": 4279.125331999967,
+          "e2e_ms": 5753.7851669999945,
+          "usage": {
+            "input": 421,
+            "output": 405,
+            "cacheRead": 2304,
+            "totalTokens": 3130
+          },
+          "final_text": "所有5个仓库都满足条件：`archived=false` 且 `language=\"TypeScript\"`。现在按照 forks 从高到低排序：\n\n1. `elizaOS/eliza` - forks: 5611\n2. `medusajs/medusa` - forks: 5036\n3. `heygen-com/hyperframes` - forks: 3781\n\n按 forks 从高到低排序，前 3 个仓库的完整名称如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5146,
+          "model_egress_bytes": 667,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4413.737583999959,
+          "tool_ms": 3918.3115409999737,
+          "e2e_ms": 5817.450291999994,
+          "usage": {
+            "input": 430,
+            "output": 409,
+            "cacheRead": 2304,
+            "totalTokens": 3143
+          },
+          "final_text": "所有5个仓库都满足 `archived=false` 且 `language=\"TypeScript\"` 的条件。现在按 forks 从高到低排序：\n\n1. **elizaOS/eliza** - forks: 5611\n2. **medusajs/medusa** - forks: 5036\n3. **heygen-com/hyperframes** - forks: 3781\n\n以下为前 3 个仓库的完整名称：\n\n```\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes\n```",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 1142,
+          "model_ingress_bytes": 5275,
+          "model_egress_bytes": 850,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 4316.480291000014,
+          "tool_ms": 3583.5475419999566,
+          "e2e_ms": 5956.131791000022,
+          "usage": {
+            "input": 451,
+            "output": 450,
+            "cacheRead": 2304,
+            "totalTokens": 3205
+          },
+          "final_text": "我已经获取了所有5个仓库的详细信息。让我们分析一下：\n\n所有5个仓库都满足条件：`archived=false` 且 `language=\"TypeScript\"`。\n\n按 forks 从高到低排序：\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n4. mastra-ai/mastra - 2584 forks\n5. humanlayer/12-factor-agents - 1902 forks\n\n前3个仓库的完整名称如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "level": "L2",
+      "n": 20,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 4696,
+          "model_ingress_bytes": 18742,
+          "model_egress_bytes": 2047,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 8262.109167000017,
+          "tool_ms": 13684.056125999967,
+          "e2e_ms": 13184.212792000006,
+          "usage": {
+            "input": 2112,
+            "output": 1263,
+            "cacheRead": 6656,
+            "totalTokens": 10031
+          },
+          "final_text": "所有20个仓库均满足 `archived=false` 且 `language=\"TypeScript\"` 的条件。按 forks 从高到低排序后，前3个仓库为：\n\nelizaOS/eliza (forks: 5611)\nmedusajs/medusa (forks: 5036)\nheygen-com/hyperframes (forks: 3781)\n\n最终答案如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11287,
+          "model_egress_bytes": 2168,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 8396.089831999998,
+          "tool_ms": 12192.492085000005,
+          "e2e_ms": 12162.565917,
+          "usage": {
+            "input": 1961,
+            "output": 1345,
+            "cacheRead": 3328,
+            "totalTokens": 6634
+          },
+          "final_text": "All 20 repositories have `archived=false` and `language=\"TypeScript\"`, so all qualify. Now let me sort them by forks from high to low and identify the top 3.\n\nHere are the forks for each repository:\n1. heygen-com/hyperframes: 3781\n2. medusajs/medusa: 5036\n3. mastra-ai/mastra: 2584\n4. humanlayer/12-factor-agents: 1902\n5. elizaOS/eliza: 5611\n6. TencentCloud/TencentDB-Agent-Memory: 1524\n7. mcp-use/mcp-use: 1406\n8. VoltAgent/voltagent: 1076\n9. withastro/flue: 450\n10. open-multi-agent/open-multi-agent: 2416\n11. genkit-ai/genkit: 817\n12. 1weiho/open-slide: 436\n13. PySpur-Dev/pyspur: 427\n14. formkit/formkit: 207\n15. darrenhinde/OpenAgentsControl: 379\n16. BuilderIO/agent-native: 422\n17. vercel/eve: 427\n18. magnitudedev/browser-agent: 234\n19. standardagents/arrow-js: 88\n20. openai/openai-agents-js: 894\n\nSorting by forks (high to low):\n1. elizaOS/eliza: 5611\n2. medusajs/medusa: 5036\n3. heygen-com/hyperframes: 3781\n4. mastra-ai/mastra: 2584\n5. open-multi-agent/open-multi-agent: 2416\n...\n\nThe top 3 by forks are:\n1. elizaOS/eliza (5611 forks)\n2. medusajs/medusa (5036 forks)\n3. heygen-com/hyperframes (3781 forks)\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents",
+            "elizaOS/eliza",
+            "TencentCloud/TencentDB-Agent-Memory",
+            "mcp-use/mcp-use",
+            "VoltAgent/voltagent",
+            "withastro/flue",
+            "open-multi-agent/open-multi-agent",
+            "genkit-ai/genkit",
+            "1weiho/open-slide",
+            "PySpur-Dev/pyspur",
+            "formkit/formkit",
+            "darrenhinde/OpenAgentsControl",
+            "BuilderIO/agent-native",
+            "vercel/eve",
+            "magnitudedev/browser-agent",
+            "standardagents/arrow-js",
+            "openai/openai-agents-js"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11458,
+          "model_egress_bytes": 2407,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 8719.363459,
+          "tool_ms": 16449.58329100003,
+          "e2e_ms": 16876.294083999994,
+          "usage": {
+            "input": 1990,
+            "output": 1349,
+            "cacheRead": 3328,
+            "totalTokens": 6667
+          },
+          "final_text": "我获取了所有20个仓库的详细信息。所有仓库都满足 archived=false 且 language=\"TypeScript\" 的条件。\n\n现在我需要按照 forks 从高到低排序。让我整理一下各仓库的 forks 数：\n\n1. elizaOS/eliza - 5611\n2. medusajs/medusa - 5036\n3. heygen-com/hyperframes - 3781\n4. mastra-ai/mastra - 2584\n5. open-multi-agent/open-multi-agent - 2416\n6. humanlayer/12-factor-agents - 1902\n7. TencentCloud/TencentDB-Agent-Memory - 1524\n8. mcp-use/mcp-use - 1406\n9. VoltAgent/voltagent - 1076\n10. openai/openai-agents-js - 894\n11. genkit-ai/genkit - 817\n12. withastro/flue - 450\n13. 1weiho/open-slide - 436\n14. vercel/eve - 427\n15. PySpur-Dev/pyspur - 427\n16. BuilderIO/agent-native - 422\n17. darrenhinde/OpenAgentsControl - 379\n18. magnitudedev/browser-agent - 234\n19. formkit/formkit - 207\n20. standardagents/arrow-js - 88\n\n按 forks 从高到低排序，前3个仓库是：\n1. elizaOS/eliza (5611 forks)\n2. medusajs/medusa (5036 forks)\n3. heygen-com/hyperframes (3781 forks)\n\n所有20个仓库均满足 archived=false 且 language=\"TypeScript\" 的条件，经排序后，按 forks 从高到低排列，前 3 个仓库的完整名称如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "open-multi-agent/open-multi-agent",
+            "humanlayer/12-factor-agents",
+            "TencentCloud/TencentDB-Agent-Memory",
+            "mcp-use/mcp-use",
+            "VoltAgent/voltagent",
+            "openai/openai-agents-js",
+            "genkit-ai/genkit",
+            "withastro/flue",
+            "1weiho/open-slide",
+            "vercel/eve",
+            "PySpur-Dev/pyspur",
+            "BuilderIO/agent-native",
+            "darrenhinde/OpenAgentsControl",
+            "magnitudedev/browser-agent",
+            "formkit/formkit",
+            "standardagents/arrow-js"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11300,
+          "model_egress_bytes": 1698,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 7192.345958999998,
+          "tool_ms": 11745.94458599994,
+          "e2e_ms": 10543.526790999982,
+          "usage": {
+            "input": 1965,
+            "output": 1120,
+            "cacheRead": 3328,
+            "totalTokens": 6413
+          },
+          "final_text": "我已经获取了所有20个仓库的详细信息。现在让我分析这些数据：\n\n所有20个仓库的 `archived` 均为 `false`，`language` 均为 `TypeScript`，因此全部满足条件。\n\n接下来按 `forks` 从高到低排序：\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n4. open-multi-agent/open-multi-agent - 2416\n5. mastra-ai/mastra - 2584\n6. humanlayer/12-factor-agents - 1902\n...\n\n按 forks 排序后前3个为：\n1. elizaOS/eliza (5611)\n2. medusajs/medusa (5036)\n3. heygen-com/hyperframes (3781)\n\n前 3 个仓库的完整名称如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "open-multi-agent/open-multi-agent",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11267,
+          "model_egress_bytes": 2075,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 8094.6529170000285,
+          "tool_ms": 12471.719837000099,
+          "e2e_ms": 12016.528166999982,
+          "usage": {
+            "input": 1829,
+            "output": 1258,
+            "cacheRead": 3456,
+            "totalTokens": 6543
+          },
+          "final_text": "我已经获取了所有20个仓库的详细信息。现在让我筛选并排序。\n\n所有20个仓库都是 `archived=false` 且 `language=\"TypeScript\"`，全部符合条件。现在按 forks 从高到低排序：\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n4. mastra-ai/mastra - 2584 forks\n5. open-multi-agent/open-multi-agent - 2416 forks\n6. humanlayer/12-factor-agents - 1902 forks\n7. TencentCloud/TencentDB-Agent-Memory - 1524 forks\n8. mcp-use/mcp-use - 1406 forks\n9. VoltAgent/voltagent - 1076 forks\n10. openai/openai-agents-js - 894 forks\n11. genkit-ai/genkit - 817 forks\n12. withastro/flue - 450 forks\n13. 1weiho/open-slide - 436 forks\n14. vercel/eve - 427 forks\n15. PySpur-Dev/pyspur - 427 forks\n16. BuilderIO/agent-native - 422 forks\n17. darrenhinde/OpenAgentsControl - 379 forks\n18. magnitudedev/browser-agent - 234 forks\n19. formkit/formkit - 207 forks\n20. standardagents/arrow-js - 88 forks\n\n按 forks 从高到低排序后，前3个仓库为：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "open-multi-agent/open-multi-agent",
+            "humanlayer/12-factor-agents",
+            "TencentCloud/TencentDB-Agent-Memory",
+            "mcp-use/mcp-use",
+            "VoltAgent/voltagent",
+            "openai/openai-agents-js",
+            "genkit-ai/genkit",
+            "withastro/flue",
+            "1weiho/open-slide",
+            "vercel/eve",
+            "PySpur-Dev/pyspur",
+            "BuilderIO/agent-native",
+            "darrenhinde/OpenAgentsControl",
+            "magnitudedev/browser-agent",
+            "formkit/formkit",
+            "standardagents/arrow-js"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11287,
+          "model_egress_bytes": 1476,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 6962.804708999989,
+          "tool_ms": 11679.884417000052,
+          "e2e_ms": 10405.228457999998,
+          "usage": {
+            "input": 1963,
+            "output": 1036,
+            "cacheRead": 3328,
+            "totalTokens": 6327
+          },
+          "final_text": "I now have all the detailed information for the 20 repositories. Let me filter and sort them.\n\nAll 20 repositories have `archived=false` and `language=\"TypeScript\"`, so all pass the filter.\n\nNow let me sort by forks from high to low:\n\n1. **elizaOS/eliza** - 5611 forks\n2. **medusajs/medusa** - 5036 forks\n3. **heygen-com/hyperframes** - 3781 forks\n\nThe top 3 repositories by forks are:\n\n```\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes\n```",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11199,
+          "model_egress_bytes": 1347,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 6088.733792000043,
+          "tool_ms": 11934.757333000045,
+          "e2e_ms": 9545.640459000017,
+          "usage": {
+            "input": 1814,
+            "output": 1017,
+            "cacheRead": 3456,
+            "totalTokens": 6287
+          },
+          "final_text": "所有20个仓库都满足 `archived=false` 且 `language=\"TypeScript\"` 的条件。现在按 forks 从高到低排序：\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n4. mastra-ai/mastra - 2584 forks\n5. open-multi-agent/open-multi-agent - 2416 forks\n...\n\n前3个按 forks 排序的仓库为：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "open-multi-agent/open-multi-agent"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11220,
+          "model_egress_bytes": 1652,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 7959.017000999971,
+          "tool_ms": 13139.544413999945,
+          "e2e_ms": 12207.136709000013,
+          "usage": {
+            "input": 1819,
+            "output": 1095,
+            "cacheRead": 3456,
+            "totalTokens": 6370
+          },
+          "final_text": "我已经获取了所有20个仓库的详细信息。现在让我筛选条件并排序：\n\n筛选条件：\n- archived=false：所有仓库都满足\n- language=\"TypeScript\"：所有仓库都满足\n\n所以所有20个仓库都符合条件。现在按 forks 从高到低排序：\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n4. mastra-ai/mastra - 2584 forks\n5. open-multi-agent/open-multi-agent - 2416 forks\n...\n\n前3个按 forks 从高到低排序的仓库是：\n1. elizaOS/eliza (5611)\n2. medusajs/medusa (5036)\n3. heygen-com/hyperframes (3781)\n\n任务完成。下面是最终答案：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes",
+            "mastra-ai/mastra",
+            "open-multi-agent/open-multi-agent"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11171,
+          "model_egress_bytes": 1241,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 6469.388082999998,
+          "tool_ms": 11869.192542000063,
+          "e2e_ms": 9806.76670800001,
+          "usage": {
+            "input": 1809,
+            "output": 980,
+            "cacheRead": 3456,
+            "totalTokens": 6245
+          },
+          "final_text": "All 20 repositories have `archived=false` and `language=\"TypeScript\"`, so all qualify. Now let me sort them by forks from high to low:\n\n1. elizaOS/eliza - 5611 forks\n2. medusajs/medusa - 5036 forks\n3. heygen-com/hyperframes - 3781 forks\n\nThe top 3 repositories by forks are:\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "elizaOS/eliza",
+            "medusajs/medusa",
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        },
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 4599,
+          "model_ingress_bytes": 11250,
+          "model_egress_bytes": 3508,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 9910.842500999977,
+          "tool_ms": 13657.248246000032,
+          "e2e_ms": 14212.928959000012,
+          "usage": {
+            "input": 929,
+            "output": 1717,
+            "cacheRead": 4352,
+            "totalTokens": 6998
+          },
+          "final_text": "我获取到了所有20个仓库的详细信息。现在我需要筛选出 `archived=false` 且 `language=\"TypeScript\"` 的仓库，然后按 forks 从高到低排序。\n\n检查所有仓库：\n1. heygen-com/hyperframes - archived=false, TypeScript, forks=3781\n2. medusajs/medusa - archived=false, TypeScript, forks=5036\n3. mastra-ai/mastra - archived=false, TypeScript, forks=2584\n4. humanlayer/12-factor-agents - archived=false, TypeScript, forks=1902\n5. elizaOS/eliza - archived=false, TypeScript, forks=5611\n6. TencentCloud/TencentDB-Agent-Memory - archived=false, TypeScript, forks=1524\n7. mcp-use/mcp-use - archived=false, TypeScript, forks=1406\n8. VoltAgent/voltagent - archived=false, TypeScript, forks=1076\n9. withastro/flue - archived=false, TypeScript, forks=450\n10. open-multi-agent/open-multi-agent - archived=false, TypeScript, forks=2416\n11. genkit-ai/genkit - archived=false, TypeScript, forks=817\n12. 1weiho/open-slide - archived=false, TypeScript, forks=436\n13. PySpur-Dev/pyspur - archived=false, TypeScript, forks=427\n14. formkit/formkit - archived=false, TypeScript, forks=207\n15. darrenhinde/OpenAgentsControl - archived=false, TypeScript, forks=379\n16. BuilderIO/agent-native - archived=false, TypeScript, forks=422\n17. vercel/eve - archived=false, TypeScript, forks=427\n18. magnitudedev/browser-agent - archived=false, TypeScript, forks=234\n19. standardagents/arrow-js - archived=false, TypeScript, forks=88\n20. openai/openai-agents-js - archived=false, TypeScript, forks=894\n\n所有20个仓库都满足 archived=false 且 language=TypeScript 的条件。现在按 forks 从高到低排序：\n\n按 forks 排序：\n1. elizaOS/eliza - 5611\n2. medusajs/medusa - 5036\n3. heygen-com/hyperframes - 3781\n4. mastra-ai/mastra - 2584\n5. open-multi-agent/open-multi-agent - 2416\n6. humanlayer/12-factor-agents - 1902\n7. TencentCloud/TencentDB-Agent-Memory - 1524\n8. mcp-use/mcp-use - 1406\n9. VoltAgent/voltagent - 1076\n10. openai/openai-agents-js - 894\n11. genkit-ai/genkit - 817\n12. withastro/flue - 450\n13. 1weiho/open-slide - 436\n14. PySpur-Dev/pyspur - 427\n15. vercel/eve - 427\n16. BuilderIO/agent-native - 422\n17. darrenhinde/OpenAgentsControl - 379\n18. magnitudedev/browser-agent - 234\n19. formkit/formkit - 207\n20. standardagents/arrow-js - 88\n\n前3个仓库按 forks 从高到低排序是：\n1. elizaOS/eliza (5611)\n2. medusajs/medusa (5036)\n3. heygen-com/hyperframes (3781)\n\n按 forks 从高到低排序，前 3 个仓库的完整名称如下：\n\nelizaOS/eliza\nmedusajs/medusa\nheygen-com/hyperframes",
+          "answered": [
+            "heygen-com/hyperframes",
+            "medusajs/medusa",
+            "mastra-ai/mastra",
+            "humanlayer/12-factor-agents",
+            "elizaOS/eliza",
+            "TencentCloud/TencentDB-Agent-Memory",
+            "mcp-use/mcp-use",
+            "VoltAgent/voltagent",
+            "withastro/flue",
+            "open-multi-agent/open-multi-agent",
+            "genkit-ai/genkit",
+            "1weiho/open-slide",
+            "PySpur-Dev/pyspur",
+            "formkit/formkit",
+            "darrenhinde/OpenAgentsControl",
+            "BuilderIO/agent-native",
+            "vercel/eve",
+            "magnitudedev/browser-agent",
+            "standardagents/arrow-js",
+            "openai/openai-agents-js"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    }
+  ]
+}
