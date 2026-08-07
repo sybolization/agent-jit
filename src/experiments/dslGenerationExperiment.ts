@@ -76,7 +76,13 @@ const TASK =
   '"agent framework language:typescript"），取前 10 个，然后并行获取每个仓库的详细信息（用 full_name），' +
   "最后截取前 3 个作为最终结果并返回。";
 
-const TASK_SPEC: TaskSpec = { query: "agent framework", limit: 10, mapKey: "full_name", takeCount: 3 };
+const TASK_SPEC: TaskSpec = {
+  query: "agent framework",
+  queryTokens: ["agent framework", "language:typescript"],
+  limit: 10,
+  mapKey: "full_name",
+  takeCount: 3,
+};
 
 function syntaxGuide(arm: ArmConfig): string[] {
   if (arm.syntax === "named") {
@@ -343,15 +349,15 @@ function computeEffects(summaries: ArmSummary[]): Effects {
   const rate = (id: ArmId, key: "parse_success_rate" | "first_attempt_rate" | "task_correctness_rate"): number =>
     summaries.find((summary) => summary.arm === id)?.[key] ?? 0;
 
-  // syntax effect = (positional − named)；few-shot effect = (few-shot − zero-shot)；interaction = (D−C)−(B−A)
+  // main effect = 组均值差（÷2），单位百分点（pp）；interaction 用 difference-in-differences（不除 2）
   return {
-    parse_syntax_effect: (rate("C", "parse_success_rate") + rate("D", "parse_success_rate")) - (rate("A", "parse_success_rate") + rate("B", "parse_success_rate")),
-    parse_fewshot_effect: (rate("B", "parse_success_rate") + rate("D", "parse_success_rate")) - (rate("A", "parse_success_rate") + rate("C", "parse_success_rate")),
-    conformance_syntax_effect: (rate("C", "first_attempt_rate") + rate("D", "first_attempt_rate")) - (rate("A", "first_attempt_rate") + rate("B", "first_attempt_rate")),
-    conformance_fewshot_effect: (rate("B", "first_attempt_rate") + rate("D", "first_attempt_rate")) - (rate("A", "first_attempt_rate") + rate("C", "first_attempt_rate")),
+    parse_syntax_effect: (rate("C", "parse_success_rate") + rate("D", "parse_success_rate") - rate("A", "parse_success_rate") - rate("B", "parse_success_rate")) / 2,
+    parse_fewshot_effect: (rate("B", "parse_success_rate") + rate("D", "parse_success_rate") - rate("A", "parse_success_rate") - rate("C", "parse_success_rate")) / 2,
+    conformance_syntax_effect: (rate("C", "first_attempt_rate") + rate("D", "first_attempt_rate") - rate("A", "first_attempt_rate") - rate("B", "first_attempt_rate")) / 2,
+    conformance_fewshot_effect: (rate("B", "first_attempt_rate") + rate("D", "first_attempt_rate") - rate("A", "first_attempt_rate") - rate("C", "first_attempt_rate")) / 2,
     conformance_interaction: rate("D", "first_attempt_rate") - rate("C", "first_attempt_rate") - (rate("B", "first_attempt_rate") - rate("A", "first_attempt_rate")),
-    task_syntax_effect: (rate("C", "task_correctness_rate") + rate("D", "task_correctness_rate")) - (rate("A", "task_correctness_rate") + rate("B", "task_correctness_rate")),
-    task_fewshot_effect: (rate("B", "task_correctness_rate") + rate("D", "task_correctness_rate")) - (rate("A", "task_correctness_rate") + rate("C", "task_correctness_rate")),
+    task_syntax_effect: (rate("C", "task_correctness_rate") + rate("D", "task_correctness_rate") - rate("A", "task_correctness_rate") - rate("B", "task_correctness_rate")) / 2,
+    task_fewshot_effect: (rate("B", "task_correctness_rate") + rate("D", "task_correctness_rate") - rate("A", "task_correctness_rate") - rate("C", "task_correctness_rate")) / 2,
   };
 }
 
@@ -419,7 +425,7 @@ async function main(): Promise<number> {
     console.log(`  usage: input=${summary.usage_total.input} output=${summary.usage_total.output} total=${summary.usage_total.totalTokens}`);
   }
   if (effects) {
-    console.log("\n===== 2×2 效应（差值，正 = 有利） =====");
+    console.log("\n===== 2×2 效应（main effect = 组均值差，单位 pp，正 = 有利） =====");
     console.log(`syntax（positional − named）: parse ${effects.parse_syntax_effect.toFixed(2)} | conformance ${effects.conformance_syntax_effect.toFixed(2)} | task ${effects.task_syntax_effect.toFixed(2)}`);
     console.log(`few-shot（few − zero）: parse ${effects.parse_fewshot_effect.toFixed(2)} | conformance ${effects.conformance_fewshot_effect.toFixed(2)} | task ${effects.task_fewshot_effect.toFixed(2)}`);
     console.log(`interaction: ${effects.conformance_interaction.toFixed(2)}`);

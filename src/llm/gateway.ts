@@ -81,8 +81,17 @@ export function createDeepSeekGateway(): LlmGateway {
         .filter((message) => message.role !== "system")
         .map((message) => ({
           role: message.role as "user" | "assistant",
-          content: message.content,
+          // pi-ai 期望 assistant 消息的 content 是 block 数组（estimate 的
+          // estimateMessageTokens 会遍历 content 取 block 字段；传 string 会抛
+          // "Cannot read properties of undefined (reading 'length')"）
+          content: message.role === "assistant" ? [{ type: "text", text: message.content }] : message.content,
           timestamp: Date.now(),
+          // pi-ai 的上下文估算会读 assistant.usage（estimate.ts getLastAssistantUsageInfo），
+          // 缺失会抛 "Cannot read properties of undefined (reading 'totalTokens')"。
+          // 全 0 usage 让估算回退到纯字符估算，行为正确。
+          ...(message.role === "assistant"
+            ? { usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } }
+            : {}),
         }));
 
       const context: Context = systemPrompt
