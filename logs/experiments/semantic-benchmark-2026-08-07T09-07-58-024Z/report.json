@@ -1,0 +1,430 @@
+{
+  "mode": "r4d-semantic-benchmark",
+  "samples": 1,
+  "groundTruth": {
+    "D1|10": [
+      "obra/superpowers",
+      "langchain-ai/langchain",
+      "TauricResearch/TradingAgents"
+    ],
+    "D1|30": [
+      "obra/superpowers",
+      "langchain-ai/langchain",
+      "TauricResearch/TradingAgents"
+    ],
+    "D2|10": [
+      "heygen-com/hyperframes"
+    ],
+    "D2|30": [
+      "mastra-ai/mastra",
+      "medusajs/medusa",
+      "elizaOS/eliza"
+    ],
+    "D3|10": [
+      "heygen-com/hyperframes"
+    ],
+    "D3|30": [
+      "mastra-ai/mastra",
+      "elizaOS/eliza",
+      "medusajs/medusa"
+    ]
+  },
+  "kept": {
+    "D1|10": {
+      "kept": 10,
+      "total": 10
+    },
+    "D1|30": {
+      "kept": 30,
+      "total": 30
+    },
+    "D2|10": {
+      "kept": 1,
+      "total": 10
+    },
+    "D2|30": {
+      "kept": 6,
+      "total": 30
+    },
+    "D3|10": {
+      "kept": 1,
+      "total": 10
+    },
+    "D3|30": {
+      "kept": 6,
+      "total": 30
+    }
+  },
+  "results": [
+    {
+      "arm": "dsl",
+      "depth": "D1",
+      "n": 10,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2592,
+          "model_egress_bytes": 237,
+          "runtime_internal_bytes": 2246,
+          "llm_ms": 1432.4226659999986,
+          "runtime_ms": 1982.583083000005,
+          "e2e_ms": 3422.0472910000026,
+          "usage": {
+            "input": 966,
+            "output": 104,
+            "cacheRead": 0,
+            "totalTokens": 1070
+          },
+          "answered": [
+            "obra/superpowers",
+            "langchain-ai/langchain",
+            "TauricResearch/TradingAgents"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 1982.583083000005
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "depth": "D1",
+      "n": 30,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 2592,
+          "model_egress_bytes": 237,
+          "runtime_internal_bytes": 6772,
+          "llm_ms": 1938.0218750000022,
+          "runtime_ms": 5038.372540999997,
+          "e2e_ms": 6977.346667000002,
+          "usage": {
+            "input": 966,
+            "output": 104,
+            "cacheRead": 0,
+            "totalTokens": 1070
+          },
+          "answered": [
+            "obra/superpowers",
+            "langchain-ai/langchain",
+            "TauricResearch/TradingAgents"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 5038.372540999997
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "depth": "D2",
+      "n": 10,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 3068,
+          "model_egress_bytes": 366,
+          "runtime_internal_bytes": 2334,
+          "llm_ms": 2091.402917000003,
+          "runtime_ms": 3511.918458,
+          "e2e_ms": 5604.668792,
+          "usage": {
+            "input": 1075,
+            "output": 137,
+            "cacheRead": 0,
+            "totalTokens": 1212
+          },
+          "answered": [
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3511.918458
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "depth": "D2",
+      "n": 30,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 3068,
+          "model_egress_bytes": 372,
+          "runtime_internal_bytes": 7295,
+          "llm_ms": 1633.325541000002,
+          "runtime_ms": 6239.190542000004,
+          "e2e_ms": 7874.708208000004,
+          "usage": {
+            "input": 1075,
+            "output": 137,
+            "cacheRead": 0,
+            "totalTokens": 1212
+          },
+          "answered": [
+            "mastra-ai/mastra",
+            "medusajs/medusa",
+            "elizaOS/eliza"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 6239.190542000004
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "depth": "D3",
+      "n": 10,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 3459,
+          "model_egress_bytes": 537,
+          "runtime_internal_bytes": 2435,
+          "llm_ms": 1818.343584000002,
+          "runtime_ms": 3274.011292000003,
+          "e2e_ms": 5097.151749999997,
+          "usage": {
+            "input": 1181,
+            "output": 194,
+            "cacheRead": 0,
+            "totalTokens": 1375
+          },
+          "answered": [
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 3274.011292000003
+        }
+      ]
+    },
+    {
+      "arm": "dsl",
+      "depth": "D3",
+      "n": 30,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 1,
+          "model_ingress_bytes": 3459,
+          "model_egress_bytes": 549,
+          "runtime_internal_bytes": 7785,
+          "llm_ms": 1933.7101249999978,
+          "runtime_ms": 6620.996875000004,
+          "e2e_ms": 8557.961042000003,
+          "usage": {
+            "input": 925,
+            "output": 200,
+            "cacheRead": 256,
+            "totalTokens": 1381
+          },
+          "answered": [
+            "mastra-ai/mastra",
+            "elizaOS/eliza",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false,
+          "tool_ms": 6620.996875000004
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "depth": "D1",
+      "n": 10,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 2246,
+          "model_ingress_bytes": 7386,
+          "model_egress_bytes": 1200,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 5345.386084999998,
+          "tool_ms": 7071.228999999992,
+          "e2e_ms": 7696.693916000004,
+          "usage": {
+            "input": 1660,
+            "output": 757,
+            "cacheRead": 2304,
+            "totalTokens": 4721
+          },
+          "final_text": "Now I have the fork data for all 10 repositories. Let me sort them by forks (descending):\n\n1. **obra/superpowers** - 23,977 forks\n2. **langchain-ai/langchain** - 23,928 forks\n3. **TauricResearch/TradingAgents** - 18,579 forks\n4. microsoft/autogen - 9,082 forks\n5. FoundationAgents/MetaGPT - 8,874 forks\n6. HKUDS/nanobot - 8,273 forks\n7. crewAIInc/crewAI - 8,087 forks\n8. run-llama/llama_index - 7,884 forks\n9. langchain-ai/langgraph - 6,579 forks\n10. heygen-com/hyperframes - 3,781 forks\n\nThe top 3 by forks are: **obra/superpowers**, **langchain-ai/langchain**, **TauricResearch/TradingAgents**.\n\nLet me submit the answer.",
+          "answered": [
+            "obra/superpowers",
+            "langchain-ai/langchain",
+            "TauricResearch/TradingAgents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "depth": "D1",
+      "n": 30,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 3,
+          "exposed_bytes": 6772,
+          "model_ingress_bytes": 15216,
+          "model_egress_bytes": 3129,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 10891.068584,
+          "tool_ms": 17755.07933,
+          "e2e_ms": 16248.655541,
+          "usage": {
+            "input": 2645,
+            "output": 2076,
+            "cacheRead": 4736,
+            "totalTokens": 9457
+          },
+          "final_text": "Now let me sort all 30 repositories by forks in descending order:\n\n1. **obra/superpowers** - 23,977 forks\n2. **langchain-ai/langchain** - 23,928 forks\n3. **TauricResearch/TradingAgents** - 18,579 forks\n4. microsoft/autogen - 9,082 forks\n5. FoundationAgents/MetaGPT - 8,874 forks\n6. HKUDS/nanobot - 8,273 forks\n7. crewAIInc/crewAI - 8,087 forks\n8. run-llama/llama_index - 7,884 forks\n9. langchain-ai/langgraph - 6,579 forks\n10. elizaOS/eliza - 5,611 forks\n11. medusajs/medusa - 5,036 forks\n12. openai/openai-agents-python - 4,457 forks\n13. zai-org/Open-AutoGLM - 4,019 forks\n14. agent0ai/agent-zero - 3,729 forks\n15. heygen-com/hyperframes - 3,781 forks\n...\n\nWait, let me re-order correctly:\n- obra/superpowers: 23,977\n- langchain-ai/langchain: 23,928\n- TauricResearch/TradingAgents: 18,579\n- microsoft/autogen: 9,082\n- FoundationAgents/MetaGPT: 8,874\n- HKUDS/nanobot: 8,273\n- crewAIInc/crewAI: 8,087\n- run-llama/llama_index: 7,884\n- langchain-ai/langgraph: 6,579\n- elizaOS/eliza: 5,611\n- medusajs/medusa: 5,036\n- openai/openai-agents-python: 4,457\n- zai-org/Open-AutoGLM: 4,019\n- heygen-com/hyperframes: 3,781\n- agent0ai/agent-zero: 3,729\n- raga-ai-hub/RagaAI-Catalyst: 3,570\n- mukul975/Anthropic-Cybersecurity-Skills: 3,317\n- deepset-ai/haystack: 2,980\n- AstrBotDevs/AstrBot: 2,778\n- mastra-ai/mastra: 2,584\n- GreyDGL/PentestGPT: 2,567\n- pydantic/pydantic-ai: 2,487\n- micro/go-micro: 2,414\n- openai/swarm: 2,332\n- xbtlin/ai-berkshire: 2,238\n- TransformerOptimus/SuperAGI: 2,223\n- camel-ai/camel: 2,034\n- humanlayer/12-factor-agents: 1,902\n- QwenLM/Qwen-Agent: 1,692\n- TencentCloud/TencentDB-Agent-Memory: 1,524\n\nThe top 3 by forks are:\n1. obra/superpowers (23,977)\n2. langchain-ai/langchain (23,928)\n3. TauricResearch/TradingAgents (18,579)",
+          "answered": [
+            "obra/superpowers",
+            "langchain-ai/langchain",
+            "TauricResearch/TradingAgents"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "depth": "D2",
+      "n": 10,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 2334,
+          "model_ingress_bytes": 13446,
+          "model_egress_bytes": 2467,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 7706.526375000009,
+          "tool_ms": 6311.211709000003,
+          "e2e_ms": 10075.821499999998,
+          "usage": {
+            "input": 1881,
+            "output": 1054,
+            "cacheRead": 4992,
+            "totalTokens": 7927
+          },
+          "final_text": "Since only one repository passed the TypeScript filter (`heygen-com/hyperframes`), I need to take the top 3. However, only 1 repository qualifies. Let me submit the available repositories from the filtering and sorting.\n\nBased on the task instructions:\n1. Search \"agent framework\" → got 10 repos\n2. Filter to language=\"TypeScript\" → only `heygen-com/hyperframes`\n3. Get contributor stats → total_contributions = 3739\n4. Sort by total_contributions descending → only 1 repo in the list\n5. Top 3 → only 1 available\n\nSo I need to submit the repositories that qualify. The top 3 would be just the TypeScript repos sorted by contributions. Only `heygen-com/hyperframes` qualifies.\n\nWait, let me reconsider. The task says \"只保留 language=\"TypeScript\" 的仓库\". Looking at the details, only `heygen-com/hyperframes` has language=\"TypeScript\". But wait, I should check whether the search results' language field is accurate or if I should rely on the repository details. The task says to use `github.get_repository` details to filter on language. And from the details, only `heygen-com/hyperframes` has \"TypeScript\".\n\nHowever, there are only 3 repos with TypeScript in the search results? Let me check again... The search results showed:\n- obra/superpowers: Shell\n- langchain-ai/langchain: Python\n- TauricResearch/TradingAgents: Python\n- FoundationAgents/MetaGPT: Python\n- microsoft/autogen: Python\n- crewAIInc/crewAI: Python\n- run-llama/llama_index: Python\n- HKUDS/nanobot: Python\n- heygen-com/hyperframes: TypeScript\n- langchain-ai/langgraph: Python\n\nOnly heygen-com/hyperframes is TypeScript. So only 1 repo passes the filter. I'll submit that as the only one, and it's also the top 1 of the top 3 requested.",
+          "answered": [
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "depth": "D2",
+      "n": 30,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 4,
+          "exposed_bytes": 7295,
+          "model_ingress_bytes": 28364,
+          "model_egress_bytes": 2808,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 11117.979791999998,
+          "tool_ms": 19507.57921100001,
+          "e2e_ms": 16533.124125000002,
+          "usage": {
+            "input": 3905,
+            "output": 1980,
+            "cacheRead": 9600,
+            "totalTokens": 15485
+          },
+          "final_text": "Now I have the contributor stats for all TypeScript repositories. Let me sort them by total_contributions in descending order:\n\n1. **mastra-ai/mastra** - 15,821\n2. **medusajs/medusa** - 10,008\n3. **elizaOS/eliza** - 7,306\n4. heygen-com/hyperframes - 3,739\n5. humanlayer/12-factor-agents - 272\n6. TencentCloud/TencentDB-Agent-Memory - 5\n\nThe top 3 are: mastra-ai/mastra, medusajs/medusa, elizaOS/eliza\n\nLet me submit the answer.",
+          "answered": [
+            "mastra-ai/mastra",
+            "medusajs/medusa",
+            "elizaOS/eliza"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "depth": "D3",
+      "n": 10,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 5,
+          "exposed_bytes": 2435,
+          "model_ingress_bytes": 20806,
+          "model_egress_bytes": 1786,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 7526.816998999995,
+          "tool_ms": 7329.594335000009,
+          "e2e_ms": 10489.817415999998,
+          "usage": {
+            "input": 2250,
+            "output": 940,
+            "cacheRead": 8192,
+            "totalTokens": 11382
+          },
+          "final_text": "Now sorting by total_commits desc and taking top 3, we only have 1 repo: `heygen-com/hyperframes` with total_commits=3751. So the final answer contains just this one repository.\n\nThe pipeline:\n1. Search \"agent framework\", take 10 → got 10 repos\n2. Filter to language=\"TypeScript\" → only `heygen-com/hyperframes`\n3. Get contributor stats → total_contributions=3739\n4. Sort by contributions desc, take 5 → still just 1 repo\n5. List commits → total_commits=3751\n6. Sort by total_commits desc, take 3 → 1 repo\n7. Submit\n\nSubmit answer with the only TypeScript repo.",
+          "answered": [
+            "heygen-com/hyperframes"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    },
+    {
+      "arm": "iterative",
+      "depth": "D3",
+      "n": 30,
+      "runs": [
+        {
+          "ok": true,
+          "round_trips": 5,
+          "exposed_bytes": 7785,
+          "model_ingress_bytes": 46057,
+          "model_egress_bytes": 4538,
+          "runtime_internal_bytes": 0,
+          "llm_ms": 15176.392958999997,
+          "tool_ms": 22745.972665999994,
+          "e2e_ms": 21246.387125,
+          "usage": {
+            "input": 4269,
+            "output": 2636,
+            "cacheRead": 17024,
+            "totalTokens": 23929
+          },
+          "final_text": "Now I need to sort by `total_commits` from high to low:\n\n1. `mastra-ai/mastra` - 17655\n2. `elizaOS/eliza` - 11716\n3. `medusajs/medusa` - 10560\n4. `heygen-com/hyperframes` - 3751\n5. `humanlayer/12-factor-agents` - 273\n\nTop 3 repositories:\n1. `mastra-ai/mastra`\n2. `elizaOS/eliza`\n3. `medusajs/medusa`\n\nNow I'll submit the answer.",
+          "answered": [
+            "mastra-ai/mastra",
+            "elizaOS/eliza",
+            "medusajs/medusa"
+          ],
+          "task_pass": true,
+          "maxed_out": false
+        }
+      ]
+    }
+  ]
+}
