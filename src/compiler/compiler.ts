@@ -30,6 +30,13 @@ export interface CompileExecutionDslOptions {
    * （模型摩擦探针，用于统计模型自发的语法倾向）。
    */
   allowCallableRef?: boolean;
+
+  /**
+   * 语言实验开关：允许 map / take / return 的位置参数（如 `map(repos, "x")`、
+   * `take(details, 3)`、`return top`）。默认 false。
+   * 关闭时编译器报 `POSITIONAL_ARG_NOT_ALLOWED`（模型摩擦探针）。
+   */
+  allowPositionalArgs?: boolean;
 }
 
 export interface CompileExecutionDslResult {
@@ -194,18 +201,75 @@ function toolArg(
   return undefined;
 }
 
+/**
+ * 位置参数 → 命名参数映射（实验开关控制）。
+ *
+ * parser 中性支持位置参数（key 为 undefined）；是否接受由编译后端决定：
+ * - 无位置参数：原样返回 statement
+ * - allowPositional=false：报 `POSITIONAL_ARG_NOT_ALLOWED`（模型摩擦探针）并返回 undefined
+ * - allowPositional=true：按 `slots` 顺序映射为命名参数；越界报 `TOO_MANY_POSITIONAL_ARGS`，
+ *   与同名命名参数冲突报 `duplicate_argument`
+ */
+function applyPositionalArgs(
+  statement: ParsedStatement,
+  slots: readonly string[],
+  allowPositional: boolean,
+  diagnostics: DslDiagnostic[],
+): ParsedStatement | undefined {
+  const positionalArgs = statement.args.filter((arg) => arg.key === undefined);
+  if (positionalArgs.length === 0) return statement;
+
+  if (!allowPositional) {
+    diagnostics.push({
+      line: positionalArgs[0]!.line,
+      code: "POSITIONAL_ARG_NOT_ALLOWED",
+      message: `${statement.callee} 不支持位置参数（语言要求 <key>=<value>）`,
+      suggestion: `改写为：${slots.map((slot) => `${slot}=<值>`).join(", ")}`,
+    });
+    return undefined;
+  }
+
+  const args = [...statement.args];
+  positionalArgs.forEach((arg, index) => {
+    const slot = slots[index];
+    if (!slot) {
+      diagnostics.push({
+        line: arg.line,
+        code: "TOO_MANY_POSITIONAL_ARGS",
+        message: `${statement.callee} 的位置参数过多（最多 ${slots.length} 个）`,
+        suggestion: `位置参数顺序：${slots.join(", ")}`,
+      });
+      return;
+    }
+    if (args.some((existing) => existing.key === slot)) {
+      diagnostics.push({
+        line: arg.line,
+        code: "duplicate_argument",
+        message: `参数“${slot}”被位置参数与命名参数同时提供`,
+        suggestion: "只保留一种写法",
+      });
+      return;
+    }
+    args.push({ line: arg.line, key: slot, value: arg.value });
+  });
+  // 越界/冲突的位置参数已报错，丢弃避免后续 unknown_parameter 重复报
+  return { ...statement, args: args.filter((arg) => arg.key !== undefined) };
+}
+
 function buildMapNode(
   statement: ParsedStatement,
   options: CompileExecutionDslOptions,
   defined: ReadonlySet<string>,
   diagnostics: DslDiagnostic[],
 ): ExecutionNode | undefined {
-  const source = refArg(statement, "source", defined, diagnostics);
-  const toolId = toolArg(statement, diagnostics, options.allowCallableRef ?? false);
-  const key = literalArg(statement, "key", diagnostics, { required: true });
+  const effective = applyPositionalArgs(statement, ["source", "tool"], options.allowPositionalArgs ?? false, diagnostics);
+  if (!effective) return undefined;
+  const source = refArg(effective, "source", defined, diagnostics);
+  const toolId = toolArg(effective, diagnostics, options.allowCallableRef ?? false);
+  const key = literalArg(effective, "key", diagnostics, { required: true });
 
   let concurrency = 5;
-  const concurrencyArg = literalArg(statement, "concurrency", diagnostics);
+  const concurrencyArg = literalArg(effective, "concurrency", diagnostics);
   if (concurrencyArg !== undefined) {
     const error = literalKindError(concurrencyArg, "concurrency", "int");
     if (error) {
@@ -224,7 +288,7 @@ function buildMapNode(
     }
   }
 
-  for (const arg of statement.args) {
+  for (const arg of effective.args) {
     if (!["source", "tool", "key", "concurrency"].includes(arg.key)) {
       diagnostics.push({
         line: arg.line,
@@ -256,11 +320,14 @@ function buildMapNode(
 
 function buildTakeNode(
   statement: ParsedStatement,
+  options: CompileExecutionDslOptions,
   defined: ReadonlySet<string>,
   diagnostics: DslDiagnostic[],
 ): ExecutionNode | undefined {
-  const source = refArg(statement, "source", defined, diagnostics);
-  const count = literalArg(statement, "count", diagnostics, { required: true });
+  const effective = applyPositionalArgs(statement, ["source", "count"], options.allowPositionalArgs ?? false, diagnostics);
+  if (!effective) return undefined;
+  const source = refArg(effective, "source", defined, diagnostics);
+  const count = literalArg(effective, "count", diagnostics, { required: true });
   if (count !== undefined) {
     const error = literalKindError(count, "count", "int");
     if (error) {
@@ -268,7 +335,7 @@ function buildTakeNode(
       return undefined;
     }
   }
-  for (const arg of statement.args) {
+  for (const arg of effective.args) {
     if (!["source", "count"].includes(arg.key)) {
       diagnostics.push({
         line: arg.line,
@@ -285,11 +352,14 @@ function buildTakeNode(
 
 function buildReturnNode(
   statement: ParsedStatement,
+  options: CompileExecutionDslOptions,
   defined: ReadonlySet<string>,
   diagnostics: DslDiagnostic[],
 ): ExecutionNode | undefined {
-  const value = refArg(statement, "value", defined, diagnostics);
-  for (const arg of statement.args) {
+  const effective = applyPositionalArgs(statement, ["value"], options.allowPositionalArgs ?? false, diagnostics);
+  if (!effective) return undefined;
+  const value = refArg(effective, "value", defined, diagnostics);
+  for (const arg of effective.args) {
     if (arg.key !== "value") {
       diagnostics.push({
         line: arg.line,
@@ -381,8 +451,8 @@ function buildNode(
   diagnostics: DslDiagnostic[],
 ): ExecutionNode | undefined {
   if (statement.callee === "map") return buildMapNode(statement, options, defined, diagnostics);
-  if (statement.callee === "take") return buildTakeNode(statement, defined, diagnostics);
-  if (statement.callee === "return") return buildReturnNode(statement, defined, diagnostics);
+  if (statement.callee === "take") return buildTakeNode(statement, options, defined, diagnostics);
+  if (statement.callee === "return") return buildReturnNode(statement, options, defined, diagnostics);
 
   const tool = (options.tools ?? []).find((item) => item.id === statement.callee);
   if (!tool) {

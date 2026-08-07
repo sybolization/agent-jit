@@ -36,7 +36,8 @@ export interface ParsedValue {
 
 export interface ParsedArg {
   line: number;
-  key: string;
+  /** 命名参数名；位置参数（如 `map(repos, ...)` 的第一个参数）为 undefined */
+  key?: string;
   value: ParsedValue;
 }
 

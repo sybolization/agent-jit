@@ -167,3 +167,68 @@ describe("compileExecutionDsl — callable reference（语言实验开关）", (
     expect(diagnostics).toEqual([]);
   });
 });
+
+describe("compileExecutionDsl — positional args（R2 语言实验开关）", () => {
+  const POSITIONAL_DSL = [
+    'repos = github.search_repositories(query="agent framework", limit=10)',
+    'details = map(repos, "github.get_repository", key="full_name", concurrency=5)',
+    "top = take(details, 3)",
+    "return top",
+  ].join("\n");
+
+  test("默认拒绝位置参数，报 POSITIONAL_ARG_NOT_ALLOWED", () => {
+    const codes = collectCodes(() => compileExecutionDsl(POSITIONAL_DSL, { tools: githubTools }));
+    expect(codes).toContain("POSITIONAL_ARG_NOT_ALLOWED");
+  });
+
+  test("allowPositionalArgs=true 时位置参数编译成与命名参数相同的 IR", () => {
+    const { graph, diagnostics } = compileExecutionDsl(POSITIONAL_DSL, { tools: githubTools, allowPositionalArgs: true });
+    expect(diagnostics).toEqual([]);
+    expect(graph.nodes).toHaveLength(4);
+
+    const nodes = byId(graph.nodes);
+    expect(nodes.get("details")).toEqual({
+      id: "details",
+      kind: "map",
+      source: "repos",
+      tool: "github.get_repository",
+      key: "full_name",
+      concurrency: 5,
+    });
+    expect(nodes.get("top")).toEqual({ id: "top", kind: "compute", op: "take", source: "details", args: { count: 3 } });
+    expect(nodes.get("return")).toEqual({ id: "return", kind: "return", value: "top" });
+    expect(Value.Check(ExecutionGraphSchema, graph)).toBe(true);
+  });
+
+  test("命名写法在 allowPositionalArgs=true 下不受影响", () => {
+    const { diagnostics } = compileExecutionDsl(FOUR_LINE, { tools: githubTools, allowPositionalArgs: true });
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("位置参数与命名参数冲突报 duplicate_argument", () => {
+    const codes = collectCodes(() =>
+      compileExecutionDsl(
+        ['repos = github.search_repositories(query="x")', 'm = map(repos, "github.get_repository", source=repos, key="id")'].join("\n"),
+        { tools: githubTools, allowPositionalArgs: true },
+      ),
+    );
+    expect(codes).toContain("duplicate_argument");
+  });
+
+  test("位置参数过多报 TOO_MANY_POSITIONAL_ARGS", () => {
+    const codes = collectCodes(() =>
+      compileExecutionDsl(
+        ['repos = github.search_repositories(query="x")', 't = take(repos, 3, 4)'].join("\n"),
+        { tools: githubTools, allowPositionalArgs: true },
+      ),
+    );
+    expect(codes).toContain("TOO_MANY_POSITIONAL_ARGS");
+  });
+
+  test("tool 调用不支持位置参数（仅 construct 支持）", () => {
+    const codes = collectCodes(() =>
+      compileExecutionDsl('r = github.search_repositories("agent framework", 10)', { tools: githubTools, allowPositionalArgs: true }),
+    );
+    expect(codes).toContain("unknown_parameter");
+  });
+});

@@ -32,17 +32,24 @@ export class Parser {
         this.pos += 1;
         continue;
       }
+      const before = this.pos;
       const statement = this.parseStatement(diagnostics);
       if (statement) {
         statements.push(statement);
         this.definedNodes.add(statement.name);
       }
+      // 防御：任何解析路径都必须推进；否则强制跳过，避免死循环
+      if (this.pos === before) this.pos += 1;
     }
     return { statements, diagnostics };
   }
 
   private peek(): Token | undefined {
     return this.tokens[this.pos];
+  }
+
+  private peekNext(): Token | undefined {
+    return this.tokens[this.pos + 1];
   }
 
   private next(): Token | undefined {
@@ -70,15 +77,36 @@ export class Parser {
       return undefined;
     }
 
-    const equals = this.next();
-
-    // `return(...)` 无赋值形态：return 是语言关键字，无变量名，name 占位为 "return"。
-    if (nameToken.value === "return" && equals?.type === "symbol" && equals.value === "(") {
-      const args = this.parseArgsAndEnd(diagnostics, startLine);
-      if (!args) return undefined;
-      return { line: startLine, name: "return", callee: "return", args };
+    // `return(...)` / `return <value>` 无赋值形态：return 是语言关键字，无变量名，name 占位为 "return"。
+    // 必须先于 `this.next()` 消费下一个 token（否则会吃掉 return 后面的值）。
+    if (nameToken.value === "return") {
+      const after = this.peek();
+      if (after?.type === "symbol" && after.value === "(") {
+        this.pos += 1;
+        const args = this.parseArgsAndEnd(diagnostics, startLine);
+        if (!args) return undefined;
+        return { line: startLine, name: "return", callee: "return", args };
+      }
+      // 无括号形态：return <value>（值位置即 position 0，语义映射交给编译后端）
+      const value = this.parseValue(diagnostics);
+      if (!value) return undefined;
+      const ending = this.peek();
+      if (ending?.type === "newline" || ending?.type === "eof") {
+        if (ending.type === "newline") this.pos += 1;
+      } else {
+        diagnostics.push({
+          line: ending?.line ?? startLine,
+          code: "syntax",
+          message: "一条语句必须独占一行",
+          suggestion: "每条 <名称> = <工作流>(...) 或 return <值> 单独成行",
+        });
+        this.skipToNewline();
+        return undefined;
+      }
+      return { line: startLine, name: "return", callee: "return", args: [{ line: startLine, value }] };
     }
 
+    const equals = this.next();
     if (equals?.type !== "symbol" || equals.value !== "=") {
       diagnostics.push({
         line: equals?.line ?? startLine,
@@ -166,31 +194,20 @@ export class Parser {
 
   private parseArg(diagnostics: DslDiagnostic[]): ParsedArg | undefined {
     const startLine = this.peek()?.line ?? 0;
-    const keyToken = this.next();
-    if (keyToken?.type !== "ident") {
-      diagnostics.push({
-        line: startLine,
-        code: "syntax",
-        message: "参数必须以名称开头",
-        suggestion: "格式：<key>=<value>。参数之间用逗号分隔，且全部写在同一行的括号内，不要用缩进块、换行或 { }",
-      });
-      this.skipToNewline();
-      return undefined;
+
+    // keyword 形态：<ident>=<value>
+    if (this.peek()?.type === "ident" && this.peekNext()?.type === "symbol" && this.peekNext()?.value === "=") {
+      const keyToken = this.next();
+      this.next(); // 吃掉 =
+      const value = this.parseValue(diagnostics);
+      if (!value) return undefined;
+      return { line: startLine, key: keyToken.value, value };
     }
-    const equals = this.next();
-    if (equals?.type !== "symbol" || equals.value !== "=") {
-      diagnostics.push({
-        line: equals?.line ?? startLine,
-        code: "syntax",
-        message: `参数“${keyToken.value}”后缺少等号`,
-        suggestion: "格式：<key>=<value>",
-      });
-      this.skipToNewline();
-      return undefined;
-    }
+
+    // positional 形态：<value>（key 为 undefined，语义映射交给编译后端）
     const value = this.parseValue(diagnostics);
     if (!value) return undefined;
-    return { line: startLine, key: keyToken.value, value };
+    return { line: startLine, value };
   }
 
   private parseValue(diagnostics: DslDiagnostic[]): ParsedValue | undefined {
@@ -246,6 +263,16 @@ export class Parser {
         return undefined;
       }
       return { line: token.line, kind: "literal", literal: items };
+    }
+    if (token.type === "eof") {
+      // 不推进 pos：eof 之后的 pos 越界会让 peek() 返回 undefined，触发主循环死循环
+      diagnostics.push({
+        line: token.line,
+        code: "syntax",
+        message: "语句意外结束（缺少参数值或右括号）",
+        suggestion: '引用节点：reference_image=img；字面量：prompt="一只猫"；或补上 ")"',
+      });
+      return undefined;
     }
     diagnostics.push({
       line: token.line,
