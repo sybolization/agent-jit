@@ -10,17 +10,27 @@ import type { ExecutionGraph, ExecutionNode } from "../compiler/ir.js";
  * checker 找到第一个 take 而误判）。
  */
 export interface TaskSpec {
-  query: string;
-  /** 必须在 search query 中出现的全部子串（默认只要求 query 本身） */
+  /** 期望的源工具 id（任务起点），默认 "github.search_repositories" */
+  sourceTool?: string;
+  /** 源工具的 query 参数需包含的串（源工具无 query 参数时省略） */
+  query?: string;
+  /** 必须在 query 中出现的全部子串（默认只要求 query 本身） */
   queryTokens?: readonly string[];
-  limit: number;
-  mapKey: string;
+  /** 源工具的 limit 参数期望值（源工具无 limit 参数时省略） */
+  limit?: number;
+  /** R2 兼容：map 的 key（参数名 == 字段名语义）；R3 任务用 bindings */
+  mapKey?: string;
   takeCount: number;
+  /** R3：期望 map 的 element→argument 绑定映射（如 { full_name: "full_name" }）；缺省不检查 binding */
+  bindings?: Record<string, string>;
 }
 
 export interface TaskCorrectness {
   pass: boolean;
   failures: string[];
+  /** 仅当 spec.bindings 提供时有值：map 绑定映射是否与期望完全一致（核心指标） */
+  bindingPass?: boolean;
+  bindingFailures?: string[];
 }
 
 /**
@@ -51,6 +61,8 @@ function returnDataflowPath(graph: ExecutionGraph): ExecutionNode[] {
 
 export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): TaskCorrectness {
   const failures: string[] = [];
+  let bindingPass: boolean | undefined;
+  const bindingFailures: string[] = [];
 
   const path = returnDataflowPath(graph);
   if (path.length === 0) {
@@ -58,28 +70,51 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
     return { pass: false, failures };
   }
 
-  const searchNode = path.find((node) => node.kind === "tool" && node.tool === "github.search_repositories");
-  if (!searchNode) {
-    failures.push("return 数据流中缺少 search 节点（github.search_repositories）");
+  const sourceToolId = spec.sourceTool ?? "github.search_repositories";
+  const sourceNode = path.find((node) => node.kind === "tool" && node.tool === sourceToolId);
+  if (!sourceNode) {
+    failures.push(`return 数据流中缺少源工具 ${sourceToolId}`);
   } else {
-    const query = searchNode.args["query"];
-    const tokens = spec.queryTokens?.length ? [...spec.queryTokens] : [spec.query];
-    const missing = tokens.filter(
-      (token) => !(query?.kind === "literal" && typeof query.value === "string" && query.value.includes(token)),
-    );
-    if (missing.length > 0) failures.push(`search query 缺少关键词：${missing.join("、")}`);
-
-    const limit = searchNode.args["limit"];
-    if (!(limit?.kind === "literal" && limit.value === spec.limit)) {
-      failures.push(`search limit 应为 ${spec.limit}`);
+    if (spec.query) {
+      const query = sourceNode.args["query"];
+      const tokens = spec.queryTokens?.length ? [...spec.queryTokens] : [spec.query];
+      const missing = tokens.filter(
+        (token) => !(query?.kind === "literal" && typeof query.value === "string" && query.value.includes(token)),
+      );
+      if (missing.length > 0) failures.push(`${sourceToolId} query 缺少关键词：${missing.join("、")}`);
+    }
+    if (spec.limit !== undefined) {
+      const limit = sourceNode.args["limit"];
+      if (!(limit?.kind === "literal" && limit.value === spec.limit)) {
+        failures.push(`${sourceToolId} limit 应为 ${spec.limit}`);
+      }
     }
   }
 
   const mapNode = path.find((node) => node.kind === "map");
   if (!mapNode) {
     failures.push("return 数据流中缺少 map 节点");
-  } else if (mapNode.key !== spec.mapKey) {
-    failures.push(`map 的 key 应为 ${spec.mapKey}（当前 ${mapNode.key}）`);
+  } else {
+    const actual = mapNode.bindings;
+    // R2 兼容：mapKey 语义 = 参数名与字段名相同的单字段绑定
+    if (spec.mapKey && actual[spec.mapKey] !== spec.mapKey) {
+      failures.push(`map 的 key 应为 ${spec.mapKey}（当前 ${JSON.stringify(actual)}）`);
+    }
+    // R3 核心：binding correctness —— 期望映射的每个参数都精确绑定到期望字段，且无多余绑定
+    if (spec.bindings) {
+      for (const [param, field] of Object.entries(spec.bindings)) {
+        if (actual[param] !== field) {
+          bindingFailures.push(`${param} 应绑定 ${field}（实际 ${actual[param] ?? "未绑定"}）`);
+        }
+      }
+      for (const param of Object.keys(actual)) {
+        if (!(param in spec.bindings)) {
+          bindingFailures.push(`多余绑定 ${param}（期望仅 ${Object.keys(spec.bindings).join("、")}）`);
+        }
+      }
+      bindingPass = bindingFailures.length === 0;
+      failures.push(...bindingFailures.map((item) => `map 绑定错误：${item}`));
+    }
   }
 
   const takeNode = path.find((node) => node.kind === "compute" && node.op === "take");
@@ -89,5 +124,9 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
     failures.push(`take 的 count 应为 ${spec.takeCount}`);
   }
 
-  return { pass: failures.length === 0, failures };
+  return {
+    pass: failures.length === 0,
+    failures,
+    ...(bindingPass !== undefined ? { bindingPass, bindingFailures } : {}),
+  };
 }

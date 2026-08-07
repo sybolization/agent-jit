@@ -81,7 +81,11 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
       trace.concurrency = node.concurrency;
       return mapLimit(source, node.concurrency, async (item) => {
         const itemRecord = item as Record<string, unknown>;
-        return tool.execute({ [node.key]: itemRecord[node.key] });
+        const args: Record<string, unknown> = {};
+        for (const [param, field] of Object.entries(node.bindings)) {
+          args[param] = itemRecord[field];
+        }
+        return tool.execute(args);
       });
     }
     case "compute": {

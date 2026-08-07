@@ -1,4 +1,5 @@
 import { githubTools } from "../compiler/registry.js";
+import type { ToolSpec } from "../compiler/registry.js";
 import type { RuntimeTool } from "./runtime.js";
 
 /**
@@ -65,6 +66,59 @@ export function createMockGithubTools(options: MockGithubOptions = {}): RuntimeT
         await delay();
         return [{ login: "mock-user", contributions: 42 }];
       },
+    },
+  ];
+}
+
+/**
+ * R3 跨域 mock 工具（spec + execute）：
+ * - crm.search_customers / crm.get_customer：单字段**异名**绑定（id → customer_id）；
+ * - users.list_users / email.prepare：多字段绑定（email/name → to/name）。
+ */
+export const mockDomainToolSpecs: readonly ToolSpec[] = [
+  {
+    id: "crm.search_customers",
+    label: "Search CRM customers",
+    description: "按条件搜索客户，返回客户列表。",
+    outputKind: "list<Customer>",
+    parameters: [{ key: "limit", kind: "int" }],
+  },
+  {
+    id: "crm.get_customer",
+    label: "Get a customer",
+    description: "按 customer_id 获取单个客户详情。",
+    outputKind: "Customer",
+    parameters: [{ key: "customer_id", kind: "string", required: true }],
+  },
+  {
+    id: "users.list_users",
+    label: "List users",
+    description: "返回用户列表。",
+    outputKind: "list<User>",
+    parameters: [],
+  },
+  {
+    id: "email.prepare",
+    label: "Prepare an email",
+    description: "构造一封邮件（收件人 + 姓名）。",
+    outputKind: "Email",
+    parameters: [
+      { key: "to", kind: "string", required: true },
+      { key: "name", kind: "string", required: true },
+    ],
+  },
+];
+
+export function createMockDomainTools(): RuntimeTool[] {
+  const customers = Array.from({ length: 6 }, (_, i) => ({ id: `cust-${i + 1}`, name: `Customer ${i + 1}` }));
+  const users = Array.from({ length: 6 }, (_, i) => ({ id: `user-${i + 1}`, email: `user${i + 1}@example.com`, name: `User ${i + 1}` }));
+  return [
+    { spec: mockDomainToolSpecs[0] as ToolSpec, execute: async () => customers },
+    { spec: mockDomainToolSpecs[1] as ToolSpec, execute: async (args) => customers.find((c) => c.id === (args as Record<string, unknown>).customer_id) ?? customers[0] },
+    { spec: mockDomainToolSpecs[2] as ToolSpec, execute: async () => users },
+    {
+      spec: mockDomainToolSpecs[3] as ToolSpec,
+      execute: async (args) => ({ to: (args as Record<string, unknown>).to, name: (args as Record<string, unknown>).name }),
     },
   ];
 }

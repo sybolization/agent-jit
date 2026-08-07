@@ -154,27 +154,8 @@ export class Parser {
   }
 
   private parseArgsAndEnd(diagnostics: DslDiagnostic[], startLine: number): ParsedArg[] | undefined {
-    const args: ParsedArg[] = [];
-    if (this.peek()?.type === "symbol" && this.peek()?.value === ")") {
-      this.pos += 1;
-    } else {
-      for (;;) {
-        const arg = this.parseArg(diagnostics);
-        if (!arg) return undefined;
-        args.push(arg);
-        const separator = this.next();
-        if (separator?.type === "symbol" && separator.value === ")") break;
-        if (separator?.type === "symbol" && separator.value === ",") continue;
-        diagnostics.push({
-          line: separator?.line ?? startLine,
-          code: "syntax",
-          message: "参数列表缺少逗号或右括号",
-          suggestion: "格式：<key>=<value>，参数之间用逗号分隔",
-        });
-        this.skipToNewline();
-        return undefined;
-      }
-    }
+    const args = this.parseArgsToClose(diagnostics, startLine);
+    if (!args) return undefined;
 
     const ending = this.peek();
     if (ending?.type === "newline" || ending?.type === "eof") {
@@ -185,6 +166,32 @@ export class Parser {
         code: "syntax",
         message: "一条语句必须独占一行",
         suggestion: "每条 <名称> = <工作流>(...) 单独成行",
+      });
+      this.skipToNewline();
+      return undefined;
+    }
+    return args;
+  }
+
+  /** 解析 `<args> ")"`；不检查行尾（表达式级 call 复用，后面可能跟外层 `)` 或 `,`）。 */
+  private parseArgsToClose(diagnostics: DslDiagnostic[], startLine: number): ParsedArg[] | undefined {
+    const args: ParsedArg[] = [];
+    if (this.peek()?.type === "symbol" && this.peek()?.value === ")") {
+      this.pos += 1;
+      return args;
+    }
+    for (;;) {
+      const arg = this.parseArg(diagnostics);
+      if (!arg) return undefined;
+      args.push(arg);
+      const separator = this.next();
+      if (separator?.type === "symbol" && separator.value === ")") break;
+      if (separator?.type === "symbol" && separator.value === ",") continue;
+      diagnostics.push({
+        line: separator?.line ?? startLine,
+        code: "syntax",
+        message: "参数列表缺少逗号或右括号",
+        suggestion: "格式：<key>=<value>，参数之间用逗号分隔",
       });
       this.skipToNewline();
       return undefined;
@@ -222,11 +229,53 @@ export class Parser {
       return { line: token.line, kind: "literal", literal: Number(token.value) };
     }
     if (token.type === "ident") {
+      const startLine = token.line;
       this.pos += 1;
-      if (token.value === "true") return { line: token.line, kind: "literal", literal: true };
-      if (token.value === "false") return { line: token.line, kind: "literal", literal: false };
-      if (token.value === "null") return { line: token.line, kind: "literal", literal: null };
-      return { line: token.line, kind: "ref", name: token.value };
+      if (token.value === "true") return { line: startLine, kind: "literal", literal: true };
+      if (token.value === "false") return { line: startLine, kind: "literal", literal: false };
+      if (token.value === "null") return { line: startLine, kind: "literal", literal: null };
+
+      // lambda 表达式（受限）：lambda <param>: <call>
+      if (token.value === "lambda") {
+        const paramToken = this.peek();
+        if (paramToken?.type !== "ident") {
+          diagnostics.push({
+            line: paramToken?.line ?? startLine,
+            code: "syntax",
+            message: "lambda 后缺少参数名",
+            suggestion: "格式：lambda <参数名>: <调用>(<参数>=<值>)",
+          });
+          this.skipToNewline();
+          return undefined;
+        }
+        this.pos += 1;
+        const colon = this.peek();
+        if (colon?.type !== "symbol" || colon.value !== ":") {
+          diagnostics.push({
+            line: colon?.line ?? startLine,
+            code: "syntax",
+            message: "lambda 参数后缺少冒号",
+            suggestion: "格式：lambda <参数名>: <调用>(<参数>=<值>)",
+          });
+          this.skipToNewline();
+          return undefined;
+        }
+        this.pos += 1;
+        const body = this.parseValue(diagnostics);
+        if (!body) return undefined;
+        return { line: startLine, kind: "lambda", param: paramToken.value, body };
+      }
+
+      // 嵌套调用表达式（表达式级 call，不检查行尾）：<ident>(<参数>...)
+      const next = this.peek();
+      if (next?.type === "symbol" && next.value === "(") {
+        this.pos += 1;
+        const args = this.parseArgsToClose(diagnostics, startLine);
+        if (!args) return undefined;
+        return { line: startLine, kind: "call", callee: token.value, args };
+      }
+
+      return { line: startLine, kind: "ref", name: token.value };
     }
     if (token.type === "symbol" && token.value === "[") {
       this.pos += 1;

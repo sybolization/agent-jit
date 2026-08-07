@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { compileExecutionDsl } from "../src/compiler/compiler.js";
 import type { ExecutionGraph } from "../src/compiler/ir.js";
 import { githubTools } from "../src/compiler/registry.js";
-import { createMockGithubTools } from "../src/runtime/mockTools.js";
+import { createMockGithubTools, createMockDomainTools, mockDomainToolSpecs } from "../src/runtime/mockTools.js";
 import { execute, type RuntimeRegistry } from "../src/runtime/runtime.js";
 import { renderTraceText } from "../src/runtime/trace.js";
 
@@ -108,5 +108,49 @@ describe("runtime — map concurrency", () => {
     } else {
       expect(peak()).toBe(1);
     }
+  });
+});
+
+describe("runtime — R3 map bindings 多字段与异名展开", () => {
+  const domainRegistry = (): RuntimeRegistry =>
+    new Map(createMockDomainTools().map((tool) => [tool.spec.id, tool]));
+
+  test("bindings 多字段：email/name → email.prepare(to, name)", async () => {
+    const dsl = [
+      "users = users.list_users()",
+      "m = map(users, email.prepare(to=_.email, name=_.name))",
+      "return m",
+    ].join("\n");
+    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const result = await execute(graph, domainRegistry());
+    expect(result.ok).toBe(true);
+    const items = result.result as Array<Record<string, unknown>>;
+    expect(items[0]).toMatchObject({ to: "user1@example.com", name: "User 1" });
+  });
+
+  test("bindings 异名：id → customer_id（工具收到参数名 customer_id）", async () => {
+    const dsl = [
+      "cs = crm.search_customers(limit=10)",
+      "m = map(cs, crm.get_customer(customer_id=_.id))",
+      "return m",
+    ].join("\n");
+    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const result = await execute(graph, domainRegistry());
+    expect(result.ok).toBe(true);
+    const items = result.result as Array<Record<string, unknown>>;
+    expect(items[0]).toMatchObject({ id: "cust-1", name: "Customer 1" });
+  });
+
+  test("lambda 臂多字段绑定执行结果一致", async () => {
+    const dsl = [
+      "users = users.list_users()",
+      "m = map(users, lambda u: email.prepare(to=u.email, name=u.name))",
+      "return m",
+    ].join("\n");
+    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "lambda" }).graph;
+    const result = await execute(graph, domainRegistry());
+    expect(result.ok).toBe(true);
+    const items = result.result as Array<Record<string, unknown>>;
+    expect(items[0]).toMatchObject({ to: "user1@example.com", name: "User 1" });
   });
 });

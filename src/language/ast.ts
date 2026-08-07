@@ -29,9 +29,15 @@ export type LiteralValue = null | boolean | number | string | LiteralValue[];
 
 export interface ParsedValue {
   line: number;
-  kind: "literal" | "ref";
+  kind: "literal" | "ref" | "call" | "lambda";
   literal?: LiteralValue;
   name?: string;
+  /** kind === "call"：嵌套调用表达式，如 `github.get_repository(full_name=_.full_name)` */
+  callee?: string;
+  args?: ParsedArg[];
+  /** kind === "lambda"：受限 lambda，如 `lambda repo: <call>` */
+  param?: string;
+  body?: ParsedValue;
 }
 
 export interface ParsedArg {

@@ -37,6 +37,15 @@ export interface CompileExecutionDslOptions {
    * 关闭时编译器报 `POSITIONAL_ARG_NOT_ALLOWED`（模型摩擦探针）。
    */
   allowPositionalArgs?: boolean;
+
+  /**
+   * 语言实验开关（R3）：map 的 element→argument 绑定表达方式。
+   * - "key"（默认）：`map(repos, tool="...", key="full_name")` 元数据式绑定；
+   * - "call"：`map(repos, github.get_repository(full_name=_.full_name))` 占位符调用；
+   * - "lambda"：`map(repos, lambda repo: github.get_repository(full_name=repo.full_name))`。
+   * 不匹配形态报专用诊断码（模型摩擦探针）。
+   */
+  allowMapBinding?: "key" | "call" | "lambda";
 }
 
 export interface CompileExecutionDslResult {
@@ -256,6 +265,65 @@ function applyPositionalArgs(
   return { ...statement, args: args.filter((arg) => arg.key !== undefined) };
 }
 
+/** 从 call 表达式的参数中提取 binding 映射（`_.field` / `<param>.field` → 元素字段）。 */
+function mapCallBindings(
+  call: { callee?: string; args?: ParsedArg[] },
+  prefix: string,
+  tools: readonly ToolSpec[],
+  diagnostics: DslDiagnostic[],
+): Record<string, string> | undefined {
+  const tool = tools.find((item) => item.id === call.callee);
+  if (!tool) return undefined; // unknown_tool 由调用方统一处理
+  const parameterKeys = new Set(tool.parameters.map((parameter) => parameter.key));
+  const bindings: Record<string, string> = {};
+  let ok = true;
+  for (const arg of call.args ?? []) {
+    if (arg.key === undefined) {
+      diagnostics.push({
+        line: arg.line,
+        code: "syntax",
+        message: `map 的绑定调用内参数必须写成 <参数名>=<值>（位置参数无法表达绑定）`,
+        suggestion: `格式：${call.callee}(<参数名>=${prefix}.<字段>)`,
+      });
+      ok = false;
+      continue;
+    }
+    if (!parameterKeys.has(arg.key)) {
+      diagnostics.push({
+        line: arg.line,
+        code: "unknown_parameter",
+        message: `工具“${call.callee}”未声明参数“${arg.key}”`,
+        suggestion: `使用该工具声明的参数名：${[...parameterKeys].join(" / ")}`,
+      });
+      ok = false;
+      continue;
+    }
+    if (arg.value.kind !== "ref" || !arg.value.name?.startsWith(`${prefix}.`)) {
+      diagnostics.push({
+        line: arg.line,
+        code: "MAP_BINDING_REF_INVALID",
+        message: `绑定引用必须形如 ${prefix}.<字段>（引用当前元素），得到 ${arg.value.kind === "ref" ? `“${arg.value.name}”` : "字面量"}`,
+        suggestion: `把参数“${arg.key}”的值写成 ${prefix}.<元素字段名>`,
+      });
+      ok = false;
+      continue;
+    }
+    const field = arg.value.name.slice(prefix.length + 1);
+    if (!field) {
+      diagnostics.push({
+        line: arg.line,
+        code: "MAP_BINDING_REF_INVALID",
+        message: `${prefix}. 后缺少字段名`,
+        suggestion: `如 ${prefix}.full_name`,
+      });
+      ok = false;
+      continue;
+    }
+    bindings[arg.key] = field;
+  }
+  return ok ? bindings : undefined;
+}
+
 function buildMapNode(
   statement: ParsedStatement,
   options: CompileExecutionDslOptions,
@@ -264,9 +332,87 @@ function buildMapNode(
 ): ExecutionNode | undefined {
   const effective = applyPositionalArgs(statement, ["source", "tool"], options.allowPositionalArgs ?? false, diagnostics);
   if (!effective) return undefined;
+  const allow = options.allowMapBinding ?? "key";
   const source = refArg(effective, "source", defined, diagnostics);
-  const toolId = toolArg(effective, diagnostics, options.allowCallableRef ?? false);
-  const key = literalArg(effective, "key", diagnostics, { required: true });
+  const bindingArg = effective.args.find((arg) => arg.key === "tool")?.value;
+
+  // 形态探针（摩擦测量）：模型在当前臂写了其他绑定形态 → 专用诊断码，不自动 normalize
+  if (bindingArg?.kind === "call" && allow !== "call") {
+    diagnostics.push({
+      line: statement.line,
+      code: "MAP_BINDING_CALL_NOT_ALLOWED",
+      message: `当前 map 绑定语法是 ${allow}，但你写了嵌套调用（${bindingArg.callee}(...)）`,
+      suggestion: `把绑定改为当前语法要求的形态（见语法指南）`,
+    });
+    return undefined;
+  }
+  if (bindingArg?.kind === "lambda" && allow !== "lambda") {
+    diagnostics.push({
+      line: statement.line,
+      code: "MAP_BINDING_LAMBDA_NOT_ALLOWED",
+      message: `当前 map 绑定语法是 ${allow}，但你写了 lambda`,
+      suggestion: `把绑定改为当前语法要求的形态（见语法指南）`,
+    });
+    return undefined;
+  }
+  if (allow === "call" && bindingArg?.kind !== "call") {
+    diagnostics.push({
+      line: statement.line,
+      code: "MAP_BINDING_EXPECTED_CALL",
+      message: "map 的第二个参数应是一个嵌套调用（如 github.get_repository(full_name=_.full_name)）",
+      suggestion: "格式：map(<源>, <工具>(<参数>=_.<字段>), ...)",
+    });
+    return undefined;
+  }
+  if (allow === "lambda" && bindingArg?.kind !== "lambda") {
+    diagnostics.push({
+      line: statement.line,
+      code: "MAP_BINDING_EXPECTED_LAMBDA",
+      message: "map 的第二个参数应是一个 lambda（如 lambda repo: github.get_repository(full_name=repo.full_name)）",
+      suggestion: "格式：map(<源>, lambda <参数名>: <工具>(<参数>=<参数名>.<字段>))",
+    });
+    return undefined;
+  }
+
+  // key= 元数据与 call/lambda 臂互斥（探针：模型在 B/C 臂仍写 key=）
+  const keyArg = effective.args.find((arg) => arg.key === "key");
+  if (keyArg && allow !== "key") {
+    diagnostics.push({
+      line: keyArg.line,
+      code: "MAP_BINDING_KEY_NOT_ALLOWED",
+      message: `当前语法用调用/lambda 表达绑定，不再接受 key= 元数据`,
+      suggestion: "把 key= 改为调用内的参数映射（<参数名>=_.<字段>）",
+    });
+    return undefined;
+  }
+
+  // tool 与 bindings 解析
+  const tools = options.tools ?? [];
+  let toolId: string | undefined;
+  let bindings: Record<string, string> | undefined;
+
+  if (allow === "call" && bindingArg?.kind === "call") {
+    toolId = bindingArg.callee;
+    bindings = mapCallBindings(bindingArg, "_", tools, diagnostics);
+  } else if (allow === "lambda" && bindingArg?.kind === "lambda") {
+    const body = bindingArg.body;
+    if (body?.kind !== "call") {
+      diagnostics.push({
+        line: statement.line,
+        code: "syntax",
+        message: "lambda 体必须是工具调用（如 github.get_repository(...)）",
+        suggestion: "格式：lambda <参数名>: <工具>(<参数>=<参数名>.<字段>)",
+      });
+      return undefined;
+    }
+    toolId = body.callee;
+    bindings = mapCallBindings(body, bindingArg.param ?? "_", tools, diagnostics);
+  } else {
+    // A 臂：字符串 tool + key= 字面量 → 单字段同名绑定
+    toolId = toolArg(effective, diagnostics, options.allowCallableRef ?? false);
+    const key = literalArg(effective, "key", diagnostics, { required: true });
+    if (typeof key === "string") bindings = { [key]: key };
+  }
 
   let concurrency = 5;
   const concurrencyArg = literalArg(effective, "concurrency", diagnostics);
@@ -299,7 +445,7 @@ function buildMapNode(
     }
   }
 
-  const toolRegistered = typeof toolId === "string" && (options.tools?.some((tool) => tool.id === toolId) ?? false);
+  const toolRegistered = typeof toolId === "string" && tools.some((tool) => tool.id === toolId);
   if (!toolRegistered) {
     // tool 参数本身已报错（如裸标识符被拒绝）时，不叠加误导性的 unknown_tool
     if (typeof toolId === "string" || !diagnostics.some((item) => item.code === "EXPECTED_STRING_GOT_CALLABLE_REF")) {
@@ -312,10 +458,10 @@ function buildMapNode(
     }
     return undefined;
   }
-  if (typeof key !== "string") return undefined;
+  if (!bindings || Object.keys(bindings).length === 0) return undefined;
   if (!source) return undefined;
 
-  return { id: statement.name, kind: "map", source, tool: toolId, key, concurrency };
+  return { id: statement.name, kind: "map", source, tool: toolId, bindings, concurrency };
 }
 
 function buildTakeNode(

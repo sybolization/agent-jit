@@ -51,7 +51,8 @@ export const MapNodeSchema = Type.Object(
     kind: Type.Literal("map"),
     source: Type.String({ minLength: 1, maxLength: 200 }),
     tool: Type.String({ minLength: 1, maxLength: 200 }),
-    key: Type.String({ minLength: 1, maxLength: 200 }),
+    /** element→argument 绑定：工具参数名 → 元素字段路径（如 { full_name: "full_name" }） */
+    bindings: Type.Record(Type.String(), Type.String(), { additionalProperties: false }),
     concurrency: Type.Number(),
   },
   { additionalProperties: false },

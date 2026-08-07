@@ -45,7 +45,7 @@ describe("compileExecutionDsl — four-line minimal closed loop", () => {
       kind: "map",
       source: "repos",
       tool: "github.get_repository",
-      key: "full_name",
+      bindings: { full_name: "full_name" },
       concurrency: 5,
     });
     expect(nodes.get("top")).toEqual({
@@ -156,7 +156,7 @@ describe("compileExecutionDsl — callable reference（语言实验开关）", (
       kind: "map",
       source: "repos",
       tool: "github.get_repository",
-      key: "full_name",
+      bindings: { full_name: "full_name" },
       concurrency: 5,
     });
     expect(Value.Check(ExecutionGraphSchema, graph)).toBe(true);
@@ -192,7 +192,7 @@ describe("compileExecutionDsl — positional args（R2 语言实验开关）", (
       kind: "map",
       source: "repos",
       tool: "github.get_repository",
-      key: "full_name",
+      bindings: { full_name: "full_name" },
       concurrency: 5,
     });
     expect(nodes.get("top")).toEqual({ id: "top", kind: "compute", op: "take", source: "details", args: { count: 3 } });

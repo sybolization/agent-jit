@@ -88,7 +88,7 @@ export function tokenize(source: string): TokenizeResult {
       i = j;
       continue;
     }
-    if ("=(),[]".includes(ch)) {
+    if ("=(),[]:".includes(ch)) {
       tokens.push({ type: "symbol", value: ch, line });
       i += 1;
       continue;
@@ -97,7 +97,7 @@ export function tokenize(source: string): TokenizeResult {
       line,
       code: "syntax",
       message: `无法识别的字符：${ch}`,
-      suggestion: "只允许标识符（含点号命名空间）、数字、双引号字符串、注释（#）和符号 = ( ) , [ ]",
+      suggestion: "只允许标识符（含点号命名空间）、数字、双引号字符串、注释（#）和符号 = ( ) , [ ] :",
     });
     i += 1;
   }

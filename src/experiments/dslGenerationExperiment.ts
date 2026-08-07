@@ -1,21 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * R2 语言实验：Positional vs Named invocation（2×2 factorial）。
+ * R3 语言实验：map data binding 三臂（key= / 占位符调用 / lambda）。
  *
- * 维度 1 = syntax（named / positional），维度 2 = scaffolding（zero-shot / few-shot）：
- *   A = named    + zero-shot
- *   B = named    + few-shot
- *   C = positional + zero-shot
- *   D = positional + few-shot
+ * 只测一个语法变量——map 的 element→argument 绑定表达方式，IR/runtime 一致：
+ *   A = key=    （`map(repos, "github.get_repository", key="full_name")`）
+ *   B = call    （`map(repos, github.get_repository(full_name=_.full_name))`）
+ *   C = lambda  （`map(repos, lambda repo: github.get_repository(full_name=repo.full_name))`）
  *
- * 唯一语法变量：map / take / return 的参数形态；tool 一律用双引号字符串
- * （控制变量，模型若自发写裸标识符由 EXPECTED_STRING_GOT_CALLABLE_REF 探针记录）。
+ * 全部 zero-shot + compiler repair（few-shot 留 R3b）；5 个任务 × 每臂 × 样本数。
+ * 核心指标：binding correctness（编译成功 + 绑定映射与期望一致，与执行成功解耦）。
  *
- * 分层指标：parse_success（首轮无 syntax 错误）/ compile_conformance（首轮编译成功）/
- * execution_success（最终编译+执行成功）/ task_correctness（程序真的完成任务的语义检查）。
- *
- * 运行：npm run experiment -- --arm=all --samples=10 --rounds=5
+ * 运行：npm run experiment -- --arm=all --tasks=all --samples=10 --rounds=5
  * 环境：DEEPSEEK_API_KEY（.env，已被 gitignore）
  */
 
@@ -25,10 +21,11 @@ import { fileURLToPath } from "node:url";
 
 import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compiler.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
-import { githubTools } from "../compiler/registry.js";
-import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
-import { createMockGithubTools } from "../runtime/mockTools.js";
+import { mapLimit } from "../runtime/executor.js";
+import { createMockGithubTools, createMockDomainTools } from "../runtime/mockTools.js";
 import { execute } from "../runtime/runtime.js";
+import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
+import { R3_TASKS, type R3Task } from "./r3Tasks.js";
 import { checkTaskCorrectness, type TaskSpec } from "./taskSpec.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -53,72 +50,32 @@ function loadEnv(root: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// 2×2 factorial 四臂定义
+// 三臂定义
 // ---------------------------------------------------------------------------
 
-export type ArmId = "A" | "B" | "C" | "D";
+export type ArmId = "A" | "B" | "C";
 
 interface ArmConfig {
   id: ArmId;
-  syntax: "named" | "positional";
-  fewShot: boolean;
+  binding: "key" | "call" | "lambda";
 }
 
 const ARMS: readonly ArmConfig[] = [
-  { id: "A", syntax: "named", fewShot: false },
-  { id: "B", syntax: "named", fewShot: true },
-  { id: "C", syntax: "positional", fewShot: false },
-  { id: "D", syntax: "positional", fewShot: true },
+  { id: "A", binding: "key" },
+  { id: "B", binding: "call" },
+  { id: "C", binding: "lambda" },
 ];
 
-const TASK =
-  "请用 Agent Execution DSL 编写程序：搜索 GitHub 上活跃的 TypeScript agent 框架仓库（query 用 " +
-  '"agent framework language:typescript"），取前 10 个，然后并行获取每个仓库的详细信息（用 full_name），' +
-  "最后截取前 3 个作为最终结果并返回。";
-
-const TASK_SPEC: TaskSpec = {
-  query: "agent framework",
-  queryTokens: ["agent framework", "language:typescript"],
-  limit: 10,
-  mapKey: "full_name",
-  takeCount: 3,
+const BINDING_GUIDE: Record<ArmConfig["binding"], string> = {
+  key: "- map：第一个位置参数是源数组，第二个位置参数是工具 id（双引号字符串）；用 key=\"<字段名>\" 指定从每个元素取哪个字段作为该工具的参数\n" +
+    "  示例：map(repos, \"github.get_repository\", key=\"full_name\")",
+  call: "- map：第一个位置参数是源数组，第二个位置参数是一个“绑定调用”：<工具id>(<参数名>=_.<字段>)，表示把每个元素的 <字段> 传给该工具的 <参数名>\n" +
+    "  示例：map(repos, github.get_repository(full_name=_.full_name))",
+  lambda: "- map：第一个位置参数是源数组，第二个位置参数是一个 lambda：lambda <元素名>: <工具id>(<参数名>=<元素名>.<字段>)\n" +
+    "  示例：map(repos, lambda repo: github.get_repository(full_name=repo.full_name))",
 };
 
-function syntaxGuide(arm: ArmConfig): string[] {
-  if (arm.syntax === "named") {
-    return [
-      "- map：source 必须是先前定义的数组变量；tool 必须是双引号字符串；key 指定从每个元素取哪个字段作为工具参数；concurrency 为并发上限（默认 5）",
-      "- take：source 是数组变量引用，count 是要截取的条数",
-      "- return：value 是最终结果的变量引用",
-    ];
-  }
-  return [
-    "- map：第一个位置参数是源数组，第二个位置参数是工具 id（**双引号字符串**）；其余参数用 <key>=<value> 指定（key / concurrency）",
-    "- take：第一个位置参数是源数组，第二个位置参数是截取条数",
-    "- return：直接写要返回的变量名（如 return top）",
-  ];
-}
-
-function fewShotExample(arm: ArmConfig): string {
-  if (arm.syntax === "named") {
-    return [
-      "## 完整示例",
-      'repos = github.search_repositories(query="agent framework", limit=10)',
-      'details = map(source=repos, tool="github.get_repository", key="full_name", concurrency=5)',
-      "top = take(source=details, count=3)",
-      "return(value=top)",
-    ].join("\n");
-  }
-  return [
-    "## 完整示例",
-    'repos = github.search_repositories(query="agent framework", limit=10)',
-    'details = map(repos, "github.get_repository", key="full_name", concurrency=5)',
-    "top = take(details, 3)",
-    "return top",
-  ].join("\n");
-}
-
-function buildSystemPrompt(arm: ArmConfig): string {
+function buildSystemPrompt(arm: ArmConfig, task: R3Task): string {
   const lines = [
     "你是一名 Agent Execution DSL 编程助手。你的任务是用下面这门小语言写出程序，程序会被编译并在 Harness 上执行。",
     "",
@@ -127,20 +84,19 @@ function buildSystemPrompt(arm: ArmConfig): string {
     "- <name>：变量名（[a-zA-Z_][a-zA-Z0-9_]*），变量名即图中的节点",
     "- <callee>：已注册工具 id，或语言关键字 map / take / return",
     "- <value>：字符串（双引号）、数字、布尔、null，或先前定义的变量名（裸标识符即引用，定义数据流边）",
-    ...syntaxGuide(arm),
-  ];
-  if (arm.fewShot) lines.push("", fewShotExample(arm));
-  lines.push(
+    "- take：第一个位置参数是源数组，第二个位置参数是截取条数",
+    "- return：直接写要返回的变量名（如 return top）",
+    BINDING_GUIDE[arm.binding],
     "",
     "## 可用工具",
-    renderExecutionToolCatalog(githubTools),
+    renderExecutionToolCatalog(task.tools),
     "",
     "## 硬约束",
     "1. 只输出 DSL 代码本身，不要 Markdown 围栏，不要任何解释文字",
     "2. 参数名必须与工具目录完全一致，不得自创参数名",
     "3. 变量必须先定义再引用（不允许前向引用）",
     "4. 编译失败时，根据返回的诊断修正 DSL 并重新提交，直到成功为止",
-  );
+  ];
   return lines.join("\n");
 }
 
@@ -158,10 +114,11 @@ interface RunResult {
   success: boolean;
   rounds_used: number;
   first_attempt: boolean;
-  /** 首轮是否无 syntax 错误（parse 层 zero-shot 能力） */
   first_round_parse_ok: boolean;
   task_pass: boolean;
   task_failures: string[];
+  binding_pass: boolean | undefined;
+  binding_failures: string[];
   final_dsl: string;
   result_size: number;
   error_codes: string[];
@@ -169,10 +126,21 @@ interface RunResult {
   rounds: RoundRecord[];
 }
 
-async function runOnce(gateway: LlmGateway, arm: ArmConfig, task: string, maxRounds: number): Promise<RunResult> {
+function buildRuntimeRegistry(task: R3Task): Map<string, { spec: { id: string }; execute: (args: Record<string, unknown>) => unknown }> {
+  const tools = [...createMockGithubTools(), ...createMockDomainTools()];
+  const allowed = new Set(task.tools.map((tool) => tool.id));
+  return new Map(tools.filter((tool) => allowed.has(tool.spec.id)).map((tool) => [tool.spec.id, tool]));
+}
+
+async function runOnce(
+  gateway: LlmGateway,
+  arm: ArmConfig,
+  task: R3Task,
+  maxRounds: number,
+): Promise<RunResult> {
   const messages: LlmMessage[] = [
-    { role: "system", content: buildSystemPrompt(arm) },
-    { role: "user", content: task },
+    { role: "system", content: buildSystemPrompt(arm, task) },
+    { role: "user", content: task.prompt },
   ];
   const usage: LlmUsage = { input: 0, output: 0, cacheRead: 0, totalTokens: 0 };
   const errorCodes: string[] = [];
@@ -196,16 +164,17 @@ async function runOnce(gateway: LlmGateway, arm: ArmConfig, task: string, maxRou
 
     try {
       const { graph, diagnostics } = compileExecutionDsl(dsl, {
-        tools: githubTools,
+        tools: task.tools,
         allowCallableRef: false,
-        allowPositionalArgs: arm.syntax === "positional",
+        allowPositionalArgs: true,
+        allowMapBinding: arm.binding,
       });
       if (graph.nodes.length === 0) {
         messages.push({ role: "user", content: "编译通过但程序为空（没有任何语句）。请重新提交一段完整的 DSL 程序。" });
         continue;
       }
-      const task = checkTaskCorrectness(graph, TASK_SPEC);
-      const registry = new Map(createMockGithubTools().map((tool) => [tool.spec.id, tool]));
+      const correctness = checkTaskCorrectness(graph, task.spec);
+      const registry = buildRuntimeRegistry(task);
       const execution = await execute(graph, registry);
       const resultArray = Array.isArray(execution.result) ? (execution.result as unknown[]) : [];
       return {
@@ -213,8 +182,10 @@ async function runOnce(gateway: LlmGateway, arm: ArmConfig, task: string, maxRou
         rounds_used: round,
         first_attempt: round === 1,
         first_round_parse_ok: !rounds[0]?.diagnostics.some((item) => item.code === "syntax"),
-        task_pass: task.pass,
-        task_failures: task.failures,
+        task_pass: correctness.pass,
+        task_failures: correctness.failures,
+        binding_pass: correctness.bindingPass,
+        binding_failures: correctness.bindingFailures ?? [],
         final_dsl: dsl,
         result_size: resultArray.length,
         error_codes: errorCodes,
@@ -240,6 +211,8 @@ async function runOnce(gateway: LlmGateway, arm: ArmConfig, task: string, maxRou
         first_round_parse_ok: !rounds[0]?.diagnostics.some((item) => item.code === "syntax"),
         task_pass: false,
         task_failures: ["执行异常"],
+        binding_pass: undefined,
+        binding_failures: [],
         final_dsl: dsl,
         result_size: 0,
         error_codes: errorCodes,
@@ -256,6 +229,8 @@ async function runOnce(gateway: LlmGateway, arm: ArmConfig, task: string, maxRou
     first_round_parse_ok: !rounds[0]?.diagnostics.some((item) => item.code === "syntax"),
     task_pass: false,
     task_failures: ["达到最大轮数仍未成功"],
+    binding_pass: undefined,
+    binding_failures: [],
     final_dsl: "",
     result_size: 0,
     error_codes: errorCodes,
@@ -265,13 +240,14 @@ async function runOnce(gateway: LlmGateway, arm: ArmConfig, task: string, maxRou
 }
 
 // ---------------------------------------------------------------------------
-// 单臂汇总
+// 汇总（per task × arm）
 // ---------------------------------------------------------------------------
 
-interface ArmSummary {
+interface ArmTaskSummary {
   arm: ArmId;
-  syntax: ArmConfig["syntax"];
-  few_shot: boolean;
+  binding: ArmConfig["binding"];
+  task_id: number;
+  task_name: string;
   samples: number;
   success_count: number;
   success_rate: number;
@@ -279,20 +255,31 @@ interface ArmSummary {
   first_attempt_rate: number;
   parse_success_rate: number;
   task_correctness_rate: number;
+  binding_correctness_rate: number | null;
+  repair_conversion_count: number;
   avg_rounds_to_success: number;
   total_rounds: number;
+  tokens_per_success: number;
   error_code_counts: Record<string, number>;
   usage_total: LlmUsage;
   runs: RunResult[];
 }
 
-async function summarize(gateway: LlmGateway, arm: ArmConfig, task: string, samples: number, maxRounds: number): Promise<ArmSummary> {
+async function summarizeArmTask(
+  gateway: LlmGateway,
+  arm: ArmConfig,
+  task: R3Task,
+  samples: number,
+  maxRounds: number,
+): Promise<ArmTaskSummary> {
   const runs: RunResult[] = [];
   for (let i = 0; i < samples; i += 1) {
-    process.stdout.write(`  [${arm.id}] 样本 ${i + 1}/${samples} ... `);
     const run = await runOnce(gateway, arm, task, maxRounds);
     runs.push(run);
-    process.stdout.write(`${run.success ? "成功" : "失败"}（${run.rounds_used} 轮）task=${run.task_pass ? "对" : "错"}\n`);
+    process.stdout.write(
+      `  [${arm.id}|T${task.id}] 样本 ${i + 1}/${samples} ... ${run.success ? "成功" : "失败"}（${run.rounds_used} 轮）` +
+        `task=${run.task_pass ? "对" : "错"} binding=${run.binding_pass === undefined ? "-" : run.binding_pass ? "对" : "错"}\n`,
+    );
   }
 
   const successRuns = runs.filter((run) => run.success);
@@ -311,10 +298,14 @@ async function summarize(gateway: LlmGateway, arm: ArmConfig, task: string, samp
     { input: 0, output: 0, cacheRead: 0, totalTokens: 0 },
   );
 
+  const bindingRuns = runs.filter((run) => run.binding_pass !== undefined);
+  const successTokens = successRuns.reduce((sum, run) => sum + run.usage.totalTokens, 0);
+
   return {
     arm: arm.id,
-    syntax: arm.syntax,
-    few_shot: arm.fewShot,
+    binding: arm.binding,
+    task_id: task.id,
+    task_name: task.name,
     samples,
     success_count: successRuns.length,
     success_rate: successRuns.length / samples,
@@ -322,9 +313,13 @@ async function summarize(gateway: LlmGateway, arm: ArmConfig, task: string, samp
     first_attempt_rate: runs.filter((run) => run.first_attempt).length / samples,
     parse_success_rate: runs.filter((run) => run.first_round_parse_ok).length / samples,
     task_correctness_rate: runs.filter((run) => run.task_pass).length / samples,
+    binding_correctness_rate:
+      bindingRuns.length > 0 ? bindingRuns.filter((run) => run.binding_pass).length / bindingRuns.length : null,
+    repair_conversion_count: runs.filter((run) => run.success && !run.first_attempt).length,
     avg_rounds_to_success:
       successRuns.length > 0 ? successRuns.reduce((sum, run) => sum + run.rounds_used, 0) / successRuns.length : 0,
     total_rounds: runs.reduce((sum, run) => sum + run.rounds_used, 0),
+    tokens_per_success: successRuns.length > 0 ? Math.round(successTokens / successRuns.length) : 0,
     error_code_counts: errorCodeCounts,
     usage_total: usageTotal,
     runs,
@@ -332,40 +327,10 @@ async function summarize(gateway: LlmGateway, arm: ArmConfig, task: string, samp
 }
 
 // ---------------------------------------------------------------------------
-// 2×2 效应计算
-// ---------------------------------------------------------------------------
-
-interface Effects {
-  parse_syntax_effect: number;
-  parse_fewshot_effect: number;
-  conformance_syntax_effect: number;
-  conformance_fewshot_effect: number;
-  conformance_interaction: number;
-  task_syntax_effect: number;
-  task_fewshot_effect: number;
-}
-
-function computeEffects(summaries: ArmSummary[]): Effects {
-  const rate = (id: ArmId, key: "parse_success_rate" | "first_attempt_rate" | "task_correctness_rate"): number =>
-    summaries.find((summary) => summary.arm === id)?.[key] ?? 0;
-
-  // main effect = 组均值差（÷2），单位百分点（pp）；interaction 用 difference-in-differences（不除 2）
-  return {
-    parse_syntax_effect: (rate("C", "parse_success_rate") + rate("D", "parse_success_rate") - rate("A", "parse_success_rate") - rate("B", "parse_success_rate")) / 2,
-    parse_fewshot_effect: (rate("B", "parse_success_rate") + rate("D", "parse_success_rate") - rate("A", "parse_success_rate") - rate("C", "parse_success_rate")) / 2,
-    conformance_syntax_effect: (rate("C", "first_attempt_rate") + rate("D", "first_attempt_rate") - rate("A", "first_attempt_rate") - rate("B", "first_attempt_rate")) / 2,
-    conformance_fewshot_effect: (rate("B", "first_attempt_rate") + rate("D", "first_attempt_rate") - rate("A", "first_attempt_rate") - rate("C", "first_attempt_rate")) / 2,
-    conformance_interaction: rate("D", "first_attempt_rate") - rate("C", "first_attempt_rate") - (rate("B", "first_attempt_rate") - rate("A", "first_attempt_rate")),
-    task_syntax_effect: (rate("C", "task_correctness_rate") + rate("D", "task_correctness_rate") - rate("A", "task_correctness_rate") - rate("B", "task_correctness_rate")) / 2,
-    task_fewshot_effect: (rate("B", "task_correctness_rate") + rate("D", "task_correctness_rate") - rate("A", "task_correctness_rate") - rate("C", "task_correctness_rate")) / 2,
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Entry
 // ---------------------------------------------------------------------------
 
-function parseArgs(argv: string[]): { arms: ArmConfig[]; samples: number; rounds: number } {
+function parseArgs(argv: string[]): { arms: ArmConfig[]; tasks: R3Task[]; samples: number; rounds: number; parallel: number } {
   const read = (name: string, fallback: string): string => {
     const eq = argv.find((item) => item.startsWith(`${name}=`));
     if (eq) return eq.slice(name.length + 1);
@@ -374,12 +339,20 @@ function parseArgs(argv: string[]): { arms: ArmConfig[]; samples: number; rounds
   };
   const armArg = read("--arm", "all").toUpperCase();
   const arms = armArg === "ALL" ? [...ARMS] : ARMS.filter((arm) => arm.id === armArg);
+  const taskArg = read("--tasks", "all").toLowerCase();
+  const tasks =
+    taskArg === "all"
+      ? [...R3_TASKS]
+      : R3_TASKS.filter((task) => taskArg.split(",").map((item) => item.trim()).includes(String(task.id)));
   const samples = Number(read("--samples", "10"));
   const rounds = Number(read("--rounds", "5"));
+  const parallel = Number(read("--parallel", "6"));
   return {
     arms,
+    tasks,
     samples: Number.isInteger(samples) && samples > 0 ? samples : 10,
     rounds: Number.isInteger(rounds) && rounds > 0 ? rounds : 5,
+    parallel: Number.isInteger(parallel) && parallel > 0 ? parallel : 6,
   };
 }
 
@@ -390,46 +363,78 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const { arms, samples, rounds } = parseArgs(process.argv.slice(2));
+  const { arms, tasks, samples, rounds, parallel } = parseArgs(process.argv.slice(2));
   if (arms.length === 0) {
-    console.error("[FAIL] 无效的 --arm（应为 A / B / C / D / all）");
+    console.error("[FAIL] 无效的 --arm（应为 A / B / C / all）");
+    return 1;
+  }
+  if (tasks.length === 0) {
+    console.error("[FAIL] 无效的 --tasks（应为 1..5 或 all）");
     return 1;
   }
 
   const gateway = createDeepSeekGateway();
-  const summaries: ArmSummary[] = [];
-  for (const arm of arms) {
-    console.log(`\n===== 臂 ${arm.id}（${arm.syntax} / ${arm.fewShot ? "few-shot" : "zero-shot"}）— ${samples} 个样本 =====`);
-    const summary = await summarize(gateway, arm, TASK, samples, rounds);
-    summaries.push(summary);
-  }
-  const effects = summaries.length === 4 ? computeEffects(summaries) : undefined;
+  // 并发执行所有 arm × task 组合（每个组合内部样本串行），组合间并发上限由 --parallel 控制
+  const combos = arms.flatMap((arm) => tasks.map((task) => ({ arm, task })));
+  console.log(`并发执行 ${combos.length} 个组合（parallel=${parallel}）...`);
+  const summaries = await mapLimit(combos, parallel, async ({ arm, task }) => {
+    console.log(`\n===== 臂 ${arm.id}（${arm.binding}）| 任务 ${task.id}（${task.name}）— ${samples} 个样本 =====`);
+    return summarizeArmTask(gateway, arm, task, samples, rounds);
+  });
 
-  const outDir = path.join(REPO_ROOT, "logs", "experiments", `positional-ab-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+  const outDir = path.join(REPO_ROOT, "logs", "experiments", `r3-binding-ab-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(
     path.join(outDir, "report.json"),
-    `${JSON.stringify({ task: TASK, task_spec: TASK_SPEC, arms: summaries, effects }, null, 2)}\n`,
+    `${JSON.stringify({ mode: "r3-map-binding", arms, tasks: summaries }, null, 2)}\n`,
   );
 
-  console.log("\n===== 汇总（每臂） =====");
+  console.log("\n\n===== 汇总（per task × arm） =====");
+  const header = ["任务", "臂", "execution", "first-attempt", "parse", "task", "binding", "repair", "avgRound", "tokens/ok"].join(" | ");
+  console.log(header);
+  console.log("-".repeat(header.length));
   for (const summary of summaries) {
+    const pct = (value: number | null): string => (value === null ? "-" : `${(value * 100).toFixed(0)}%`);
     console.log(
-      `\n臂 ${summary.arm}（${summary.syntax} / ${summary.few_shot ? "few-shot" : "zero-shot"}）: ` +
-        `execution ${(summary.success_rate * 100).toFixed(0)}%` +
-        ` | first-attempt ${(summary.first_attempt_rate * 100).toFixed(0)}%` +
-        ` | parse ${(summary.parse_success_rate * 100).toFixed(0)}%` +
-        ` | task ${(summary.task_correctness_rate * 100).toFixed(0)}%`,
+      [
+        `${summary.task_id}.${summary.task_name}`,
+        summary.arm,
+        `${(summary.success_rate * 100).toFixed(0)}%`,
+        `${(summary.first_attempt_rate * 100).toFixed(0)}%`,
+        `${(summary.parse_success_rate * 100).toFixed(0)}%`,
+        `${(summary.task_correctness_rate * 100).toFixed(0)}%`,
+        pct(summary.binding_correctness_rate),
+        `${summary.repair_conversion_count}`,
+        summary.avg_rounds_to_success.toFixed(1),
+        `${summary.tokens_per_success}`,
+      ].join(" | "),
     );
-    console.log(`  error 分布: ${Object.entries(summary.error_code_counts).map(([code, count]) => `${code}=${count}`).join(", ")}`);
-    console.log(`  usage: input=${summary.usage_total.input} output=${summary.usage_total.output} total=${summary.usage_total.totalTokens}`);
   }
-  if (effects) {
-    console.log("\n===== 2×2 效应（main effect = 组均值差，单位 pp，正 = 有利） =====");
-    console.log(`syntax（positional − named）: parse ${effects.parse_syntax_effect.toFixed(2)} | conformance ${effects.conformance_syntax_effect.toFixed(2)} | task ${effects.task_syntax_effect.toFixed(2)}`);
-    console.log(`few-shot（few − zero）: parse ${effects.parse_fewshot_effect.toFixed(2)} | conformance ${effects.conformance_fewshot_effect.toFixed(2)} | task ${effects.task_fewshot_effect.toFixed(2)}`);
-    console.log(`interaction: ${effects.conformance_interaction.toFixed(2)}`);
+
+  // 按臂聚合（跨任务）
+  console.log("\n===== 按臂聚合（跨任务） =====");
+  for (const arm of arms) {
+    const armSummaries = summaries.filter((summary) => summary.arm === arm.id);
+    const totalSamples = armSummaries.reduce((sum, s) => sum + s.samples, 0);
+    const taskRate = armSummaries.reduce((sum, s) => sum + s.task_correctness_rate * s.samples, 0) / totalSamples;
+    const firstRate = armSummaries.reduce((sum, s) => sum + s.first_attempt_rate * s.samples, 0) / totalSamples;
+    const successRate = armSummaries.reduce((sum, s) => sum + s.success_rate * s.samples, 0) / totalSamples;
+    const bindingSum = armSummaries.filter((s) => s.binding_correctness_rate !== null);
+    const bindingRate =
+      bindingSum.length > 0
+        ? bindingSum.reduce((sum, s) => sum + (s.binding_correctness_rate ?? 0) * s.samples, 0) /
+          bindingSum.reduce((sum, s) => sum + s.samples, 0)
+        : null;
+    const errors: Record<string, number> = {};
+    for (const s of armSummaries) {
+      for (const [code, count] of Object.entries(s.error_code_counts)) errors[code] = (errors[code] ?? 0) + count;
+    }
+    console.log(
+      `臂 ${arm.id}（${arm.binding}）: execution ${(successRate * 100).toFixed(0)}% | first-attempt ${(firstRate * 100).toFixed(0)}% | task ${(taskRate * 100).toFixed(0)}% | binding ${bindingRate === null ? "-" : (bindingRate * 100).toFixed(0) + "%"}`,
+    );
+    console.log(`  error 分布: ${Object.entries(errors).map(([code, count]) => `${code}=${count}`).join(", ") || "(无)"}`);
   }
+
   console.log(`\n报告已写入: ${path.join(outDir, "report.json")}`);
   return 0;
 }
