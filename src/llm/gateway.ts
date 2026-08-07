@@ -4,6 +4,9 @@ import {
   envApiKeyAuth,
   type Context,
   type Model,
+  type TextContent,
+  type Tool,
+  type ToolCall,
 } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 
@@ -14,13 +17,25 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
  * OpenAI 兼容的 DeepSeek 端点（baseUrl + openAICompletionsApi），调用方
  * 只与 `LlmGateway` 接口打交道，未来换模型 / 换 provider 只改这里。
  *
+ * 支持两通道（传输协议分层）：
+ * - text：模型的自然语言输出（给人）；
+ * - tool call：结构化 transport（给机器），如 `submit_program(source)`。
+ * 两通道互不污染——`LlmResult.content` 与 `LlmResult.toolCalls` 分离。
+ *
  * API key 从环境变量 `DEEPSEEK_API_KEY` 读取（.env，已被 gitignore）。
  */
 
-export interface LlmMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
+export interface LlmToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
 }
+
+export type LlmMessage =
+  | { role: "system"; content: string }
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string; toolCalls?: LlmToolCall[] }
+  | { role: "toolResult"; toolCallId: string; toolName: string; content: string; isError: boolean };
 
 export interface LlmUsage {
   input: number;
@@ -30,12 +45,15 @@ export interface LlmUsage {
 }
 
 export interface LlmResult {
+  /** 模型 text 部分（无则空串）——给人看，不参与程序解析 */
   content: string;
+  /** 模型工具调用（transport envelope）——给机器，程序只从这里取 */
+  toolCalls: LlmToolCall[];
   usage: LlmUsage;
 }
 
 export interface LlmGateway {
-  complete(messages: readonly LlmMessage[]): Promise<LlmResult>;
+  complete(messages: readonly LlmMessage[], options?: { tools?: readonly Tool[] }): Promise<LlmResult>;
 }
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
@@ -72,31 +90,60 @@ export function createDeepSeekGateway(): LlmGateway {
   if (!model) throw new Error("DeepSeek 模型未就绪：deepseek-chat");
 
   return {
-    async complete(messages) {
+    async complete(messages, options) {
       const systemPrompt = messages
         .filter((message) => message.role === "system")
         .map((message) => message.content)
         .join("\n\n");
-      const chatMessages = messages
+      const chatMessages: Context["messages"] = messages
         .filter((message) => message.role !== "system")
-        .map((message) => ({
-          role: message.role as "user" | "assistant",
-          // pi-ai 期望 assistant 消息的 content 是 block 数组（estimate 的
-          // estimateMessageTokens 会遍历 content 取 block 字段；传 string 会抛
-          // "Cannot read properties of undefined (reading 'length')"）
-          content: message.role === "assistant" ? [{ type: "text", text: message.content }] : message.content,
-          timestamp: Date.now(),
-          // pi-ai 的上下文估算会读 assistant.usage（estimate.ts getLastAssistantUsageInfo），
-          // 缺失会抛 "Cannot read properties of undefined (reading 'totalTokens')"。
-          // 全 0 usage 让估算回退到纯字符估算，行为正确。
-          ...(message.role === "assistant"
-            ? { usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } }
-            : {}),
-        }));
+        .map((message): Context["messages"][number] => {
+          const timestamp = Date.now();
+          switch (message.role) {
+            case "user":
+              return { role: "user", content: message.content, timestamp };
+            case "assistant": {
+              // pi-ai 期望 assistant 消息 content 是 block 数组，且上下文估算会读
+              // assistant.usage（estimate.ts getLastAssistantUsageInfo）——缺失会抛
+              // "Cannot read properties of undefined (reading 'totalTokens')"；
+              // 全 0 usage 让估算回退到纯字符估算。toolCall block 需随消息回传，
+              // 否则 hasToolHistory 无法识别历史中的工具调用。
+              const blocks: (TextContent | ToolCall)[] = [{ type: "text", text: message.content }];
+              for (const call of message.toolCalls ?? []) {
+                blocks.push({ type: "toolCall", id: call.id, name: call.name, arguments: call.arguments });
+              }
+              return {
+                role: "assistant",
+                content: blocks,
+                timestamp,
+                usage: {
+                  input: 0,
+                  output: 0,
+                  cacheRead: 0,
+                  cacheWrite: 0,
+                  totalTokens: 0,
+                  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+                },
+                stopReason: (message.toolCalls?.length ?? 0) > 0 ? "toolUse" : "stop",
+              };
+            }
+            case "toolResult":
+              return {
+                role: "toolResult",
+                toolCallId: message.toolCallId,
+                toolName: message.toolName,
+                content: [{ type: "text", text: message.content }],
+                isError: message.isError,
+                timestamp,
+              };
+          }
+        });
 
-      const context: Context = systemPrompt
-        ? { systemPrompt, messages: chatMessages }
-        : { messages: chatMessages };
+      const context: Context = {
+        ...(systemPrompt ? { systemPrompt } : {}),
+        messages: chatMessages,
+        ...(options?.tools && options.tools.length > 0 ? { tools: [...options.tools] } : {}),
+      };
 
       const response = await models.completeSimple(model, context);
 
@@ -104,10 +151,14 @@ export function createDeepSeekGateway(): LlmGateway {
         .filter((block) => block.type === "text")
         .map((block) => block.text)
         .join("");
+      const toolCalls: LlmToolCall[] = response.content
+        .filter((block) => block.type === "toolCall")
+        .map((block) => ({ id: block.id, name: block.name, arguments: block.arguments as Record<string, unknown> }));
 
       const usage = response.usage;
       return {
         content,
+        toolCalls,
         usage: {
           input: usage?.input ?? 0,
           output: usage?.output ?? 0,

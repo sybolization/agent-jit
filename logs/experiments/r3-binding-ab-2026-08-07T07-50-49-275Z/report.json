@@ -1,0 +1,1602 @@
+{
+  "mode": "r3-map-binding",
+  "backend": "real",
+  "arms": [
+    {
+      "id": "B",
+      "binding": "call"
+    }
+  ],
+  "tasks": [
+    {
+      "arm": "B",
+      "binding": "call",
+      "task_id": 1,
+      "task_name": "repo-details",
+      "samples": 10,
+      "success_count": 10,
+      "success_rate": 1,
+      "first_attempt_count": 10,
+      "first_attempt_rate": 1,
+      "transport_success_rate": 1,
+      "parse_success_rate": 1,
+      "task_correctness_rate": 1,
+      "binding_correctness_rate": 1,
+      "repair_conversion_count": 0,
+      "avg_rounds_to_success": 1,
+      "total_rounds": 10,
+      "tokens_per_success": 941,
+      "error_code_counts": {},
+      "usage_total": {
+        "input": 810,
+        "output": 921,
+        "cacheRead": 7680,
+        "totalTokens": 9411
+      },
+      "runs": [
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetailed = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(detailed, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 81,
+            "output": 93,
+            "cacheRead": 768,
+            "totalTokens": 942
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetailed = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(detailed, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 81,
+            "output": 92,
+            "cacheRead": 768,
+            "totalTokens": 941
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arm": "B",
+      "binding": "call",
+      "task_id": 2,
+      "task_name": "repo-languages",
+      "samples": 10,
+      "success_count": 10,
+      "success_rate": 1,
+      "first_attempt_count": 10,
+      "first_attempt_rate": 1,
+      "transport_success_rate": 1,
+      "parse_success_rate": 1,
+      "task_correctness_rate": 1,
+      "binding_correctness_rate": 1,
+      "repair_conversion_count": 0,
+      "avg_rounds_to_success": 1,
+      "total_rounds": 10,
+      "tokens_per_success": 980,
+      "error_code_counts": {},
+      "usage_total": {
+        "input": 840,
+        "output": 1275,
+        "cacheRead": 7680,
+        "totalTokens": 9795
+      },
+      "runs": [
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlanguages = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(languages, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 84,
+            "output": 103,
+            "cacheRead": 768,
+            "totalTokens": 955
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlanguages = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(languages, 3)\nreturn top",
+              "text": "I'll write the DSL program to accomplish this task.",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 84,
+            "output": 157,
+            "cacheRead": 768,
+            "totalTokens": 1009
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+              "text": "我将编写程序并按步骤提交。首先让我构建 DSL 程序。\n\n程序需要：\n1. 搜索仓库\n2. 取前 10 个\n3. 映射每个仓库获取语言构成\n4. 截取前 3 个\n5. 返回\n\n让我一次性完成所有语句。",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 84,
+            "output": 103,
+            "cacheRead": 768,
+            "totalTokens": 955
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+              "text": "I'll write the DSL program according to the requirements.",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 84,
+            "output": 154,
+            "cacheRead": 768,
+            "totalTokens": 1006
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+              "text": "I'll write the DSL program step by step.\n\n1. First, search repositories with the query \"agent framework language:typescript\", taking top 10\n2. Then map each repo to get languages using full_name field\n3. Finally take first 3 and return\n\nLet me submit the program.",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 84,
+            "output": 103,
+            "cacheRead": 768,
+            "totalTokens": 955
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+              "text": "I'll write the DSL program to accomplish this task.",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ntop10 = take(repos, 10)\nlangs = map(top10, github.get_languages(full_name=_.full_name))\nresult = take(langs, 3)\nreturn result",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 84,
+            "output": 169,
+            "cacheRead": 768,
+            "totalTokens": 1021
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ntop10 = take(repos, 10)\nlangs = map(top10, github.get_languages(full_name=_.full_name))\nresult = take(langs, 3)\nreturn result",
+              "text": "The user wants me to write a DSL program that:\n1. Searches for TypeScript agent framework repos with query \"agent framework language:typescript\"\n2. Takes the first 10\n3. Gets language composition for each repo\n4. Truncates to first 3 and returns\n\nLet me write the DSL program.",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 84,
+            "output": 190,
+            "cacheRead": 768,
+            "totalTokens": 1042
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+              "text": "i需要编写一个DSL程序来完成任务。让我先分析需求：\n\n1. 搜索仓库：`github.search_repositories(query=\"agent framework language:typescript\", limit=10)`\n2. 对每个仓库获取语言构成：`map(repos, github.get_languages(full_name=_.full_name))`\n3. 截取前3个：`take(langs, 3)`\n4. 返回\n\n让我按依赖顺序编写程序。",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "results = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(results, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 84,
+            "output": 101,
+            "cacheRead": 768,
+            "totalTokens": 953
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "results = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(results, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+              "text": "I'll write the DSL program according to the requirements.",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 84,
+            "output": 93,
+            "cacheRead": 768,
+            "totalTokens": 945
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 84,
+            "output": 102,
+            "cacheRead": 768,
+            "totalTokens": 954
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\nlangs = map(repos, github.get_languages(full_name=_.full_name))\ntop = take(langs, 3)\nreturn top",
+              "text": "I'll write the DSL program and submit it.",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arm": "B",
+      "binding": "call",
+      "task_id": 3,
+      "task_name": "repo-contributors",
+      "samples": 10,
+      "success_count": 10,
+      "success_rate": 1,
+      "first_attempt_count": 10,
+      "first_attempt_rate": 1,
+      "transport_success_rate": 1,
+      "parse_success_rate": 1,
+      "task_correctness_rate": 1,
+      "binding_correctness_rate": 1,
+      "repair_conversion_count": 0,
+      "avg_rounds_to_success": 1,
+      "total_rounds": 10,
+      "tokens_per_success": 958,
+      "error_code_counts": {},
+      "usage_total": {
+        "input": 930,
+        "output": 966,
+        "cacheRead": 7680,
+        "totalTokens": 9576
+      },
+      "runs": [
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontribs = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contribs, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 93,
+            "output": 95,
+            "cacheRead": 768,
+            "totalTokens": 956
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontribs = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contribs, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontributors = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contributors, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 93,
+            "output": 95,
+            "cacheRead": 768,
+            "totalTokens": 956
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontributors = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contributors, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontributors = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contributors, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 93,
+            "output": 95,
+            "cacheRead": 768,
+            "totalTokens": 956
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontributors = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contributors, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ntop = take(repos, 10)\ncontribs = map(top, github.list_contributors(full_name=_.full_name))\nresult = take(contribs, 3)\nreturn result",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 93,
+            "output": 103,
+            "cacheRead": 768,
+            "totalTokens": 964
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ntop = take(repos, 10)\ncontribs = map(top, github.list_contributors(full_name=_.full_name))\nresult = take(contribs, 3)\nreturn result",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontribs = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contribs, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 93,
+            "output": 95,
+            "cacheRead": 768,
+            "totalTokens": 956
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontribs = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contribs, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontributors = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contributors, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 93,
+            "output": 95,
+            "cacheRead": 768,
+            "totalTokens": 956
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontributors = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contributors, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontributors = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contributors, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 93,
+            "output": 95,
+            "cacheRead": 768,
+            "totalTokens": 956
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontributors = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contributors, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontributors = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contributors, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 93,
+            "output": 95,
+            "cacheRead": 768,
+            "totalTokens": 956
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontributors = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contributors, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ntop = take(repos, 10)\ncontributors = map(top, github.list_contributors(full_name=_.full_name))\nresult = take(contributors, 3)\nreturn result",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 93,
+            "output": 103,
+            "cacheRead": 768,
+            "totalTokens": 964
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ntop = take(repos, 10)\ncontributors = map(top, github.list_contributors(full_name=_.full_name))\nresult = take(contributors, 3)\nreturn result",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontribs = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contribs, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 93,
+            "output": 95,
+            "cacheRead": 768,
+            "totalTokens": 956
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "repos = github.search_repositories(query=\"agent framework language:typescript\", limit=10)\ncontribs = map(repos, github.list_contributors(full_name=_.full_name))\ntop = take(contribs, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arm": "B",
+      "binding": "call",
+      "task_id": 4,
+      "task_name": "customer-detail",
+      "samples": 10,
+      "success_count": 10,
+      "success_rate": 1,
+      "first_attempt_count": 10,
+      "first_attempt_rate": 1,
+      "transport_success_rate": 1,
+      "parse_success_rate": 1,
+      "task_correctness_rate": 1,
+      "binding_correctness_rate": 1,
+      "repair_conversion_count": 0,
+      "avg_rounds_to_success": 1,
+      "total_rounds": 10,
+      "tokens_per_success": 923,
+      "error_code_counts": {},
+      "usage_total": {
+        "input": 680,
+        "output": 870,
+        "cacheRead": 7680,
+        "totalTokens": 9230
+      },
+      "runs": [
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 68,
+            "output": 87,
+            "cacheRead": 768,
+            "totalTokens": 923
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 68,
+            "output": 87,
+            "cacheRead": 768,
+            "totalTokens": 923
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 68,
+            "output": 87,
+            "cacheRead": 768,
+            "totalTokens": 923
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 68,
+            "output": 87,
+            "cacheRead": 768,
+            "totalTokens": 923
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 68,
+            "output": 87,
+            "cacheRead": 768,
+            "totalTokens": 923
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 68,
+            "output": 87,
+            "cacheRead": 768,
+            "totalTokens": 923
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 68,
+            "output": 87,
+            "cacheRead": 768,
+            "totalTokens": 923
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 68,
+            "output": 87,
+            "cacheRead": 768,
+            "totalTokens": 923
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 68,
+            "output": 87,
+            "cacheRead": 768,
+            "totalTokens": 923
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 68,
+            "output": 87,
+            "cacheRead": 768,
+            "totalTokens": 923
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "customers = crm.search_customers(limit=10)\ndetails = map(customers, crm.get_customer(customer_id=_.id))\ntop = take(details, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arm": "B",
+      "binding": "call",
+      "task_id": 5,
+      "task_name": "user-emails",
+      "samples": 10,
+      "success_count": 10,
+      "success_rate": 1,
+      "first_attempt_count": 10,
+      "first_attempt_rate": 1,
+      "transport_success_rate": 1,
+      "parse_success_rate": 1,
+      "task_correctness_rate": 1,
+      "binding_correctness_rate": 1,
+      "repair_conversion_count": 0,
+      "avg_rounds_to_success": 1,
+      "total_rounds": 10,
+      "tokens_per_success": 911,
+      "error_code_counts": {},
+      "usage_total": {
+        "input": 610,
+        "output": 820,
+        "cacheRead": 7680,
+        "totalTokens": 9110
+      },
+      "runs": [
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 61,
+            "output": 82,
+            "cacheRead": 768,
+            "totalTokens": 911
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 61,
+            "output": 82,
+            "cacheRead": 768,
+            "totalTokens": 911
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 61,
+            "output": 82,
+            "cacheRead": 768,
+            "totalTokens": 911
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 61,
+            "output": 82,
+            "cacheRead": 768,
+            "totalTokens": 911
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 61,
+            "output": 82,
+            "cacheRead": 768,
+            "totalTokens": 911
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 61,
+            "output": 82,
+            "cacheRead": 768,
+            "totalTokens": 911
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 61,
+            "output": 82,
+            "cacheRead": 768,
+            "totalTokens": 911
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 61,
+            "output": 82,
+            "cacheRead": 768,
+            "totalTokens": 911
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 61,
+            "output": 82,
+            "cacheRead": 768,
+            "totalTokens": 911
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "success": true,
+          "rounds_used": 1,
+          "first_attempt": true,
+          "transport_pass": true,
+          "first_round_parse_ok": true,
+          "task_pass": true,
+          "task_failures": [],
+          "binding_pass": true,
+          "binding_failures": [],
+          "final_dsl": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+          "result_size": 3,
+          "error_codes": [],
+          "usage": {
+            "input": 61,
+            "output": 82,
+            "cacheRead": 768,
+            "totalTokens": 911
+          },
+          "rounds": [
+            {
+              "round": 1,
+              "llm_output": "users = users.list_users()\nemails = map(users, email.prepare(to=_.email, name=_.name))\ntop = take(emails, 3)\nreturn top",
+              "text": "",
+              "transport_ok": true,
+              "diagnostics": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

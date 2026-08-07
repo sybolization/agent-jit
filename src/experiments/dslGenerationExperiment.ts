@@ -19,10 +19,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { Type } from "typebox";
+import type { Tool } from "@earendil-works/pi-ai";
+
 import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compiler.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
 import { mapLimit } from "../runtime/executor.js";
 import { createMockGithubTools, createMockDomainTools } from "../runtime/mockTools.js";
+import { createRealGithubTools } from "../runtime/githubAdapter.js";
 import { execute } from "../runtime/runtime.js";
 import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
 import { R3_TASKS, type R3Task } from "./r3Tasks.js";
@@ -30,6 +34,20 @@ import { checkTaskCorrectness, type TaskSpec } from "./taskSpec.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
+
+/**
+ * 传输协议（transport envelope）：模型通过 submit_program 工具提交程序，
+ * 工具调用只负责可靠 transport，不承担程序的结构表达——DSL 仍是程序语言，
+ * tool call 只是"交卷动作"。assistant text 通道不再参与程序解析。
+ */
+const SUBMIT_PROGRAM_TOOL: Tool = {
+  name: "submit_program",
+  description:
+    "提交一段 Agent Execution DSL 程序源码给 Harness 编译执行。这是唯一允许的提交方式——把完整程序放在 source 参数里，不要直接写在回复文本中。",
+  parameters: Type.Object({
+    source: Type.String({ description: "Agent Execution DSL 程序源码（每条语句独占一行）" }),
+  }),
+};
 
 // ---------------------------------------------------------------------------
 // .env 加载（不依赖 dotenv）
@@ -92,10 +110,10 @@ function buildSystemPrompt(arm: ArmConfig, task: R3Task): string {
     renderExecutionToolCatalog(task.tools),
     "",
     "## 硬约束",
-    "1. 只输出 DSL 代码本身，不要 Markdown 围栏，不要任何解释文字",
+    "1. 必须通过调用 submit_program 工具提交程序（把 DSL 源码放在 source 参数里）；不要直接在回复文本中输出代码或 Markdown",
     "2. 参数名必须与工具目录完全一致，不得自创参数名",
     "3. 变量必须先定义再引用（不允许前向引用）",
-    "4. 编译失败时，根据返回的诊断修正 DSL 并重新提交，直到成功为止",
+    "4. 编译失败时，根据返回的诊断修正 DSL，再次调用 submit_program 重新提交，直到成功为止",
   ];
   return lines.join("\n");
 }
@@ -107,6 +125,10 @@ function buildSystemPrompt(arm: ArmConfig, task: R3Task): string {
 interface RoundRecord {
   round: number;
   llm_output: string;
+  /** 模型 text 输出（留档；不参与程序解析——transport 协议分层） */
+  text: string;
+  /** 本轮是否成功通过 submit_program 拿到非空 source */
+  transport_ok: boolean;
   diagnostics: Array<{ line: number; code: string; message: string }>;
 }
 
@@ -114,6 +136,8 @@ interface RunResult {
   success: boolean;
   rounds_used: number;
   first_attempt: boolean;
+  /** 首轮是否成功 transport（submit_program 调用且 source 非空） */
+  transport_pass: boolean;
   first_round_parse_ok: boolean;
   task_pass: boolean;
   task_failures: string[];
@@ -126,8 +150,12 @@ interface RunResult {
   rounds: RoundRecord[];
 }
 
-function buildRuntimeRegistry(task: R3Task): Map<string, { spec: { id: string }; execute: (args: Record<string, unknown>) => unknown }> {
-  const tools = [...createMockGithubTools(), ...createMockDomainTools()];
+function buildRuntimeRegistry(
+  task: R3Task,
+  backend: "real" | "mock",
+): Map<string, { spec: { id: string }; execute: (args: Record<string, unknown>) => unknown }> {
+  const githubRuntime = backend === "real" ? createRealGithubTools() : createMockGithubTools();
+  const tools = [...githubRuntime, ...createMockDomainTools()];
   const allowed = new Set(task.tools.map((tool) => tool.id));
   return new Map(tools.filter((tool) => allowed.has(tool.spec.id)).map((tool) => [tool.spec.id, tool]));
 }
@@ -137,6 +165,7 @@ async function runOnce(
   arm: ArmConfig,
   task: R3Task,
   maxRounds: number,
+  backend: "real" | "mock",
 ): Promise<RunResult> {
   const messages: LlmMessage[] = [
     { role: "system", content: buildSystemPrompt(arm, task) },
@@ -147,18 +176,24 @@ async function runOnce(
   const rounds: RoundRecord[] = [];
 
   for (let round = 1; round <= maxRounds; round += 1) {
-    const { content, usage: turnUsage } = await gateway.complete(messages);
+    const { content, toolCalls, usage: turnUsage } = await gateway.complete(messages, { tools: [SUBMIT_PROGRAM_TOOL] });
     usage.input += turnUsage.input;
     usage.output += turnUsage.output;
     usage.cacheRead += turnUsage.cacheRead;
     usage.totalTokens += turnUsage.totalTokens;
 
-    const dsl = content.trim();
-    rounds.push({ round, llm_output: dsl, diagnostics: [] });
-    messages.push({ role: "assistant", content: dsl });
+    // 传输协议：程序只从 submit_program 的 source 参数取，text 通道不参与解析
+    const submit = toolCalls.find((call) => call.name === "submit_program");
+    const dsl = typeof submit?.arguments.source === "string" ? submit.arguments.source.trim() : "";
+    const transportOk = submit !== undefined && dsl !== "";
+    rounds.push({ round, llm_output: dsl, text: content, transport_ok: transportOk, diagnostics: [] });
+    messages.push({ role: "assistant", content, toolCalls });
 
-    if (!dsl) {
-      messages.push({ role: "user", content: "你的输出为空。请重新提交一段完整的 DSL 程序（只输出 DSL 代码本身）。" });
+    if (!transportOk) {
+      messages.push({
+        role: "user",
+        content: "你没有通过 submit_program 工具提交程序。请调用 submit_program 工具，把完整 DSL 程序放在 source 参数里（不要写在回复文本中）。",
+      });
       continue;
     }
 
@@ -170,17 +205,18 @@ async function runOnce(
         allowMapBinding: arm.binding,
       });
       if (graph.nodes.length === 0) {
-        messages.push({ role: "user", content: "编译通过但程序为空（没有任何语句）。请重新提交一段完整的 DSL 程序。" });
+        messages.push({ role: "toolResult", toolCallId: submit.id, toolName: "submit_program", content: "编译通过但程序为空（没有任何语句）。请重新提交一段完整的 DSL 程序。", isError: true });
         continue;
       }
       const correctness = checkTaskCorrectness(graph, task.spec);
-      const registry = buildRuntimeRegistry(task);
+      const registry = buildRuntimeRegistry(task, backend);
       const execution = await execute(graph, registry);
       const resultArray = Array.isArray(execution.result) ? (execution.result as unknown[]) : [];
       return {
         success: true,
         rounds_used: round,
         first_attempt: round === 1,
+        transport_pass: round === 1 && transportOk,
         first_round_parse_ok: !rounds[0]?.diagnostics.some((item) => item.code === "syntax"),
         task_pass: correctness.pass,
         task_failures: correctness.failures,
@@ -198,16 +234,17 @@ async function runOnce(
         errorCodes.push(...diagnostics.map((item) => item.code));
         rounds[rounds.length - 1]!.diagnostics = diagnostics;
         const feedback = [
-          "编译失败，请根据以下诊断修正 DSL 后重新提交（只输出修正后的 DSL）：",
+          "编译失败，请根据以下诊断修正 DSL 后再次调用 submit_program 重新提交：",
           ...diagnostics.map((item) => `L${item.line}: ${item.code}: ${item.message}`),
         ].join("\n");
-        messages.push({ role: "user", content: feedback });
+        messages.push({ role: "toolResult", toolCallId: submit.id, toolName: "submit_program", content: feedback, isError: true });
         continue;
       }
       return {
         success: false,
         rounds_used: round,
         first_attempt: false,
+        transport_pass: false,
         first_round_parse_ok: !rounds[0]?.diagnostics.some((item) => item.code === "syntax"),
         task_pass: false,
         task_failures: ["执行异常"],
@@ -226,6 +263,7 @@ async function runOnce(
     success: false,
     rounds_used: maxRounds,
     first_attempt: false,
+    transport_pass: false,
     first_round_parse_ok: !rounds[0]?.diagnostics.some((item) => item.code === "syntax"),
     task_pass: false,
     task_failures: ["达到最大轮数仍未成功"],
@@ -253,6 +291,8 @@ interface ArmTaskSummary {
   success_rate: number;
   first_attempt_count: number;
   first_attempt_rate: number;
+  /** 首轮 transport 成功率（submit_program 调用且 source 非空）——与语法/编译解耦 */
+  transport_success_rate: number;
   parse_success_rate: number;
   task_correctness_rate: number;
   binding_correctness_rate: number | null;
@@ -271,10 +311,11 @@ async function summarizeArmTask(
   task: R3Task,
   samples: number,
   maxRounds: number,
+  backend: "real" | "mock",
 ): Promise<ArmTaskSummary> {
   const runs: RunResult[] = [];
   for (let i = 0; i < samples; i += 1) {
-    const run = await runOnce(gateway, arm, task, maxRounds);
+    const run = await runOnce(gateway, arm, task, maxRounds, backend);
     runs.push(run);
     process.stdout.write(
       `  [${arm.id}|T${task.id}] 样本 ${i + 1}/${samples} ... ${run.success ? "成功" : "失败"}（${run.rounds_used} 轮）` +
@@ -311,6 +352,7 @@ async function summarizeArmTask(
     success_rate: successRuns.length / samples,
     first_attempt_count: runs.filter((run) => run.first_attempt).length,
     first_attempt_rate: runs.filter((run) => run.first_attempt).length / samples,
+    transport_success_rate: runs.filter((run) => run.transport_pass).length / samples,
     parse_success_rate: runs.filter((run) => run.first_round_parse_ok).length / samples,
     task_correctness_rate: runs.filter((run) => run.task_pass).length / samples,
     binding_correctness_rate:
@@ -330,7 +372,7 @@ async function summarizeArmTask(
 // Entry
 // ---------------------------------------------------------------------------
 
-function parseArgs(argv: string[]): { arms: ArmConfig[]; tasks: R3Task[]; samples: number; rounds: number; parallel: number } {
+function parseArgs(argv: string[]): { arms: ArmConfig[]; tasks: R3Task[]; samples: number; rounds: number; parallel: number; backend: "real" | "mock" } {
   const read = (name: string, fallback: string): string => {
     const eq = argv.find((item) => item.startsWith(`${name}=`));
     if (eq) return eq.slice(name.length + 1);
@@ -347,12 +389,15 @@ function parseArgs(argv: string[]): { arms: ArmConfig[]; tasks: R3Task[]; sample
   const samples = Number(read("--samples", "10"));
   const rounds = Number(read("--rounds", "5"));
   const parallel = Number(read("--parallel", "6"));
+  const backendArg = read("--backend", "mock").toLowerCase();
+  const backend: "real" | "mock" = backendArg === "real" ? "real" : "mock";
   return {
     arms,
     tasks,
     samples: Number.isInteger(samples) && samples > 0 ? samples : 10,
     rounds: Number.isInteger(rounds) && rounds > 0 ? rounds : 5,
     parallel: Number.isInteger(parallel) && parallel > 0 ? parallel : 6,
+    backend,
   };
 }
 
@@ -363,7 +408,7 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const { arms, tasks, samples, rounds, parallel } = parseArgs(process.argv.slice(2));
+  const { arms, tasks, samples, rounds, parallel, backend } = parseArgs(process.argv.slice(2));
   if (arms.length === 0) {
     console.error("[FAIL] 无效的 --arm（应为 A / B / C / all）");
     return 1;
@@ -372,25 +417,34 @@ async function main(): Promise<number> {
     console.error("[FAIL] 无效的 --tasks（应为 1..5 或 all）");
     return 1;
   }
+  if (backend === "real") {
+    try {
+      createRealGithubTools();
+      console.log(`backend=real：GitHub adapter 就绪（GITHUB_TOKEN 已配置）`);
+    } catch (error) {
+      console.error(`[FAIL] ${(error as Error).message}`);
+      return 1;
+    }
+  }
 
   const gateway = createDeepSeekGateway();
   // 并发执行所有 arm × task 组合（每个组合内部样本串行），组合间并发上限由 --parallel 控制
   const combos = arms.flatMap((arm) => tasks.map((task) => ({ arm, task })));
-  console.log(`并发执行 ${combos.length} 个组合（parallel=${parallel}）...`);
+  console.log(`并发执行 ${combos.length} 个组合（parallel=${parallel}, backend=${backend}）...`);
   const summaries = await mapLimit(combos, parallel, async ({ arm, task }) => {
     console.log(`\n===== 臂 ${arm.id}（${arm.binding}）| 任务 ${task.id}（${task.name}）— ${samples} 个样本 =====`);
-    return summarizeArmTask(gateway, arm, task, samples, rounds);
+    return summarizeArmTask(gateway, arm, task, samples, rounds, backend);
   });
 
   const outDir = path.join(REPO_ROOT, "logs", "experiments", `r3-binding-ab-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(
     path.join(outDir, "report.json"),
-    `${JSON.stringify({ mode: "r3-map-binding", arms, tasks: summaries }, null, 2)}\n`,
+    `${JSON.stringify({ mode: "r3-map-binding", backend, arms, tasks: summaries }, null, 2)}\n`,
   );
 
   console.log("\n\n===== 汇总（per task × arm） =====");
-  const header = ["任务", "臂", "execution", "first-attempt", "parse", "task", "binding", "repair", "avgRound", "tokens/ok"].join(" | ");
+  const header = ["任务", "臂", "execution", "transport", "first-attempt", "parse", "task", "binding", "repair", "avgRound", "tokens/ok"].join(" | ");
   console.log(header);
   console.log("-".repeat(header.length));
   for (const summary of summaries) {
@@ -400,6 +454,7 @@ async function main(): Promise<number> {
         `${summary.task_id}.${summary.task_name}`,
         summary.arm,
         `${(summary.success_rate * 100).toFixed(0)}%`,
+        `${(summary.transport_success_rate * 100).toFixed(0)}%`,
         `${(summary.first_attempt_rate * 100).toFixed(0)}%`,
         `${(summary.parse_success_rate * 100).toFixed(0)}%`,
         `${(summary.task_correctness_rate * 100).toFixed(0)}%`,
