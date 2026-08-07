@@ -302,3 +302,66 @@ describe("compileExecutionDsl — positional args（R2 语言实验开关）", (
     expect(codes).toContain("unknown_parameter");
   });
 });
+
+describe("compileExecutionDsl — R4e compute/select/join", () => {
+  const compileR4e = (dsl: string) =>
+    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" });
+
+  const CORRECT = [
+    'repos = github.search_repositories(query="agent framework", limit=30)',
+    "details = map(repos, github.get_repository(full_name=_.full_name))",
+    'ratio = compute(details, ratio="forks / stars")',
+    'high = select(ratio, "ratio > 0.15")',
+    'low = select(ratio, "ratio <= 0.15")',
+    "contrib = map(high, github.get_contributor_stats(full_name=_.full_name))",
+    "commit = map(low, github.list_commits(full_name=_.full_name))",
+    'merged = join(ratio, contrib, commit, key="full_name")',
+    'kept = select(merged, "score >= 100")',
+    'ranked = sort(kept, key="score", desc=true)',
+    "top = take(ranked, 3)",
+    "return top",
+  ].join("\n");
+
+  test("compute/select/join 编译为正确 IR 节点", () => {
+    const { graph, diagnostics } = compileR4e(CORRECT);
+    expect(diagnostics).toEqual([]);
+    const nodes = graph.nodes;
+    expect(nodes.find((n) => n.id === "ratio")).toMatchObject({ kind: "compute", op: "compute", args: { ratio: "forks / stars" } });
+    expect(nodes.find((n) => n.id === "high")).toMatchObject({ kind: "compute", op: "select", args: { pred: "ratio > 0.15" } });
+    expect(nodes.find((n) => n.id === "merged")).toMatchObject({
+      kind: "join",
+      key: "full_name",
+      sources: ["ratio", "contrib", "commit"],
+    });
+  });
+
+  test("compute 表达式非法 → expression_invalid", () => {
+    const dsl = CORRECT.replace('ratio="forks / stars"', 'ratio="forks / (stars"');
+    const codes = collectCodes(() => compileR4e(dsl));
+    expect(codes).toContain("expression_invalid");
+  });
+
+  test("select 谓词不是比较 → expression_invalid", () => {
+    const dsl = CORRECT.replace('"ratio > 0.15"', '"forks + stars"');
+    const codes = collectCodes(() => compileR4e(dsl));
+    expect(codes).toContain("expression_invalid");
+  });
+
+  test("join 少于 2 个 source → syntax", () => {
+    const dsl = CORRECT.replace('join(ratio, contrib, commit', 'join(ratio');
+    const codes = collectCodes(() => compileR4e(dsl));
+    expect(codes).toContain("syntax");
+  });
+
+  test("join 缺 key → 缺必填参数", () => {
+    const dsl = CORRECT.replace(', key="full_name"', "");
+    const codes = collectCodes(() => compileR4e(dsl));
+    expect(codes.some((code) => code === "syntax" || code === "config_type_mismatch" || code === "invalid_reference")).toBe(true);
+  });
+
+  test("join 的 source 未定义 → undefined_reference", () => {
+    const dsl = CORRECT.replace("join(ratio, contrib, commit", "join(ratio, ghost, commit");
+    const codes = collectCodes(() => compileR4e(dsl));
+    expect(codes).toContain("undefined_reference");
+  });
+});

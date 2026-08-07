@@ -312,3 +312,79 @@ describe("checkTaskCorrectness — R4d 多阶段图检查（D3：双 take / 阶�
     expect(result.failures.some((item) => item.includes("take"))).toBe(true);
   });
 });
+
+describe("checkTaskCorrectness — R4e 分支重组图检查（compute/select/join）", () => {
+  const CORRECT_R4E = [
+    'repos = github.search_repositories(query="agent framework", limit=30)',
+    "details = map(repos, github.get_repository(full_name=_.full_name))",
+    'ratio = compute(details, ratio="forks / stars")',
+    'high = select(ratio, "ratio > 0.15")',
+    'low = select(ratio, "ratio <= 0.15")',
+    "contrib = map(high, github.get_contributor_stats(full_name=_.full_name))",
+    "commit = map(low, github.list_commits(full_name=_.full_name))",
+    'merged = join(ratio, contrib, commit, key="full_name")',
+    'kept = select(merged, "score >= 100")',
+    'ranked = sort(kept, key="score", desc=true)',
+    "top = take(ranked, 3)",
+    "return top",
+  ].join("\n");
+  const r4eSpec: TaskSpec = {
+    query: "agent framework",
+    queryTokens: ["agent framework"],
+    limit: 30,
+    takeCount: 3,
+    bindings: { full_name: "full_name" },
+    sortKey: "score",
+    sortDesc: true,
+    computeExprs: { ratio: "forks / stars" },
+    selectPreds: ["ratio > 0.15", "ratio <= 0.15", "score >= 100"],
+    joinSpec: { key: "full_name", sourceCount: 3, extraTools: ["github.get_contributor_stats", "github.list_commits"] },
+  };
+  const compileR4e = (dsl: string) =>
+    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+
+  test("R4e 正确程序通过（compute/select×3/join 全检查）", () => {
+    const result = checkTaskCorrectness(compileR4e(CORRECT_R4E), r4eSpec);
+    expect(result.pass).toBe(true);
+    expect(result.failures).toEqual([]);
+  });
+
+  test("缺少 compute(ratio) → computeExprs 失败", () => {
+    const dsl = CORRECT_R4E
+      .replace('ratio = compute(details, ratio="forks / stars")\n', "")
+      .replace('select(ratio, "ratio > 0.15")', 'select(details, "ratio > 0.15")')
+      .replace('select(ratio, "ratio <= 0.15")', 'select(details, "ratio <= 0.15")')
+      .replace("join(ratio, contrib, commit", "join(details, contrib, commit");
+    const result = checkTaskCorrectness(compileR4e(dsl), r4eSpec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("compute 缺少字段 ratio"))).toBe(true);
+  });
+
+  test("分支谓词缺一个（少 low）→ selectPreds 失败", () => {
+    const dsl = CORRECT_R4E.replace('low = select(ratio, "ratio <= 0.15")\n', "").replace("map(low", "map(high");
+    const result = checkTaskCorrectness(compileR4e(dsl), r4eSpec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes('select 缺少谓词 "ratio <= 0.15"'))).toBe(true);
+  });
+
+  test("阈值谓词写错（>= 100 写成 > 50）→ selectPreds 失败", () => {
+    const dsl = CORRECT_R4E.replace('"score >= 100"', '"score > 50"');
+    const result = checkTaskCorrectness(compileR4e(dsl), r4eSpec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("score >= 100"))).toBe(true);
+  });
+
+  test("join 缺一个分支 source（只 join contrib）→ joinSpec.extraTools 失败", () => {
+    const dsl2 = CORRECT_R4E.replace("merged = join(ratio, contrib, commit, key=\"full_name\")", "merged = join(ratio, contrib, key=\"full_name\")");
+    const result = checkTaskCorrectness(compileR4e(dsl2), r4eSpec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("分支工具") && item.includes("github.list_commits"))).toBe(true);
+  });
+
+  test("join 的 key 不是 full_name → 失败", () => {
+    const dsl = CORRECT_R4E.replace('key="full_name"', 'key="name"');
+    const result = checkTaskCorrectness(compileR4e(dsl), r4eSpec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("join") && item.includes("key"))).toBe(true);
+  });
+});

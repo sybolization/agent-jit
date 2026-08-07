@@ -62,9 +62,26 @@ export const ComputeNodeSchema = Type.Object(
   {
     id: Type.String({ minLength: 1, maxLength: 200 }),
     kind: Type.Literal("compute"),
-    op: Type.Union([Type.Literal("take"), Type.Literal("filter"), Type.Literal("sort")]),
+    op: Type.Union([
+      Type.Literal("take"),
+      Type.Literal("filter"),
+      Type.Literal("sort"),
+      Type.Literal("compute"),
+      Type.Literal("select"),
+    ]),
     source: Type.String({ minLength: 1, maxLength: 200 }),
     args: Type.Record(Type.String(), ExecutionLiteralSchema, { additionalProperties: false }),
+  },
+  { additionalProperties: false },
+);
+
+/** R4e join：多输入按 key 合并字段。sources[0] 为基准，其余按 key 匹配后附加字段（基准已有字段不覆盖）。 */
+export const JoinNodeSchema = Type.Object(
+  {
+    id: Type.String({ minLength: 1, maxLength: 200 }),
+    kind: Type.Literal("join"),
+    sources: Type.Array(Type.String({ minLength: 1, maxLength: 200 }), { minItems: 2, maxItems: 20 }),
+    key: Type.String({ minLength: 1, maxLength: 200 }),
   },
   { additionalProperties: false },
 );
@@ -78,7 +95,13 @@ export const ReturnNodeSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const ExecutionNodeSchema = Type.Union([ToolNodeSchema, MapNodeSchema, ComputeNodeSchema, ReturnNodeSchema]);
+export const ExecutionNodeSchema = Type.Union([
+  ToolNodeSchema,
+  MapNodeSchema,
+  ComputeNodeSchema,
+  JoinNodeSchema,
+  ReturnNodeSchema,
+]);
 
 export const ExecutionGraphSchema = Type.Object(
   {
@@ -93,6 +116,7 @@ export type ValueExpr = Static<typeof ValueExprSchema>;
 export type ToolNode = Static<typeof ToolNodeSchema>;
 export type MapNode = Static<typeof MapNodeSchema>;
 export type ComputeNode = Static<typeof ComputeNodeSchema>;
+export type JoinNode = Static<typeof JoinNodeSchema>;
 export type ReturnNode = Static<typeof ReturnNodeSchema>;
 export type ExecutionNode = Static<typeof ExecutionNodeSchema>;
 export type ExecutionGraph = Static<typeof ExecutionGraphSchema>;

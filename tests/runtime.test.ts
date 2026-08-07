@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { compileExecutionDsl } from "../src/compiler/compiler.js";
 import type { ExecutionGraph } from "../src/compiler/ir.js";
 import { githubTools } from "../src/compiler/registry.js";
-import { createMockGithubTools, createMockDomainTools, mockDomainToolSpecs } from "../src/runtime/mockTools.js";
+import { createAdversarialGithubTools, createMockGithubTools, createMockDomainTools, mockDomainToolSpecs } from "../src/runtime/mockTools.js";
 import { execute, type RuntimeRegistry, type RuntimeTool } from "../src/runtime/runtime.js";
 import { renderTraceText } from "../src/runtime/trace.js";
 
@@ -254,5 +254,71 @@ describe("runtime — R4c compute filter/sort", () => {
     expect(items.map((item) => item.full_name)).toEqual(["owner/b", "owner/a"]);
     expect(result.trace.find((entry) => entry.id === "active")).toMatchObject({ kind: "compute.filter", inputSize: 4, outputSize: 2 });
     expect(result.trace.find((entry) => entry.id === "ranked")).toMatchObject({ kind: "compute.sort", inputSize: 2, outputSize: 2 });
+  });
+});
+
+describe("runtime — R4e compute/select/join 执行", () => {
+  const registry = new Map(createAdversarialGithubTools().map((tool) => [tool.spec.id, tool]));
+
+  const DSL = [
+    'repos = github.search_repositories(query="agent framework", limit=15)',
+    "details = map(repos, github.get_repository(full_name=_.full_name))",
+    'ratio = compute(details, ratio="forks / stars")',
+    'high = select(ratio, "ratio > 0.15")',
+    'low = select(ratio, "ratio <= 0.15")',
+    "contrib = map(high, github.get_contributor_stats(full_name=_.full_name))",
+    "commit = map(low, github.list_commits(full_name=_.full_name))",
+    'merged = join(ratio, contrib, commit, key="full_name")',
+    'kept = select(merged, "score >= 100")',
+    'ranked = sort(kept, key="score", desc=true)',
+    "top = take(ranked, 3)",
+    "return top",
+  ].join("\n");
+
+  test("端到端：compute→分支→两路 map→join→阈值→sort→take 与 oracle 一致", async () => {
+    const graph = compileExecutionDsl(DSL, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const result = await execute(graph, registry);
+    expect(result.ok).toBe(true);
+    const items = result.result as Array<Record<string, unknown>>;
+    // N=15：阈值后仅 repo-0（contrib）与 repo-1（commits）通过 → 混合两路的正确答案
+    expect(items.map((item) => item.full_name)).toEqual(["adv/org-repo-0", "adv/org-repo-1"]);
+  });
+
+  test("compute 给每个元素计算 ratio 字段（浅拷贝，不改上游）", async () => {
+    const dsl = [
+      'repos = github.search_repositories(query="x", limit=2)',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      'ratio = compute(details, ratio="forks / stars")',
+      "return ratio",
+    ].join("\n");
+    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const result = await execute(graph, registry);
+    const items = result.result as Array<Record<string, unknown>>;
+    expect(items[0]).toMatchObject({ full_name: "adv/org-repo-0", ratio: 80 / 530 });
+    expect(items[0]).toHaveProperty("forks");
+  });
+
+  test("join 基准优先：两路都含同名字段 score，互斥路径不冲突", async () => {
+    const dsl = [
+      'repos = github.search_repositories(query="x", limit=4)',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      'ratio = compute(details, ratio="forks / stars")',
+      'high = select(ratio, "ratio > 0.15")',
+      'low = select(ratio, "ratio <= 0.15")',
+      "contrib = map(high, github.get_contributor_stats(full_name=_.full_name))",
+      "commit = map(low, github.list_commits(full_name=_.full_name))",
+      'merged = join(ratio, contrib, commit, key="full_name")',
+      "return merged",
+    ].join("\n");
+    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const result = await execute(graph, registry);
+    const items = result.result as Array<Record<string, unknown>>;
+    const byName = new Map(items.map((item) => [item.full_name, item]));
+    // repo-0（contributors 路径）score=801；repo-1（commits 路径）score=750；repo-3（commits）score=80
+    expect(byName.get("adv/org-repo-0")).toMatchObject({ score: 801 });
+    expect(byName.get("adv/org-repo-1")).toMatchObject({ score: 750 });
+    expect(byName.get("adv/org-repo-3")).toMatchObject({ score: 80 });
+    // 两路都写 score，但同一 repo 只命中一条路径
+    expect(byName.get("adv/org-repo-0")!.score).toBe(801);
   });
 });

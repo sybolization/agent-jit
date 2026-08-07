@@ -1,5 +1,6 @@
 import type { ExecutionNode, ValueExpr } from "../compiler/ir.js";
 import type { RuntimeRegistry } from "./runtime.js";
+import { evalExpr, parseExpr } from "./expr.js";
 import { type TraceEntry, valueSize } from "./trace.js";
 import type { ValueStore } from "./valueStore.js";
 
@@ -141,7 +142,67 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
         // 稳定排序（ES2019 起 Array.prototype.sort 稳定），不修改源数组
         return [...source].sort((left, right) => compare(left, right));
       }
+      if (node.op === "compute") {
+        // 元素级字段计算：浅拷贝 + 按 <输出字段>=<表达式字符串> 计算新字段（按声明顺序）
+        return source.map((item) => {
+          const record =
+            typeof item === "object" && item !== null ? { ...(item as Record<string, unknown>) } : {};
+          for (const [out, exprSrc] of Object.entries(node.args)) {
+            const parsed = parseExpr(String(exprSrc));
+            if (!parsed.ok) throw new Error(`compute 表达式 "${exprSrc}" 解析失败：${parsed.error}`);
+            record[out] = evalExpr(parsed.node, record);
+          }
+          return record;
+        });
+      }
+      if (node.op === "select") {
+        const parsed = parseExpr(String(node.args.pred ?? ""));
+        if (!parsed.ok) throw new Error(`select 谓词 "${node.args.pred}" 解析失败：${parsed.error}`);
+        return source.filter((item) => {
+          if (typeof item !== "object" || item === null) return false;
+          return evalExpr(parsed.node, item as Record<string, unknown>) === true;
+        });
+      }
       throw new Error(`compute op “${node.op}” 尚未实现`);
+    }
+    case "join": {
+      const base = ctx.store.get(node.sources[0]!);
+      if (!Array.isArray(base)) {
+        throw new Error(`join 的基准 source “${node.sources[0]}” 不是数组（得到 ${typeof base}）`);
+      }
+      trace.inputSize = base.length;
+      // 其余 source 按 key 建索引（同 key 后者覆盖前者，R4e 数据互斥路径不会冲突）
+      const extraIndexes: Array<Map<string, Record<string, unknown>>> = [];
+      for (const sourceName of node.sources.slice(1)) {
+        const array = ctx.store.get(sourceName);
+        if (!Array.isArray(array)) {
+          throw new Error(`join 的 source “${sourceName}” 不是数组（得到 ${typeof array}）`);
+        }
+        const index = new Map<string, Record<string, unknown>>();
+        for (const item of array) {
+          if (typeof item !== "object" || item === null) continue;
+          const record = item as Record<string, unknown>;
+          const key = record[node.key];
+          if (typeof key === "string") index.set(key, record);
+        }
+        extraIndexes.push(index);
+      }
+      return base.map((item) => {
+        const record =
+          typeof item === "object" && item !== null ? { ...(item as Record<string, unknown>) } : {};
+        const key = record[node.key];
+        if (typeof key === "string") {
+          for (const index of extraIndexes) {
+            const extra = index.get(key);
+            if (!extra) continue;
+            // 基准优先：已有字段不覆盖（两条路径都写 score，但同 key 只会命中一条）
+            for (const [field, value] of Object.entries(extra)) {
+              if (!(field in record)) record[field] = value;
+            }
+          }
+        }
+        return record;
+      });
     }
     case "return": {
       return ctx.store.get(node.value);

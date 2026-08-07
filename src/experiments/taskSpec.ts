@@ -1,4 +1,5 @@
 import type { ExecutionGraph, ExecutionNode } from "../compiler/ir.js";
+import { nodeDependencies } from "../runtime/dependencies.js";
 
 /**
  * Task correctness 检查器：从 ExecutionIR 层面判断程序是否真的完成了任务
@@ -34,6 +35,18 @@ export interface TaskSpec {
   stageTools?: readonly string[];
   /** R4d：return 数据流上按序出现的 take count（return 侧在前），如 D3=[3,5]；缺省只用 takeCount 检查最近一个 */
   takeCounts?: readonly number[];
+  /** R4e：期望的 compute 字段计算（输出字段 → 表达式字符串），return 可达的任意 compute 节点命中即通过 */
+  computeExprs?: Record<string, string>;
+  /** R4e：期望的 select 谓词（空白规范化后匹配），return 可达的任意 select 节点命中即通过 */
+  selectPreds?: readonly string[];
+  /** R4e：期望的 join 节点形态（key / sources 数量 / 分支工具集合） */
+  joinSpec?: {
+    key: string;
+    /** 期望 join 的 sources 总数（含基准），如 3 */
+    sourceCount?: number;
+    /** 期望 join 附加（非基准）source 的工具 id 集合（分支工具，如 contributors/commits） */
+    extraTools?: readonly string[];
+  };
 }
 
 export interface TaskCorrectness {
@@ -63,11 +76,34 @@ function returnDataflowPath(graph: ExecutionGraph): ExecutionNode[] {
     path.push(node);
     if (node.kind === "map" || node.kind === "compute") {
       cursor = node.source;
+    } else if (node.kind === "join") {
+      cursor = node.sources[0]; // 基准链；分支 source 由 joinSpec 单独检查（return 可达闭包）
     } else {
       break; // tool 节点无 source，数据流到头
     }
   }
   return path;
+}
+
+/** return 可达的节点集合（BFS 依赖闭包，含 join 的全部分支 source）——R4e 检查用。 */
+function returnReachableNodes(graph: ExecutionGraph): ExecutionNode[] {
+  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const returnNode = graph.nodes.find((node) => node.kind === "return");
+  if (!returnNode) return [];
+  const visited = new Set<string>();
+  const out: ExecutionNode[] = [];
+  const queue: ExecutionNode[] = [returnNode];
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    if (visited.has(node.id)) continue;
+    visited.add(node.id);
+    out.push(node);
+    for (const dep of nodeDependencies(node)) {
+      const depNode = nodesById.get(dep);
+      if (depNode) queue.push(depNode);
+    }
+  }
+  return out;
 }
 
 export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): TaskCorrectness {
@@ -195,6 +231,54 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
       .map((node) => node.args["count"]);
     if (JSON.stringify(counts) !== JSON.stringify(spec.takeCounts)) {
       failures.push(`take 序列应为 ${JSON.stringify(spec.takeCounts)}（实际 ${JSON.stringify(counts)}）`);
+    }
+  }
+
+  // R4e：return 可达闭包（join 全部分支）上的 compute / select / join 检查
+  if (spec.computeExprs || spec.selectPreds || spec.joinSpec) {
+    const reachable = returnReachableNodes(graph);
+    if (spec.computeExprs) {
+      const computeNodes = reachable.filter((node) => node.kind === "compute" && node.op === "compute");
+      for (const [out, expr] of Object.entries(spec.computeExprs)) {
+        const found = computeNodes.some((node) => node.args[out] === expr);
+        if (!found) failures.push(`compute 缺少字段 ${out} = "${expr}"`);
+      }
+    }
+    if (spec.selectPreds) {
+      const selectNodes = reachable.filter((node) => node.kind === "compute" && node.op === "select");
+      const normalize = (value: string): string => value.replace(/\s+/g, "");
+      for (const pred of spec.selectPreds) {
+        const found = selectNodes.some((node) => normalize(String(node.args.pred ?? "")) === normalize(pred));
+        if (!found) failures.push(`select 缺少谓词 "${pred}"`);
+      }
+    }
+    if (spec.joinSpec) {
+      // 存在性匹配：任一 join 节点满足（key + sources 数量 + 分支工具）即通过——
+      // 模型可能额外做二次 join（把 score 再合并一次），第一个 join 未必是分支 join。
+      const joinNodes = reachable.filter((node) => node.kind === "join");
+      const graphById = new Map(graph.nodes.map((node) => [node.id, node]));
+      const satisfied = joinNodes.some((joinNode) => {
+        if (joinNode.key !== spec.joinSpec.key) return false;
+        if (spec.joinSpec.sourceCount !== undefined && joinNode.sources.length !== spec.joinSpec.sourceCount) return false;
+        if (spec.joinSpec.extraTools && spec.joinSpec.extraTools.length > 0) {
+          const extraToolIds = new Set(
+            joinNode.sources.slice(1).flatMap((sourceId) => {
+              const source = graphById.get(sourceId);
+              if (source && (source.kind === "map" || source.kind === "tool")) return [source.tool];
+              return [];
+            }),
+          );
+          for (const toolId of spec.joinSpec.extraTools) {
+            if (!extraToolIds.has(toolId)) return false;
+          }
+        }
+        return true;
+      });
+      if (!satisfied) {
+        failures.push(
+          `缺少满足条件的 join 节点（key=${spec.joinSpec.key}，分支工具 ${(spec.joinSpec.extraTools ?? []).join("、")}）`,
+        );
+      }
     }
   }
 

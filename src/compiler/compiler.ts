@@ -4,6 +4,7 @@ import type { LiteralValue, ParsedStatement } from "../language/ast.js";
 import type { DslDiagnostic } from "../language/diagnostics.js";
 import { Parser } from "../language/parser.js";
 import { tokenize } from "../language/tokenizer.js";
+import { isComparisonExpr, parseExpr } from "../runtime/expr.js";
 import { ExecutionGraphSchema, type ExecutionGraph, type ExecutionNode, type ValueExpr } from "./ir.js";
 import type { ToolSpec } from "./registry.js";
 
@@ -607,6 +608,183 @@ function buildReturnNode(
   return { id: statement.name, kind: "return", value };
 }
 
+/**
+ * compute（R4e）：元素级字段计算。
+ * `compute(<source>, <输出字段>=<表达式字符串>, ...)` — source 是位置参数（引用），
+ * 其余命名参数为"输出字段 = 受限算术表达式"（白名单：字段引用 + 数字 + `+ - * /` + 括号），
+ * 表达式在编译期预解析（错误 → 编译诊断，repair 可修）。
+ */
+function buildComputeNode(
+  statement: ParsedStatement,
+  options: CompileExecutionDslOptions,
+  defined: ReadonlySet<string>,
+  diagnostics: DslDiagnostic[],
+): ExecutionNode | undefined {
+  const effective = applyPositionalArgs(statement, ["source"], options.allowPositionalArgs ?? false, diagnostics);
+  if (!effective) return undefined;
+  const source = refArg(effective, "source", defined, diagnostics);
+
+  const args: Record<string, LiteralValue> = {};
+  for (const arg of effective.args) {
+    if (arg.key === "source" || arg.key === undefined) continue;
+    if (arg.value.kind !== "literal" || typeof arg.value.literal !== "string") {
+      diagnostics.push({
+        line: arg.line,
+        code: "config_type_mismatch",
+        message: `compute 的参数“${arg.key}”需要字符串表达式（如 ${arg.key}="forks / stars"）`,
+        suggestion: `格式：compute(<源>, <输出字段>="<表达式>")`,
+      });
+      continue;
+    }
+    const parsed = parseExpr(arg.value.literal);
+    if (!parsed.ok) {
+      diagnostics.push({
+        line: arg.line,
+        code: "expression_invalid",
+        message: `compute 表达式“${arg.value.literal}”无效：${parsed.error}`,
+        suggestion: "支持：字段引用 + 数字字面量 + 四则运算（+ - * /）+ 括号",
+      });
+      continue;
+    }
+    args[arg.key] = arg.value.literal;
+  }
+
+  if (Object.keys(args).length === 0) {
+    diagnostics.push({
+      line: statement.line,
+      code: "syntax",
+      message: "compute 至少需要一个 <输出字段>=<表达式> 参数",
+      suggestion: '如 compute(details, ratio="forks / stars")',
+    });
+  }
+  if (!source || Object.keys(args).length === 0) return undefined;
+  return { id: statement.name, kind: "compute", op: "compute", source, args };
+}
+
+/**
+ * select（R4e）：谓词过滤（filter 的推广，支持比较）。
+ * `select(<source>, "<比较谓词>")` — pred 是位置参数（字符串），顶层必须是比较表达式
+ * （`> >= < <= == !=`），元素满足谓词才保留。
+ */
+function buildSelectNode(
+  statement: ParsedStatement,
+  options: CompileExecutionDslOptions,
+  defined: ReadonlySet<string>,
+  diagnostics: DslDiagnostic[],
+): ExecutionNode | undefined {
+  const effective = applyPositionalArgs(statement, ["source", "pred"], options.allowPositionalArgs ?? false, diagnostics);
+  if (!effective) return undefined;
+  const source = refArg(effective, "source", defined, diagnostics);
+  const pred = literalArg(effective, "pred", diagnostics, { required: true });
+  if (typeof pred === "string") {
+    const parsed = parseExpr(pred);
+    if (!parsed.ok) {
+      diagnostics.push({
+        line: statement.line,
+        code: "expression_invalid",
+        message: `select 谓词“${pred}”无效：${parsed.error}`,
+        suggestion: '如 "ratio > 0.15"（比较运算符：> >= < <= == !=）',
+      });
+    } else if (!isComparisonExpr(parsed.node)) {
+      diagnostics.push({
+        line: statement.line,
+        code: "expression_invalid",
+        message: `select 谓词“${pred}”必须是比较表达式（结果应为布尔）`,
+        suggestion: '如 "ratio > 0.15" 或 "score >= 100"',
+      });
+    }
+  } else if (pred !== undefined) {
+    diagnostics.push({
+      line: statement.line,
+      code: "config_type_mismatch",
+      message: "select 的 pred 需要字符串表达式",
+      suggestion: '如 select(<源>, "ratio > 0.15")',
+    });
+  }
+  for (const arg of effective.args) {
+    if (!["source", "pred"].includes(arg.key ?? "")) {
+      diagnostics.push({
+        line: arg.line,
+        code: "unknown_parameter",
+        message: `select 不支持参数“${arg.key}”`,
+        suggestion: "select 仅支持 source / pred",
+      });
+    }
+  }
+  if (!source || typeof pred !== "string") return undefined;
+  return { id: statement.name, kind: "compute", op: "select", source, args: { pred } };
+}
+
+/**
+ * join（R4e）：多输入按 key 合并字段。
+ * `join(<source1>, <source2>, ...≥2, key="<字段>")` — 位置参数全部是 source（数量不定），
+ * sources[0] 为基准，其余按 key 匹配后附加字段（基准已有字段不覆盖）。
+ */
+function buildJoinNode(
+  statement: ParsedStatement,
+  options: CompileExecutionDslOptions,
+  defined: ReadonlySet<string>,
+  diagnostics: DslDiagnostic[],
+): ExecutionNode | undefined {
+  const sources: string[] = [];
+  let key: string | undefined;
+  for (const arg of statement.args) {
+    if (arg.key === undefined) {
+      if (arg.value.kind !== "ref") {
+        diagnostics.push({
+          line: arg.line,
+          code: "invalid_reference",
+          message: "join 的 source 参数必须是先前定义的变量引用",
+          suggestion: '如 join(details, contrib, commit, key="full_name")',
+        });
+        continue;
+      }
+      const name = arg.value.name ?? "";
+      if (!defined.has(name)) {
+        diagnostics.push({
+          line: arg.line,
+          code: "undefined_reference",
+          message: `join 引用了未定义的变量“${name}”`,
+          suggestion: `“${name}”必须在 join 之前定义`,
+        });
+        continue;
+      }
+      sources.push(name);
+      continue;
+    }
+    if (arg.key === "key") {
+      if (arg.value.kind !== "literal" || typeof arg.value.literal !== "string") {
+        diagnostics.push({
+          line: arg.line,
+          code: "config_type_mismatch",
+          message: "join 的参数“key”需要字符串字面量",
+          suggestion: '如 key="full_name"',
+        });
+      } else {
+        key = arg.value.literal;
+      }
+      continue;
+    }
+    diagnostics.push({
+      line: arg.line,
+      code: "unknown_parameter",
+      message: `join 不支持参数“${arg.key}”`,
+      suggestion: 'join 仅支持位置参数 source（≥2 个）与 key',
+    });
+  }
+  if (!key) pushMissing(diagnostics, statement.line, "join", "key");
+  if (sources.length < 2) {
+    diagnostics.push({
+      line: statement.line,
+      code: "syntax",
+      message: "join 至少需要 2 个 source（基准 + 至少一个附加）",
+      suggestion: '如 join(details, contrib, commit, key="full_name")',
+    });
+  }
+  if (sources.length < 2 || !key) return undefined;
+  return { id: statement.name, kind: "join", sources, key };
+}
+
 function buildToolNode(
   statement: ParsedStatement,
   tool: ToolSpec,
@@ -687,6 +865,9 @@ function buildNode(
   if (statement.callee === "take") return buildTakeNode(statement, options, defined, diagnostics);
   if (statement.callee === "filter") return buildFilterNode(statement, options, defined, diagnostics);
   if (statement.callee === "sort") return buildSortNode(statement, options, defined, diagnostics);
+  if (statement.callee === "compute") return buildComputeNode(statement, options, defined, diagnostics);
+  if (statement.callee === "select") return buildSelectNode(statement, options, defined, diagnostics);
+  if (statement.callee === "join") return buildJoinNode(statement, options, defined, diagnostics);
   if (statement.callee === "return") return buildReturnNode(statement, options, defined, diagnostics);
 
   const tool = (options.tools ?? []).find((item) => item.id === statement.callee);
@@ -695,7 +876,7 @@ function buildNode(
       line: statement.line,
       code: "unknown_tool",
       message: `未注册的工具或语言关键字：${statement.callee}`,
-      suggestion: "使用已注册工具 id，或语言关键字 map / take / return",
+      suggestion: "使用已注册工具 id，或语言关键字 map / take / filter / sort / compute / select / join / return",
     });
     return undefined;
   }
