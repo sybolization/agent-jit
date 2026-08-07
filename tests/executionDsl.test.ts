@@ -14,6 +14,15 @@ const FOUR_LINE = [
 
 const byId = (nodes: ExecutionNode[]): Map<string, ExecutionNode> => new Map(nodes.map((node) => [node.id, node]));
 
+function collectCodes(fn: () => unknown): string[] {
+  try {
+    fn();
+  } catch (error) {
+    if (error instanceof ExecutionDslCompileError) return error.diagnostics.map((item) => item.code);
+  }
+  throw new Error("expected ExecutionDslCompileError");
+}
+
 describe("compileExecutionDsl — four-line minimal closed loop", () => {
   test("compiles search -> map -> take -> return into 4 typed nodes", () => {
     const { graph, diagnostics } = compileExecutionDsl(FOUR_LINE, { tools: githubTools });
@@ -63,15 +72,6 @@ describe("compileExecutionDsl — four-line minimal closed loop", () => {
 });
 
 describe("compileExecutionDsl — diagnostics", () => {
-  function collectCodes(fn: () => unknown): string[] {
-    try {
-      fn();
-    } catch (error) {
-      if (error instanceof ExecutionDslCompileError) return error.diagnostics.map((item) => item.code);
-    }
-    throw new Error("expected ExecutionDslCompileError");
-  }
-
   test("reports unknown tool for an unregistered callee (filter/sort/agent are future constructs)", () => {
     const codes = collectCodes(() =>
       compileExecutionDsl('out = filter(source=repos, where="stars > 100")', { tools: githubTools }),
@@ -129,5 +129,41 @@ describe("compileExecutionDsl — diagnostics", () => {
       }),
     );
     expect(codes).toContain("invalid_reference");
+  });
+});
+
+describe("compileExecutionDsl — callable reference（语言实验开关）", () => {
+  const DSL = [
+    'repos = github.search_repositories(query="agent framework", limit=10)',
+    "details = map(source=repos, tool=github.get_repository, key=\"full_name\", concurrency=5)",
+    "top = take(source=details, count=3)",
+    "return(value=top)",
+  ].join("\n");
+
+  test("默认拒绝裸标识符，报专用诊断码 EXPECTED_STRING_GOT_CALLABLE_REF", () => {
+    const codes = collectCodes(() => compileExecutionDsl(DSL, { tools: githubTools }));
+    expect(codes).toContain("EXPECTED_STRING_GOT_CALLABLE_REF");
+    // 不叠加误导性的 unknown_tool
+    expect(codes).not.toContain("unknown_tool");
+  });
+
+  test("allowCallableRef=true 时裸标识符编译成与字符串相同的 IR", () => {
+    const { graph, diagnostics } = compileExecutionDsl(DSL, { tools: githubTools, allowCallableRef: true });
+    expect(diagnostics).toEqual([]);
+    const mapNode = byId(graph.nodes).get("details");
+    expect(mapNode).toEqual({
+      id: "details",
+      kind: "map",
+      source: "repos",
+      tool: "github.get_repository",
+      key: "full_name",
+      concurrency: 5,
+    });
+    expect(Value.Check(ExecutionGraphSchema, graph)).toBe(true);
+  });
+
+  test("字符串写法在 allowCallableRef=true 下不受影响", () => {
+    const { diagnostics } = compileExecutionDsl(FOUR_LINE, { tools: githubTools, allowCallableRef: true });
+    expect(diagnostics).toEqual([]);
   });
 });

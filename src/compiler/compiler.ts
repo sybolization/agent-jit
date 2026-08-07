@@ -22,6 +22,14 @@ import type { ToolSpec } from "./registry.js";
 
 export interface CompileExecutionDslOptions {
   tools?: readonly ToolSpec[];
+
+  /**
+   * 语言实验开关：允许 map 的 tool 参数以裸标识符（callable reference）书写，
+   * 如 `tool=github.get_repository`。默认 false（要求双引号字符串）。
+   * 关闭时模型若写出裸标识符，编译器报 `EXPECTED_STRING_GOT_CALLABLE_REF`
+   * （模型摩擦探针，用于统计模型自发的语法倾向）。
+   */
+  allowCallableRef?: boolean;
 }
 
 export interface CompileExecutionDslResult {
@@ -157,6 +165,35 @@ function refArg(
   return name;
 }
 
+/**
+ * 取 map 的 tool 参数：接受双引号字符串字面量；
+ * 若 allowCallableRef 开启，也接受裸标识符（callable reference，如 github.get_repository）。
+ * 关闭时裸标识符报 EXPECTED_STRING_GOT_CALLABLE_REF（模型摩擦探针）。
+ */
+function toolArg(
+  statement: ParsedStatement,
+  diagnostics: DslDiagnostic[],
+  allowCallableRef: boolean,
+): string | undefined {
+  const arg = statement.args.find((item) => item.key === "tool");
+  if (!arg) {
+    pushMissing(diagnostics, statement.line, statement.callee, "tool");
+    return undefined;
+  }
+  if (arg.value.kind === "literal") {
+    return String(arg.value.literal ?? "");
+  }
+  // kind === "ref"：裸标识符即 callable reference
+  if (allowCallableRef) return arg.value.name ?? "";
+  diagnostics.push({
+    line: arg.line,
+    code: "EXPECTED_STRING_GOT_CALLABLE_REF",
+    message: `${statement.callee} 的 tool 参数要求双引号字符串（如 tool="github.get_repository"），但你写的是裸标识符“${arg.value.name}”`,
+    suggestion: "给工具 id 加双引号：tool=\"github.get_repository\"",
+  });
+  return undefined;
+}
+
 function buildMapNode(
   statement: ParsedStatement,
   options: CompileExecutionDslOptions,
@@ -164,7 +201,7 @@ function buildMapNode(
   diagnostics: DslDiagnostic[],
 ): ExecutionNode | undefined {
   const source = refArg(statement, "source", defined, diagnostics);
-  const toolId = literalArg(statement, "tool", diagnostics, { required: true });
+  const toolId = toolArg(statement, diagnostics, options.allowCallableRef ?? false);
   const key = literalArg(statement, "key", diagnostics, { required: true });
 
   let concurrency = 5;
@@ -198,14 +235,17 @@ function buildMapNode(
     }
   }
 
-  const toolRegistered = options.tools?.some((tool) => tool.id === toolId);
-  if (typeof toolId !== "string" || !toolRegistered) {
-    diagnostics.push({
-      line: statement.line,
-      code: "unknown_tool",
-      message: `map 引用了未注册的工具：${String(toolId)}`,
-      suggestion: "使用 registry 中已注册的工具 id（如 github.get_repository）",
-    });
+  const toolRegistered = typeof toolId === "string" && (options.tools?.some((tool) => tool.id === toolId) ?? false);
+  if (!toolRegistered) {
+    // tool 参数本身已报错（如裸标识符被拒绝）时，不叠加误导性的 unknown_tool
+    if (typeof toolId === "string" || !diagnostics.some((item) => item.code === "EXPECTED_STRING_GOT_CALLABLE_REF")) {
+      diagnostics.push({
+        line: statement.line,
+        code: "unknown_tool",
+        message: `map 引用了未注册的工具：${String(toolId)}`,
+        suggestion: "使用 registry 中已注册的工具 id（如 github.get_repository）",
+      });
+    }
     return undefined;
   }
   if (typeof key !== "string") return undefined;
