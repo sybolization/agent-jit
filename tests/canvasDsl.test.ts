@@ -1,9 +1,9 @@
 import { Value } from "typebox/value";
 import { describe, expect, test } from "vitest";
-import type { CanvasWorkflowTool } from "../contracts/canvas.js";
-import { SemanticCanvasGraphV1Schema, SemanticCanvasNodeV1Schema } from "../contracts/semanticCanvas.js";
-import { CanvasDslCompileError, compileCanvasDsl } from "../domain/canvas/canvasDsl.js";
-import { toSemanticCanvasGraph } from "../domain/canvas/semanticGraph.js";
+import type { CanvasWorkflowTool } from "../src/contracts/canvas.js";
+import { SemanticCanvasGraphV1Schema, SemanticCanvasNodeV1Schema } from "../src/contracts/semanticCanvas.js";
+import { CanvasDslCompileError, compileCanvasDsl } from "../src/domain/canvas/canvasDsl.js";
+import { toSemanticCanvasGraph } from "../src/domain/canvas/semanticGraph.js";
 
 const imageVideoTools: CanvasWorkflowTool[] = [
   {

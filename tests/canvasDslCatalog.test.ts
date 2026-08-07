@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import type { CanvasWorkflowTool } from "../contracts/canvas.js";
-import { renderWorkflowDslCatalog } from "../domain/canvas/canvasDslCatalog.js";
+import type { CanvasWorkflowTool } from "../src/contracts/canvas.js";
+import { renderWorkflowDslCatalog } from "../src/domain/canvas/canvasDslCatalog.js";
 
 const catalog: CanvasWorkflowTool[] = [
   {

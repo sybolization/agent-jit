@@ -1,0 +1,22 @@
+{
+  "name": "agent-execution-dsl-seed",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent Execution DSL seed: 基于 pi-agent（@earendil-works/pi-agent-core）基座的 Canvas DSL 编译器与实验代码",
+  "license": "MIT",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "^0.84.0",
+    "typebox": "^1.3.11"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

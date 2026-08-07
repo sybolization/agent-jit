@@ -9,29 +9,24 @@ import type {
   SemanticCanvasOutput,
 } from "../../contracts/semanticCanvas.js";
 import { SemanticCanvasGraphV1Schema } from "../../contracts/semanticCanvas.js";
+import type { LiteralValue, ParsedStatement } from "../../language/ast.js";
+import type { DslDiagnostic } from "../../language/diagnostics.js";
+import { Parser } from "../../language/parser.js";
+import { tokenize } from "../../language/tokenizer.js";
 
 /**
- * Canvas DSL: a small, closed, deterministic authoring language for the
- * Workbench semantic canvas. The agent writes code-shaped text; the compiler
- * turns it into the exact `SemanticCanvasGraphV1` the Harness already runs.
+ * Canvas DSL 语义编译层（后端）。
  *
- * Design constraints (see todo/canvas-agent-code-dsl-plan.md):
- * - Pure DAG expressions only: assignment + function call + literal/reference
- *   arguments. No control flow sugar in this first version.
- * - Closed grammar, deterministic output (same source -> same graph).
- * - Runtime is untouched: the compiler is a new input path beside
- *   `semanticGraph.ts`, producing the same contract.
+ * 语言前端（tokenizer / parser / AST / 诊断）已抽取到 `src/language/`，
+ * 本文件只负责把 `ParsedStatement` 编译为 `SemanticCanvasGraphV1`：
+ * - 参数路由（引用输入 vs config 字面量）；
+ * - 类型兼容（节点引用类型匹配）与字面量类型校验；
+ * - readiness（缺失必填输入）与契约自校验。
  *
- * Grammar (newline separated statements):
- *   <statement> := <name> "=" <callee> "(" <args>? ")"
- *   <args>      := <arg> ("," <arg>)*
- *   <arg>       := <key> "=" <value>
- *   <value>     := string | number | boolean | null | array | <name-reference>
- *
- * Callee is either a registered workflow id (from the workflow catalog) or a
- * builtin node kind (`text`, `asset`). A bare identifier in value position is
- * a reference to an earlier statement's name and becomes a `node_output`
- * binding on the target's `inputs`.
+ * 设计约束（见 todo/canvas-agent-code-dsl-plan.md）：
+ * - 纯 DAG 表达，无控制流糖；
+ * - 确定性输出（同一段 DSL -> 同一张图）；
+ * - runtime 零改动：本编译器只是新增输入路径，产出同一契约。
  */
 
 export type CanvasDslDiagnosticCode =
@@ -49,12 +44,8 @@ export type CanvasDslDiagnosticCode =
   | "unknown_parameter"
   | "config_type_mismatch";
 
-export interface CanvasDslDiagnostic {
-  line: number;
-  code: CanvasDslDiagnosticCode;
-  message: string;
-  suggestion?: string;
-}
+/** Canvas 侧诊断 = 通用 DslDiagnostic（code 由本域常量收紧）。 */
+export type CanvasDslDiagnostic = DslDiagnostic;
 
 export class CanvasDslCompileError extends Error {
   readonly diagnostics: readonly CanvasDslDiagnostic[];
@@ -74,385 +65,6 @@ export interface CompileCanvasDslOptions {
 export interface CompileCanvasDslResult {
   graph: SemanticCanvasGraphV1;
   diagnostics: readonly CanvasDslDiagnostic[];
-}
-
-// ---------------------------------------------------------------------------
-// Tokenizer
-// ---------------------------------------------------------------------------
-
-type TokenType = "ident" | "number" | "string" | "symbol" | "newline" | "eof";
-
-interface Token {
-  type: TokenType;
-  value: string;
-  line: number;
-}
-
-interface TokenizeResult {
-  tokens: Token[];
-  diagnostics: CanvasDslDiagnostic[];
-}
-
-function tokenize(source: string): TokenizeResult {
-  const tokens: Token[] = [];
-  const diagnostics: CanvasDslDiagnostic[] = [];
-  let i = 0;
-  let line = 1;
-
-  while (i < source.length) {
-    const ch = source[i] as string;
-    if (ch === "\n") {
-      tokens.push({ type: "newline", value: "\n", line });
-      i += 1;
-      line += 1;
-      continue;
-    }
-    if (ch === " " || ch === "\t" || ch === "\r") {
-      i += 1;
-      continue;
-    }
-    if (ch === "#") {
-      while (i < source.length && (source[i] as string) !== "\n") i += 1;
-      continue;
-    }
-    if (ch === '"') {
-      const startLine = line;
-      let j = i + 1;
-      let value = "";
-      let closed = false;
-      while (j < source.length) {
-        const current = source[j] as string;
-        if (current === '"') {
-          closed = true;
-          break;
-        }
-        if (current === "\n") break;
-        if (current === "\\") {
-          const escaped = source[j + 1];
-          if (escaped === "n") value += "\n";
-          else if (escaped === "t") value += "\t";
-          else if (escaped === '"') value += '"';
-          else if (escaped === "\\") value += "\\";
-          else value += escaped ?? "";
-          j += 2;
-          continue;
-        }
-        value += current;
-        j += 1;
-      }
-      if (!closed) {
-        diagnostics.push({
-          line: startLine,
-          code: "syntax",
-          message: `未闭合的字符串：${ch}${value}`.slice(0, 200),
-          suggestion: "用双引号包裹字符串，并确保在换行前闭合",
-        });
-        i = j + 1;
-        continue;
-      }
-      tokens.push({ type: "string", value, line: startLine });
-      i = j + 1;
-      continue;
-    }
-    if (/[A-Za-z_]/.test(ch)) {
-      const startLine = line;
-      let j = i;
-      while (j < source.length && /[A-Za-z0-9_]/.test(source[j] as string)) j += 1;
-      tokens.push({ type: "ident", value: source.slice(i, j), line: startLine });
-      i = j;
-      continue;
-    }
-    if (/[0-9]/.test(ch) || (ch === "-" && /[0-9]/.test(source[i + 1] ?? ""))) {
-      const startLine = line;
-      let j = i;
-      if ((source[j] as string) === "-") j += 1;
-      while (j < source.length && /[0-9]/.test(source[j] as string)) j += 1;
-      if ((source[j] as string) === "." && /[0-9]/.test(source[j + 1] ?? "")) {
-        j += 1;
-        while (j < source.length && /[0-9]/.test(source[j] as string)) j += 1;
-      }
-      tokens.push({ type: "number", value: source.slice(i, j), line: startLine });
-      i = j;
-      continue;
-    }
-    if ("=(),[]".includes(ch)) {
-      tokens.push({ type: "symbol", value: ch, line });
-      i += 1;
-      continue;
-    }
-    diagnostics.push({
-      line,
-      code: "syntax",
-      message: `无法识别的字符：${ch}`,
-      suggestion: "只允许标识符、数字、双引号字符串、注释（#）和符号 = ( ) , [ ]",
-    });
-    i += 1;
-  }
-  tokens.push({ type: "eof", value: "", line });
-  return { tokens, diagnostics };
-}
-
-// ---------------------------------------------------------------------------
-// Parser
-// ---------------------------------------------------------------------------
-
-type LiteralValue = null | boolean | number | string | LiteralValue[];
-
-interface ParsedValue {
-  line: number;
-  kind: "literal" | "ref";
-  literal?: LiteralValue;
-  name?: string;
-}
-
-interface ParsedArg {
-  line: number;
-  key: string;
-  value: ParsedValue;
-}
-
-interface ParsedStatement {
-  line: number;
-  name: string;
-  callee: string;
-  args: ParsedArg[];
-}
-
-interface ParseResult {
-  statements: ParsedStatement[];
-  diagnostics: CanvasDslDiagnostic[];
-}
-
-class Parser {
-  private pos = 0;
-  private readonly tokens: Token[];
-  private readonly definedNodes = new Set<string>();
-
-  constructor(tokens: Token[]) {
-    this.tokens = tokens;
-  }
-
-  parse(): ParseResult {
-    const statements: ParsedStatement[] = [];
-    const diagnostics: CanvasDslDiagnostic[] = [];
-    while (this.peek()?.type !== "eof") {
-      if (this.peek()?.type === "newline") {
-        this.pos += 1;
-        continue;
-      }
-      const statement = this.parseStatement(diagnostics);
-      if (statement) {
-        statements.push(statement);
-        this.definedNodes.add(statement.name);
-      }
-    }
-    return { statements, diagnostics };
-  }
-
-  private peek(): Token | undefined {
-    return this.tokens[this.pos];
-  }
-
-  private next(): Token | undefined {
-    const token = this.tokens[this.pos];
-    if (token?.type !== "eof") this.pos += 1;
-    return token;
-  }
-
-  private skipToNewline(): void {
-    while (this.peek()?.type !== "newline" && this.peek()?.type !== "eof") this.pos += 1;
-  }
-
-  private parseStatement(diagnostics: CanvasDslDiagnostic[]): ParsedStatement | undefined {
-    const startLine = this.peek()?.line ?? 0;
-
-    const nameToken = this.next();
-    if (nameToken?.type !== "ident") {
-      diagnostics.push({
-        line: nameToken?.line ?? startLine,
-        code: "syntax",
-        message: "语句必须以节点名称开头",
-        suggestion: "格式：<名称> = <工作流或内置节点>(<参数>=<值>)",
-      });
-      this.skipToNewline();
-      return undefined;
-    }
-
-    const equals = this.next();
-    if (equals?.type !== "symbol" || equals.value !== "=") {
-      diagnostics.push({
-        line: equals?.line ?? startLine,
-        code: "syntax",
-        message: `“${nameToken.value}”后缺少等号`,
-        suggestion: "格式：<名称> = <工作流>(<参数>=<值>)",
-      });
-      this.skipToNewline();
-      return undefined;
-    }
-
-    const calleeToken = this.next();
-    if (calleeToken?.type !== "ident") {
-      diagnostics.push({
-        line: calleeToken?.line ?? startLine,
-        code: "syntax",
-        message: `“${nameToken.value} =”后缺少工作流或节点类型`,
-        suggestion:
-          calleeToken?.type === "string"
-            ? "赋值右边必须是工作流 id 或内置节点（text、asset）。若该行是某工作流的参数，说明你用了逐行写参数的方式；DSL 要求单行：名称 = 工作流(参数=值, …)"
-            : "使用已注册工作流 id 或内置节点（text、asset）",
-      });
-      this.skipToNewline();
-      return undefined;
-    }
-
-    const open = this.next();
-    if (open?.type !== "symbol" || open.value !== "(") {
-      diagnostics.push({
-        line: open?.line ?? startLine,
-        code: "syntax",
-        message: `“${calleeToken.value}”后缺少左括号`,
-        suggestion: this.definedNodes.has(calleeToken.value)
-          ? `“${calleeToken.value}”是先前定义的节点，不能作为工作流调用；引用它的输出请写成：名称 = 工作流(输入名 = ${calleeToken.value})`
-          : "DSL 要求单行调用：名称 = 工作流(参数=值, …)，参数不要换行缩进",
-      });
-      this.skipToNewline();
-      return undefined;
-    }
-
-    const args: ParsedArg[] = [];
-    if (this.peek()?.type === "symbol" && this.peek()?.value === ")") {
-      this.pos += 1;
-    } else {
-      for (;;) {
-        const arg = this.parseArg(diagnostics);
-        if (!arg) {
-          this.skipToNewline();
-          return undefined;
-        }
-        args.push(arg);
-        const separator = this.next();
-        if (separator?.type === "symbol" && separator.value === ")") break;
-        if (separator?.type === "symbol" && separator.value === ",") continue;
-        diagnostics.push({
-          line: separator?.line ?? startLine,
-          code: "syntax",
-          message: "参数列表缺少逗号或右括号",
-          suggestion: "格式：<key>=<value>，参数之间用逗号分隔",
-        });
-        this.skipToNewline();
-        return undefined;
-      }
-    }
-
-    const ending = this.peek();
-    if (ending?.type === "newline" || ending?.type === "eof") {
-      if (ending.type === "newline") this.pos += 1;
-    } else {
-      diagnostics.push({
-        line: ending?.line ?? startLine,
-        code: "syntax",
-        message: "一条语句必须独占一行",
-        suggestion: "每条 <名称> = <工作流>(...) 单独成行",
-      });
-      this.skipToNewline();
-      return undefined;
-    }
-
-    return { line: startLine, name: nameToken.value, callee: calleeToken.value, args };
-  }
-
-  private parseArg(diagnostics: CanvasDslDiagnostic[]): ParsedArg | undefined {
-    const startLine = this.peek()?.line ?? 0;
-    const keyToken = this.next();
-    if (keyToken?.type !== "ident") {
-      diagnostics.push({
-        line: startLine,
-        code: "syntax",
-        message: "参数必须以名称开头",
-        suggestion: "格式：<key>=<value>。参数之间用逗号分隔，且全部写在同一行的括号内，不要用缩进块、换行或 { }",
-      });
-      this.skipToNewline();
-      return undefined;
-    }
-    const equals = this.next();
-    if (equals?.type !== "symbol" || equals.value !== "=") {
-      diagnostics.push({
-        line: equals?.line ?? startLine,
-        code: "syntax",
-        message: `参数“${keyToken.value}”后缺少等号`,
-        suggestion: "格式：<key>=<value>",
-      });
-      this.skipToNewline();
-      return undefined;
-    }
-    const value = this.parseValue(diagnostics);
-    if (!value) return undefined;
-    return { line: startLine, key: keyToken.value, value };
-  }
-
-  private parseValue(diagnostics: CanvasDslDiagnostic[]): ParsedValue | undefined {
-    const token = this.peek();
-    if (!token) return undefined;
-    if (token.type === "string") {
-      this.pos += 1;
-      return { line: token.line, kind: "literal", literal: token.value };
-    }
-    if (token.type === "number") {
-      this.pos += 1;
-      return { line: token.line, kind: "literal", literal: Number(token.value) };
-    }
-    if (token.type === "ident") {
-      this.pos += 1;
-      if (token.value === "true") return { line: token.line, kind: "literal", literal: true };
-      if (token.value === "false") return { line: token.line, kind: "literal", literal: false };
-      if (token.value === "null") return { line: token.line, kind: "literal", literal: null };
-      return { line: token.line, kind: "ref", name: token.value };
-    }
-    if (token.type === "symbol" && token.value === "[") {
-      this.pos += 1;
-      const items: LiteralValue[] = [];
-      for (;;) {
-        const itemToken = this.peek();
-        if (!itemToken) break;
-        if (itemToken.type === "symbol" && itemToken.value === "]") {
-          this.pos += 1;
-          break;
-        }
-        const item = this.parseValue(diagnostics);
-        if (!item) break;
-        if (item.kind === "ref") {
-          diagnostics.push({
-            line: item.line,
-            code: "syntax",
-            message: "数组内不能引用节点",
-            suggestion: '数组只接受字面量：["a", "b"]',
-          });
-        } else {
-          items.push(item.literal ?? null);
-        }
-        const separator = this.next();
-        if (separator?.type === "symbol" && separator.value === "]") break;
-        if (separator?.type === "symbol" && separator.value === ",") continue;
-        diagnostics.push({
-          line: separator?.line ?? token.line,
-          code: "syntax",
-          message: "数组缺少逗号或右括号",
-          suggestion: '格式：["a", "b"]',
-        });
-        this.skipToNewline();
-        return undefined;
-      }
-      return { line: token.line, kind: "literal", literal: items };
-    }
-    diagnostics.push({
-      line: token.line,
-      code: "syntax",
-      message: "参数值必须是字符串、数字、布尔、null、数组或前面已定义节点的名称",
-      suggestion: '引用节点：reference_image=img；字面量：prompt="一只猫"',
-    });
-    this.pos += 1;
-    return undefined;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -509,7 +121,7 @@ function isInvalidKey(key: string): "forbidden" | "volatile" | "ok" {
 
 function sanitizeLiteral(
   value: LiteralValue,
-  diagnostics: CanvasDslDiagnostic[],
+  diagnostics: DslDiagnostic[],
   line: number,
 ): LiteralValue | undefined {
   if (value === null || typeof value === "boolean") return value;
@@ -619,7 +231,7 @@ function buildNode(
   statement: ParsedStatement,
   options: CompileCanvasDslOptions,
   defined: ReadonlyMap<string, SemanticCanvasNode>,
-  diagnostics: CanvasDslDiagnostic[],
+  diagnostics: DslDiagnostic[],
 ): SemanticCanvasNode | undefined {
   const tools = new Map((options.workflowTools ?? []).map((tool) => [tool.id, tool]));
   const tool = tools.get(statement.callee);

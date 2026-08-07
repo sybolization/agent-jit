@@ -3,21 +3,32 @@
 A small, closed, deterministic authoring language for the Workbench semantic canvas: the agent writes code-shaped text, and the compiler turns it into the exact `SemanticCanvasGraphV1` the Harness already runs.
 
 > 定位（seed）：让 LLM 用代码形状的小语言写"节点 + 参数 + 数据流"，编译器确定性翻译成运行时真正执行的图，Harness 统一调度。下一步演进为通用 Agent Execution DSL（tool / agent / compute / control 节点）。
+> 基座：基于 [pi-agent](https://github.com/earendil-works/pi)（`@earendil-works/pi-agent-core`）开发——agent 循环、工具调用与消息状态管理复用 pi-agent 的 `Agent` 运行时。
+
+## Install
+
+```
+npm install
+```
+
+依赖：`@earendil-works/pi-agent-core`（agent 基座，含 `pi-ai` / `typebox` 传递依赖）+ `typebox`（编译产物契约）。
 
 ## Layout
 
 ```
 src/contracts/        SemanticCanvasGraphV1 与 CanvasWorkflowTool 契约（typebox）
-src/domain/canvas/    编译器 / 目录自动翻译 / 语法规范 prompt
+src/language/         DSL 语言前端（tokenizer / parser / AST / 诊断，通用）
+src/compiler/         通用 ExecutionIR 编译器（tool / map / compute / return）
+src/domain/canvas/    canvas 语义编译层 / 目录自动翻译 / 语法规范 prompt
 src/experiments/      实验脚本（dslHarness）
 tests/                编译器用例
-docs/                 设计文档
-dsl-memory.md         项目知识档案（为什么做、数据、坑、下一步）
+docs/                 设计文档（canvas-agent-code-dsl-plan）+ 项目知识档案（dsl-memory）
 ```
 
 ## Key points
 
 - 语法：`<name> = <callee>(<key>=<value>, ...)`，newline 分隔语句；裸标识符即引用，定义数据流边。
 - 编译器：手写 tokenizer + 递归下降 parser（错误恢复、批量诊断）+ 语义编译（参数路由 / 类型校验 / 契约自校验）。
+- 通用 IR：`compileExecutionDsl`（src/compiler/）把 DSL 编译为 ExecutionIR（tool / map / compute / return，变量引用定义数据流边），与 canvas 后端并行。
 - 确定性：同一段 DSL 永远编译出同一张图（纯函数、无副作用、可 hash、可离线测试）。
-- 依赖：仅 `typebox`（编译器 + 契约）；`dslHarness.ts` 额外依赖运行时（新项目需重写）。
+- agent 基座：`dslHarness.ts` 复用 pi-agent-core 的 `Agent` 工具循环（`apply_canvas_dsl` 单工具、多轮修订），并聚合每条 assistant 消息的 usage 做 token 归因；`src/experiments/` 依赖的运行时（promptBuilder、harness、tool runtime）为 seed 中未包含的外部模块，接入产品时需补齐。
