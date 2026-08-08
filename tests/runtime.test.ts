@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { Type } from "typebox";
 
 import { compileExecutionDsl } from "../src/compiler/compiler.js";
 import type { ExecutionGraph } from "../src/compiler/ir.js";
@@ -33,7 +34,7 @@ describe("runtime — four-line end to end", () => {
     const graph = compileExecutionDsl(FOUR_LINE, { tools: githubTools }).graph;
     const result = await execute(graph, mockRegistry());
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect(Array.isArray(result.result)).toBe(true);
     expect(result.result as unknown[]).toHaveLength(5);
     expect((result.result as Array<Record<string, unknown>>)[0]).toMatchObject({ full_name: expect.any(String) });
@@ -53,7 +54,7 @@ describe("runtime — four-line end to end", () => {
     const ordered = await execute(graph, mockRegistry());
     const unordered = await execute(reversed, mockRegistry());
 
-    expect(unordered.ok).toBe(true);
+    expect(unordered.status).toBe("success");
     expect(JSON.stringify(unordered.result)).toBe(JSON.stringify(ordered.result));
   });
 
@@ -70,9 +71,14 @@ describe("runtime — four-line end to end", () => {
     expect(text).toContain("total:");
   });
 
-  test("rejects an unregistered tool at runtime", async () => {
+  test("rejects an unregistered tool at runtime → status=failed（不向上 throw）", async () => {
     const graph = compileExecutionDsl(FOUR_LINE, { tools: githubTools }).graph;
-    await expect(execute(graph, new Map())).rejects.toThrow(/未注册的工具/);
+    const result = await execute(graph, new Map());
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") {
+      expect(result.error).toContain("未注册的工具");
+    }
+    expect(result.trace.find((entry) => entry.id === "repos")).toMatchObject({ status: "error" });
   });
 });
 
@@ -90,7 +96,14 @@ describe("runtime — map concurrency", () => {
         peak = Math.max(peak, active);
         await new Promise((resolve) => setTimeout(resolve, 30));
         active -= 1;
-        return { full_name: String((args as Record<string, unknown>).full_name ?? ""), stars: 100 };
+        // 输出必须匹配 get_repository 的 outputSchema（REQ-2 运行时校验）
+        return {
+          full_name: String((args as Record<string, unknown>).full_name ?? ""),
+          stars: 100,
+          forks: 200,
+          archived: false,
+          language: "TypeScript",
+        };
       },
     });
     return { registry, peak: () => peak };
@@ -101,7 +114,7 @@ describe("runtime — map concurrency", () => {
     const { registry, peak } = probeRegistry(concurrency);
     const result = await execute(graph, registry);
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect(result.trace.find((entry) => entry.id === "details")?.concurrency).toBe(concurrency);
     expect(peak()).toBeLessThanOrEqual(concurrency);
     if (concurrency > 1) {
@@ -124,7 +137,7 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
     ].join("\n");
     const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
     const result = await execute(graph, domainRegistry());
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
     expect(items[0]).toMatchObject({ to: "user1@example.com", name: "User 1" });
   });
@@ -137,7 +150,7 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
     ].join("\n");
     const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
     const result = await execute(graph, domainRegistry());
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
     expect(items[0]).toMatchObject({ id: "cust-1", name: "Customer 1" });
   });
@@ -150,7 +163,7 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
     ].join("\n");
     const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "lambda" }).graph;
     const result = await execute(graph, domainRegistry());
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
     expect(items[0]).toMatchObject({ to: "user1@example.com", name: "User 1" });
   });
@@ -165,43 +178,43 @@ describe("runtime — R4c compute filter/sort", () => {
     ]);
   }
 
-  test("filter 等值条件：多条件 AND，缺字段/非对象丢弃", async () => {
+  test("filter 等值条件：多条件 AND，任一条件不匹配即丢弃", async () => {
     const dsl = [
       'src = github.search_repositories(query="x", limit=10)',
       'active = filter(src, archived=false, language="TypeScript")',
       "return active",
     ].join("\n");
     const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true }).graph;
+    // 输出须匹配 search 的 outputSchema（full_name/stars/archived/pushed_at/language）——缺字段/非对象已被 schema 校验在上游拦截
     const result = await execute(graph, literalSourceRegistry([
-      { full_name: "a", archived: false, language: "TypeScript" },
-      { full_name: "b", archived: false, language: "Python" }, // language 不符
-      { full_name: "c", archived: true, language: "TypeScript" }, // archived 不符
-      { full_name: "d" }, // 缺字段
-      "not-an-object", // 非对象
+      { full_name: "a", stars: 1, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
+      { full_name: "b", stars: 2, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "Python" }, // language 不符
+      { full_name: "c", stars: 3, archived: true, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" }, // archived 不符
+      { full_name: "d", stars: 4, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "Java" }, // language 不符
     ]));
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
     expect(items.map((item) => item.full_name)).toEqual(["a"]);
   });
 
-  test("sort：数值降序，缺失字段排末尾（desc），稳定且不改源数组", async () => {
+  test("sort：数值降序，稳定且不改源数组", async () => {
     const dsl = [
       'src = github.search_repositories(query="x", limit=10)',
-      'ranked = sort(src, key="forks", desc=true)',
+      'ranked = sort(src, key="stars", desc=true)',
       "return ranked",
     ].join("\n");
     const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true }).graph;
     const source = [
-      { full_name: "a", forks: 5 },
-      { full_name: "b", forks: 1 },
-      { full_name: "c" }, // 缺字段 → -Infinity，desc 时最后
-      { full_name: "d", forks: 5 },
-      { full_name: "e", forks: 3 },
+      { full_name: "a", stars: 5, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
+      { full_name: "b", stars: 1, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
+      { full_name: "c", stars: 0, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" }, // 最小 → desc 最后
+      { full_name: "d", stars: 5, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
+      { full_name: "e", stars: 3, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
     ];
     const result = await execute(graph, literalSourceRegistry(source));
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
-    // forks 相等时保持原序（a 在 d 前）；c（缺字段）排最后
+    // stars 相等时保持原序（a 在 d 前）；c（最小）排最后
     expect(items.map((item) => item.full_name)).toEqual(["a", "d", "e", "b", "c"]);
     // 源数组未被修改
     expect(source.map((item) => item.full_name)).toEqual(["a", "b", "c", "d", "e"]);
@@ -210,14 +223,14 @@ describe("runtime — R4c compute filter/sort", () => {
   test("sort：字符串字典序升序（缺 desc 默认 false）", async () => {
     const dsl = [
       'src = github.search_repositories(query="x", limit=10)',
-      'ranked = sort(src, key="name")',
+      'ranked = sort(src, key="full_name")',
       "return ranked",
     ].join("\n");
     const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true }).graph;
     const result = await execute(graph, literalSourceRegistry([
-      { full_name: "b", name: "beta" },
-      { full_name: "a", name: "alpha" },
-      { full_name: "c", name: "gamma" },
+      { full_name: "b", stars: 1, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
+      { full_name: "a", stars: 2, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
+      { full_name: "c", stars: 3, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
     ]));
     const items = result.result as Array<Record<string, unknown>>;
     expect(items.map((item) => item.full_name)).toEqual(["a", "b", "c"]);
@@ -231,7 +244,21 @@ describe("runtime — R4c compute filter/sort", () => {
       { full_name: "owner/d", stars: 4, forks: 5, archived: false, language: "JavaScript" },
     ];
     const registry = new Map<string, RuntimeTool>([
-      ["github.search_repositories", { ...specOf("github.search_repositories"), execute: async () => details }],
+      [
+        "github.search_repositories",
+        {
+          ...specOf("github.search_repositories"),
+          // search 输出必须匹配其 outputSchema（无 forks）——forks 只来自 get_repository（REQ-2 校验）
+          execute: async () =>
+            details.map(({ full_name, stars, archived, language }) => ({
+              full_name,
+              stars,
+              archived,
+              pushed_at: "2026-01-01T00:00:00Z",
+              language,
+            })),
+        },
+      ],
       [
         "github.get_repository",
         {
@@ -250,7 +277,7 @@ describe("runtime — R4c compute filter/sort", () => {
     ].join("\n");
     const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
     const result = await execute(graph, registry);
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
     expect(items.map((item) => item.full_name)).toEqual(["owner/b", "owner/a"]);
     expect(result.trace.find((entry) => entry.id === "active")).toMatchObject({ kind: "compute.filter", inputSize: 4, outputSize: 2 });
@@ -279,7 +306,7 @@ describe("runtime — R4e compute/select/join 执行", () => {
   test("端到端：compute→分支→两路 map→join→阈值→sort→take 与 oracle 一致", async () => {
     const graph = compileExecutionDsl(DSL, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
     const result = await execute(graph, registry);
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
     // N=15：阈值后仅 repo-0（contrib）与 repo-1（commits）通过 → 混合两路的正确答案
     expect(items.map((item) => item.full_name)).toEqual(["adv/org-repo-0", "adv/org-repo-1"]);
@@ -321,5 +348,57 @@ describe("runtime — R4e compute/select/join 执行", () => {
     expect(byName.get("adv/org-repo-3")).toMatchObject({ score: 80 });
     // 两路都写 score，但同一 repo 只命中一条路径
     expect(byName.get("adv/org-repo-0")!.score).toBe(801);
+  });
+});
+
+describe("runtime — REQ-2/REQ-4 输出 schema 校验与失败模型", () => {
+  const specOf = (id: string): ToolDefinition => githubTools.find((tool) => tool.id === id)!;
+
+  test("工具 execute 抛错 → status=failed 不向上 throw，trace 记 error", async () => {
+    const registry = new Map<string, RuntimeTool>([
+      [
+        "github.search_repositories",
+        {
+          ...specOf("github.search_repositories"),
+          execute: async () => {
+            throw new Error("boom");
+          },
+        },
+      ],
+    ]);
+    const graph = compileExecutionDsl('repos = github.search_repositories(query="x")', { tools: githubTools }).graph;
+    const result = await execute(graph, registry);
+    // execute() 不向上抛：await 正常返回，status=failed
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") {
+      expect(result.error).toContain("boom");
+    }
+    expect(result.trace.find((entry) => entry.id === "repos")).toMatchObject({
+      status: "error",
+      error: expect.stringContaining("boom"),
+    });
+  });
+
+  test("工具输出与 outputSchema 不匹配 → status=failed，error 含 TOOL_OUTPUT_SCHEMA_MISMATCH", async () => {
+    const registry = new Map<string, RuntimeTool>([
+      [
+        "github.search_repositories",
+        {
+          id: "github.search_repositories",
+          label: "Search GitHub repositories",
+          description: "按查询条件搜索仓库。",
+          inputSchema: Type.Object({ query: Type.Optional(Type.String()) }, { additionalProperties: false }),
+          outputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
+          execute: async () => ({ full_name: 123 }),
+        },
+      ],
+    ]);
+    const graph = compileExecutionDsl('repos = github.search_repositories(query="x")', { tools: githubTools }).graph;
+    const result = await execute(graph, registry);
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") {
+      expect(result.error).toContain("TOOL_OUTPUT_SCHEMA_MISMATCH");
+    }
+    expect(result.trace.find((entry) => entry.id === "repos")).toMatchObject({ status: "error" });
   });
 });

@@ -469,7 +469,7 @@ async function runDslArm(
         .map((item) => String(item["full_name"] ?? ""));
 
       return {
-        ok: execution.ok,
+        ok: execution.status === "success",
         round_trips: round,
         model_ingress_bytes: modelIngressBytes,
         model_egress_bytes: modelEgressBytes,

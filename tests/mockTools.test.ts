@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
+import { Value } from "typebox/value";
 
 import { ADVERSARIAL_REPOS, createAdversarialGithubTools } from "../src/runtime/mockTools.js";
+import { githubTools } from "../src/compiler/registry.js";
 import { computeR4eAnswer, type AdversarialDetail } from "../src/experiments/r4eBenchmark.js";
 
 const TASK = { ratioThreshold: 0.15, scoreThreshold: 100, takeCount: 3 };
@@ -128,5 +130,14 @@ describe("adversarial separability — 任一单步错误 → 答案必变", () 
     const passing = scores.filter((item) => item.score >= 100);
     expect(passing.map((item) => item.score)).toEqual([801, 750]);
     expect(scores[2]!.score).toBe(90);
+  });
+});
+
+describe("Task 2 契约分离 — adversarial 自持契约", () => {
+  test("githubTools 的 stats 契约拒绝 {full_name, score}；adversarial 自持契约接受", () => {
+    const realSchema = githubTools.find((tool) => tool.id === "github.get_contributor_stats")!.outputSchema;
+    const adversarial = createAdversarialGithubTools().find((tool) => tool.id === "github.get_contributor_stats")!;
+    expect(Value.Check(realSchema, { full_name: "a", score: 3 })).toBe(false);
+    expect(Value.Check(adversarial.outputSchema, { full_name: "a", score: 3 })).toBe(true);
   });
 });

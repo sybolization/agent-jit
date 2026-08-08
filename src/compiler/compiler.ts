@@ -868,6 +868,13 @@ function buildToolNode(
     args[arg.key] = { kind: "literal", value: normalized };
   }
 
+  // REQ-3：inputSchema 声明的 required 参数必须提供（key 出现过但值非法时只报类型错误，不再叠加"缺失"）
+  for (const parameter of parameterByKey.values()) {
+    if (parameter.required && !seenArgs.has(parameter.key)) {
+      pushMissing(diagnostics, statement.line, statement.callee, parameter.key);
+    }
+  }
+
   return { id: statement.name, kind: "tool", tool: tool.id, args };
 }
 

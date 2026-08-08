@@ -365,3 +365,25 @@ describe("compileExecutionDsl — R4e compute/select/join", () => {
     expect(codes).toContain("undefined_reference");
   });
 });
+
+describe("compileExecutionDsl — REQ-3 required 参数强制", () => {
+  test("required 参数缺失 → 编译失败（缺少必填参数）", () => {
+    let caught: unknown;
+    try {
+      compileExecutionDsl("x = github.search_repositories()", { tools: githubTools });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ExecutionDslCompileError);
+    const diagnostics = (caught as ExecutionDslCompileError).diagnostics;
+    expect(diagnostics.some((item) => item.message === 'github.search_repositories 缺少必填参数“query”')).toBe(true);
+  });
+
+  test("required 参数提供了但值非法 → 只报 config_type_mismatch，不叠加缺少必填参数", () => {
+    // 注：string kind 参数接受数字/布尔字面量（Task 1 宽松语义），故用数组字面量构造真正的类型错误；
+    // key 已出现（seenArgs），required 检查不再叠加"缺少必填参数"
+    const codes = collectCodes(() => compileExecutionDsl('x = github.search_repositories(query=["x"])', { tools: githubTools }));
+    expect(codes).toEqual(["config_type_mismatch"]);
+    expect(codes).not.toContain("syntax");
+  });
+});

@@ -34,7 +34,6 @@ import type { Tool } from "@earendil-works/pi-ai";
 
 import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compiler.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
-import { githubTools } from "../compiler/registry.js";
 import type { ToolDefinition } from "../tools/definition.js";
 import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
 import { mapLimit } from "../runtime/executor.js";
@@ -81,7 +80,7 @@ export interface R4eTask {
   tools: readonly ToolDefinition[];
 }
 
-const R4E_TOOLS = githubTools.filter((tool) =>
+const R4E_TOOLS = createAdversarialGithubTools().filter((tool) =>
   [
     "github.search_repositories",
     "github.get_repository",
@@ -327,7 +326,7 @@ async function runDslArm(
         .map((item) => String(item["full_name"] ?? ""));
 
       return {
-        ok: execution.ok,
+        ok: execution.status === "success",
         round_trips: round,
         model_ingress_bytes: modelIngressBytes,
         model_egress_bytes: modelEgressBytes,

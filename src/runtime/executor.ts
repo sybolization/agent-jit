@@ -1,5 +1,7 @@
 import type { ExecutionNode, ValueExpr } from "../compiler/ir.js";
 import type { RuntimeRegistry } from "./runtime.js";
+import { Value } from "typebox/value";
+import type { TSchema } from "typebox";
 import { evalExpr, parseExpr } from "./expr.js";
 import { type TraceEntry, valueSize } from "./trace.js";
 import type { ValueStore } from "./valueStore.js";
@@ -40,6 +42,15 @@ function resolveArgs(args: Record<string, ValueExpr>, store: ValueStore): Record
     resolved[key] = value.kind === "ref" ? store.get(value.name) : value.value;
   }
   return resolved;
+}
+
+/** REQ-2：工具输出必须匹配其声明的 outputSchema；不匹配抛错（由 executeNode 记入 trace）。 */
+function validateToolOutput(toolId: string, schema: TSchema, output: unknown): void {
+  if (Value.Check(schema, output)) return;
+  const first = Value.Errors(schema, output)[0];
+  throw new Error(
+    `TOOL_OUTPUT_SCHEMA_MISMATCH: 工具 ${toolId} 输出与声明 schema 不匹配${first ? `（${first.message}）` : ""}`,
+  );
 }
 
 /** 并发受限的数组映射：最多 concurrency 个任务同时进行，保持输出顺序。 */
@@ -89,7 +100,9 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
       const tool = ctx.registry.get(node.tool);
       if (!tool) throw new Error(`未注册的工具：${node.tool}`);
       if (!tool.execute) throw new Error(`工具 ${node.tool} 未提供 execute 实现`);
-      return tool.execute(resolveArgs(node.args, ctx.store));
+      const output = await tool.execute(resolveArgs(node.args, ctx.store));
+      validateToolOutput(node.tool, tool.outputSchema, output);
+      return output;
     }
     case "map": {
       const source = ctx.store.get(node.source);
@@ -107,7 +120,9 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
         for (const [param, field] of Object.entries(node.bindings)) {
           args[param] = itemRecord[field];
         }
-        return tool.execute!(args);
+        const output = await tool.execute!(args);
+        validateToolOutput(node.tool, tool.outputSchema, output);
+        return output;
       });
     }
     case "compute": {

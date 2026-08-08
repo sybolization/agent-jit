@@ -30,14 +30,10 @@ export type RuntimeTool = ToolDefinition;
 
 export type RuntimeRegistry = ReadonlyMap<string, RuntimeTool>;
 
-export interface ExecutionResult {
-  ok: boolean;
-  /** return 节点的输出（图出口）。 */
-  result: unknown;
-  trace: readonly TraceEntry[];
-  totalDurationMs: number;
-  error?: string;
-}
+/** 执行结果判别联合：成功带 result；失败带 error（trace 中对应节点 status="error"）。 */
+export type ExecutionResult =
+  | { status: "success"; result: unknown; trace: readonly TraceEntry[]; totalDurationMs: number }
+  | { status: "failed"; error: string; trace: readonly TraceEntry[]; totalDurationMs: number };
 
 export async function execute(graph: ExecutionGraph, registry: RuntimeRegistry): Promise<ExecutionResult> {
   const started = performance.now();
@@ -48,6 +44,7 @@ export async function execute(graph: ExecutionGraph, registry: RuntimeRegistry):
   const byId = new Map(graph.nodes.map((node) => [node.id, node]));
 
   // 1. 依赖扫描 + 计数 + 依赖者索引。
+  //    结构错误（如"图中缺少依赖节点"）属于图不合法，仍在 try 之外抛出。
   const indegree = new Map<string, number>();
   const dependents = new Map<string, string[]>();
   for (const node of graph.nodes) {
@@ -67,29 +64,36 @@ export async function execute(graph: ExecutionGraph, registry: RuntimeRegistry):
   const ready: string[] = graph.nodes.filter((node) => indegree.get(node.id) === 0).map((node) => node.id);
 
   // 3. 循环执行：同一批就绪节点并发；完成后解锁依赖者。
-  while (ready.length > 0) {
-    const batch = ready.splice(0);
-    await Promise.all(
-      batch.map(async (id) => {
-        const node = byId.get(id);
-        if (!node) throw new Error(`未知节点：${id}`);
-        const value = await executeNode(node, ctx);
-        store.set(node.id, value);
-        for (const dependent of dependents.get(id) ?? []) {
-          const remaining = (indegree.get(dependent) ?? 1) - 1;
-          indegree.set(dependent, remaining);
-          if (remaining === 0) ready.push(dependent);
-        }
-      }),
-    );
+  //    运行时错误（工具抛错 / 输出 schema 不匹配）统一捕获为 failed，不向上抛。
+  try {
+    while (ready.length > 0) {
+      const batch = ready.splice(0);
+      await Promise.all(
+        batch.map(async (id) => {
+          const node = byId.get(id);
+          if (!node) throw new Error(`未知节点：${id}`);
+          const value = await executeNode(node, ctx);
+          store.set(node.id, value);
+          for (const dependent of dependents.get(id) ?? []) {
+            const remaining = (indegree.get(dependent) ?? 1) - 1;
+            indegree.set(dependent, remaining);
+            if (remaining === 0) ready.push(dependent);
+          }
+        }),
+      );
+    }
+  } catch (error) {
+    return {
+      status: "failed",
+      error: (error as Error).message ?? String(error),
+      trace,
+      totalDurationMs: Math.round(performance.now() - started),
+    };
   }
 
   const returnNode = graph.nodes.find((node) => node.kind === "return");
   const result = returnNode ? store.get(returnNode.id) : undefined;
   const totalDurationMs = Math.round(performance.now() - started);
 
-  if (trace.some((entry) => entry.status === "error")) {
-    return { ok: false, result, trace, totalDurationMs, error: "部分节点执行失败" };
-  }
-  return { ok: true, result, trace, totalDurationMs };
+  return { status: "success", result, trace, totalDurationMs };
 }

@@ -204,7 +204,7 @@ async function runDslArm(
       exposedBytes += Buffer.byteLength(JSON.stringify(resultArray), "utf8");
 
       return {
-        ok: execution.ok,
+        ok: execution.status === "success",
         round_trips: round,
         exposed_bytes: exposedBytes,
         llm_ms: llmMs,

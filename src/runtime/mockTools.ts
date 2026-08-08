@@ -70,18 +70,61 @@ export const ADVERSARIAL_REPOS: readonly AdversarialRepoRow[] = [
 ];
 
 /**
- * R4e adversarial mock 工具：与 githubTools 同 spec、确定性数据。
- * - search：返回前 N 个仓库（按表序，忽略 query）；
- * - get_repository：{full_name, forks, stars, language}；
- * - get_contributor_stats：{full_name, score: contributor_count * 3}（仅 contributors 路径 repo 才有高值）；
- * - list_commits：{full_name, score: total_commits * 2}（仅 commits 路径 repo 才有高值）。
+ * R4e adversarial mock 工具：**自持契约**（不复用 githubTools，Task 2 契约分离）——
+ * - search：{limit 可选} → [{full_name}]（返回前 N 个仓库，按表序，忽略 query）；
+ * - get_repository：{full_name 必填} → {full_name, forks, stars, language}；
+ * - get_contributor_stats：{full_name 必填} → {full_name, score: contributor_count * 3}
+ *   （仅 contributors 路径 repo 才有高值；score 语义见 description）；
+ * - list_commits：{full_name 必填, per_page 可选} → {full_name, score: total_commits * 2}
+ *   （仅 commits 路径 repo 才有高值；score 与 stats 同尺度）。
  */
 export function createAdversarialGithubTools(): RuntimeTool[] {
-  const byId = new Map(githubTools.map((spec) => [spec.id, spec]));
-  const specOf = (id: string): ToolDefinition => {
-    const spec = byId.get(id);
-    if (!spec) throw new Error(`mock: 未注册的工具 ${id}`);
-    return spec;
+  const contracts: ToolDefinition[] = [
+    defineTool({
+      id: "github.search_repositories",
+      label: "Search GitHub repositories",
+      description: "按查询条件搜索仓库，返回仓库摘要列表。",
+      // query 保持与真实契约一致：R4e 的 DSL/iterative prompt 会写 query=...（execute 忽略 query，按表序取前 limit 个）
+      inputSchema: Type.Object(
+        { query: Type.String(), limit: Type.Optional(Type.Integer()) },
+        { additionalProperties: false },
+      ),
+      outputSchema: Type.Array(Type.Object({ full_name: Type.String() }, { additionalProperties: false })),
+    }),
+    defineTool({
+      id: "github.get_repository",
+      label: "Get a repository",
+      description: "获取单个仓库的详细信息。",
+      inputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
+      outputSchema: Type.Object(
+        { full_name: Type.String(), forks: Type.Integer(), stars: Type.Integer(), language: Type.String() },
+        { additionalProperties: false },
+      ),
+    }),
+    defineTool({
+      id: "github.get_contributor_stats",
+      label: "Get repository contributor stats",
+      description:
+        "获取仓库贡献者统计。返回 { full_name, score }：score 为该仓库贡献者路径的统一可比较分数（与 list_commits 的 score 同尺度，可直接排序比较）。",
+      inputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
+      outputSchema: Type.Object({ full_name: Type.String(), score: Type.Integer() }, { additionalProperties: false }),
+    }),
+    defineTool({
+      id: "github.list_commits",
+      label: "List repository commits",
+      description:
+        "获取仓库提交统计。返回 { full_name, score }：score 为该仓库提交路径的统一可比较分数（与 get_contributor_stats 的 score 同尺度，可直接排序比较）。",
+      inputSchema: Type.Object(
+        { full_name: Type.String(), per_page: Type.Optional(Type.Integer()) },
+        { additionalProperties: false },
+      ),
+      outputSchema: Type.Object({ full_name: Type.String(), score: Type.Integer() }, { additionalProperties: false }),
+    }),
+  ];
+  const contractOf = (id: string): ToolDefinition => {
+    const contract = contracts.find((item) => item.id === id);
+    if (!contract) throw new Error(`mock: 未注册的工具 ${id}`);
+    return contract;
   };
   const byName = new Map(ADVERSARIAL_REPOS.map((row) => [row.full_name, row]));
   const pick = (args: unknown): AdversarialRepoRow => {
@@ -90,28 +133,28 @@ export function createAdversarialGithubTools(): RuntimeTool[] {
   };
   return [
     {
-      ...specOf("github.search_repositories"),
+      ...contractOf("github.search_repositories"),
       execute: async (args) => {
         const limit = Number((args as Record<string, unknown>).limit ?? ADVERSARIAL_REPOS.length);
         return ADVERSARIAL_REPOS.slice(0, limit).map((row) => ({ full_name: row.full_name }));
       },
     },
     {
-      ...specOf("github.get_repository"),
+      ...contractOf("github.get_repository"),
       execute: async (args) => {
         const row = pick(args);
         return { full_name: row.full_name, forks: row.forks, stars: row.stars, language: row.language };
       },
     },
     {
-      ...specOf("github.get_contributor_stats"),
+      ...contractOf("github.get_contributor_stats"),
       execute: async (args) => {
         const row = pick(args);
         return { full_name: row.full_name, score: row.contributor_count * 3 };
       },
     },
     {
-      ...specOf("github.list_commits"),
+      ...contractOf("github.list_commits"),
       execute: async (args) => {
         const row = pick(args);
         return { full_name: row.full_name, score: row.total_commits * 2 };
