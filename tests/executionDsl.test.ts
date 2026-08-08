@@ -387,3 +387,90 @@ describe("compileExecutionDsl — REQ-3 required 参数强制", () => {
     expect(codes).not.toContain("syntax");
   });
 });
+
+describe("compileExecutionDsl — REQ-5 map 绑定字段校验（符号表）", () => {
+  const compileR5 = (dsl: string) =>
+    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" });
+
+  test("绑定 source 元素上不存在的字段 → UNKNOWN_FIELD，suggestion 列出可用字段，line 指向 map 语句", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="a")',
+      "details = map(repos, github.get_repository(full_name=_.repo_name))",
+    ].join("\n");
+    let caught: unknown;
+    try {
+      compileR5(dsl);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ExecutionDslCompileError);
+    const diagnostics = (caught as ExecutionDslCompileError).diagnostics;
+    const diag = diagnostics.find((item) => item.code === "UNKNOWN_FIELD");
+    expect(diag).toBeDefined();
+    expect(diag?.message).toContain("repo_name");
+    expect(diag?.suggestion).toContain("full_name");
+    expect(diag?.line).toBe(2);
+  });
+
+  test("字段类型与参数不匹配（integer 字段 → string 参数）→ config_type_mismatch", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="a")',
+      "details = map(repos, github.get_repository(full_name=_.stars))",
+    ].join("\n");
+    let caught: unknown;
+    try {
+      compileR5(dsl);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ExecutionDslCompileError);
+    const diagnostics = (caught as ExecutionDslCompileError).diagnostics;
+    const diag = diagnostics.find((item) => item.code === "config_type_mismatch");
+    expect(diag).toBeDefined();
+    expect(diag?.message).toContain("_.stars");
+    expect(diag?.message).toContain("期望 string");
+  });
+
+  test("合法绑定（string 字段 → string 参数，full_name=_.full_name）→ 无诊断", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="a")',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+    ].join("\n");
+    const { diagnostics } = compileR5(dsl);
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("integer 字段 → integer 参数（query=_.full_name, limit=_.stars）→ 通过（integer/number 互配）", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="a")',
+      "m = map(repos, github.search_repositories(query=_.full_name, limit=_.stars))",
+    ].join("\n");
+    const { graph, diagnostics } = compileR5(dsl);
+    expect(diagnostics).toEqual([]);
+    expect(graph.nodes.find((node) => node.kind === "map")).toMatchObject({
+      bindings: { query: "full_name", limit: "stars" },
+    });
+  });
+
+  test("compute 产物作为 map source → 元素形状未知，跳过校验不误报（_.ratio）", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="a")',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      'ratio = compute(details, ratio="stars / 100")',
+      "m = map(ratio, github.get_repository(full_name=_.ratio))",
+    ].join("\n");
+    const { diagnostics } = compileR5(dsl);
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("join 结果的元素 schema 取基准 source：基准存在字段通过，未知字段报 UNKNOWN_FIELD", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="a")',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      'merged = join(details, details, key="full_name")',
+      "bad = map(merged, github.get_repository(full_name=_.missing))",
+    ].join("\n");
+    const codes = collectCodes(() => compileR5(dsl));
+    expect(codes).toContain("UNKNOWN_FIELD");
+  });
+});

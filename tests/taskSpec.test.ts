@@ -40,7 +40,8 @@ describe("checkTaskCorrectness", () => {
   });
 
   test("map key 不是 full_name → 失败", () => {
-    const dsl = CORRECT.replace('key="full_name"', 'key="name"');
+    // key 需是 repos 元素上真实存在的 string 字段（pushed_at），否则 REQ-5 编译期就报 UNKNOWN_FIELD
+    const dsl = CORRECT.replace('key="full_name"', 'key="pushed_at"');
     const result = checkTaskCorrectness(compile(dsl), SPEC);
     expect(result.failures.some((item) => item.includes("map 的 key"))).toBe(true);
   });
@@ -104,8 +105,9 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
     expect(result.pass).toBe(true);
   });
 
-  test("绑定错字段（_.name 而非 _.full_name）→ bindingFailures 且 pass 失败", () => {
-    const dsl = githubBindingDsl.replace("_.full_name", "_.name");
+  test("绑定错字段（_.language 而非 _.full_name）→ bindingFailures 且 pass 失败", () => {
+    // 用 repos 元素上真实存在的 string 字段 language（否则 REQ-5 编译期就报错，测不到 bindingFailures）
+    const dsl = githubBindingDsl.replace("_.full_name", "_.language");
     const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
     const result = checkTaskCorrectness(graph, { ...SPEC, bindings: { full_name: "full_name" } });
     expect(result.bindingPass).toBe(false);

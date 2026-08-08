@@ -5,7 +5,13 @@ import type { DslDiagnostic } from "../language/diagnostics.js";
 import { Parser } from "../language/parser.js";
 import { tokenize } from "../language/tokenizer.js";
 import { isComparisonExpr, parseExpr } from "../runtime/expr.js";
-import { ExecutionGraphSchema, type ExecutionGraph, type ExecutionNode, type ValueExpr } from "./ir.js";
+import {
+  ExecutionGraphSchema,
+  type ExecutionGraph,
+  type ExecutionNode,
+  type MapNode,
+  type ValueExpr,
+} from "./ir.js";
 import type { ToolDefinition } from "../tools/definition.js";
 
 /**
@@ -90,6 +96,50 @@ function toolParams(tool: ToolDefinition): ToolParamSpec[] {
     kind: (prop.type === "integer" ? "int" : prop.type === "number" ? "number" : prop.type === "boolean" ? "boolean" : "string") as ToolParamSpec["kind"],
     required: required.has(key),
   }));
+}
+
+/**
+ * REQ-5：编译期"元素 schema"——map 绑定校验所需的字段形状视图
+ * （只关心字段存在性与 type，不建模嵌套/联合的完整 JSON schema）。
+ */
+interface ElementSchema {
+  properties: Record<string, { type?: string }>;
+}
+
+/** 从工具 outputSchema 提取元素 schema：array 取 items 的 properties，object 取自身 properties。 */
+function elementSchemaOf(definition: ToolDefinition | undefined): ElementSchema | undefined {
+  if (!definition) return undefined;
+  const schema = definition.outputSchema as unknown as {
+    type?: string;
+    items?: { type?: string; properties?: Record<string, { type?: string }> };
+    properties?: Record<string, { type?: string }>;
+  };
+  if (schema.type === "array" && schema.items) {
+    const item = schema.items as { properties?: Record<string, { type?: string }> };
+    return item.properties ? { properties: item.properties } : undefined;
+  }
+  if (schema.type === "object" && schema.properties) return { properties: schema.properties };
+  return undefined;
+}
+
+/** 节点输出 → 元素 schema（编译循环随符号表维护）；compute 形状动态未知，join 取基准 source。 */
+function nodeElementSchema(
+  node: ExecutionNode,
+  tools: readonly ToolDefinition[],
+  symbols: ReadonlyMap<string, ElementSchema | undefined>,
+): ElementSchema | undefined {
+  switch (node.kind) {
+    case "tool":
+    case "map":
+      return elementSchemaOf(tools.find((tool) => tool.id === node.tool));
+    case "compute":
+      // compute 会新增字段，元素形状不可静态确定 → 视为未知（避免 _.ratio 误报 UNKNOWN_FIELD）
+      return undefined;
+    case "join":
+      return symbols.get(node.sources[0]);
+    case "return":
+      return undefined;
+  }
 }
 
 function normalizeLiteral(value: LiteralValue, kind: string): LiteralValue {
@@ -483,6 +533,56 @@ function buildMapNode(
   if (!source) return undefined;
 
   return { id: statement.name, kind: "map", source, tool: toolId, bindings, concurrency };
+}
+
+/**
+ * REQ-5：map 绑定字段校验——`_.<field>` 必须存在于 source 元素 schema
+ * （不存在 → UNKNOWN_FIELD，suggestion 列出可用字段），且字段类型与绑定参数
+ * 的 inputSchema 类型基础匹配（integer/number 互配，string 配 string，
+ * boolean 配 boolean；其余组合 → config_type_mismatch；prop.type 缺失则跳过）。
+ * source 元素形状未知（compute 产物 / 未注册工具）时跳过，避免误报。
+ * `line` 指向该 map 语句的行号，供诊断定位。
+ */
+function validateMapBindings(
+  node: MapNode,
+  tools: readonly ToolDefinition[],
+  symbols: ReadonlyMap<string, ElementSchema | undefined>,
+  diagnostics: DslDiagnostic[],
+  line: number,
+): void {
+  const elementSchema = symbols.get(node.source);
+  if (!elementSchema) return; // 未知元素形状 → 跳过（不误报）
+  const tool = tools.find((item) => item.id === node.tool);
+  if (!tool) return; // unknown_tool 已另行报错
+  const paramByKey = new Map(toolParams(tool).map((parameter) => [parameter.key, parameter]));
+  const numeric = new Set(["integer", "number"]);
+  for (const [param, field] of Object.entries(node.bindings)) {
+    const prop = elementSchema.properties[field];
+    if (!prop) {
+      const available = Object.keys(elementSchema.properties).sort().join(", ");
+      diagnostics.push({
+        line,
+        code: "UNKNOWN_FIELD",
+        message: `map 绑定引用了元素上不存在的字段“${field}”（参数 ${param}）`,
+        suggestion: `可用字段：${available}`,
+      });
+      continue;
+    }
+    const paramSpec = paramByKey.get(param);
+    if (!paramSpec) continue; // unknown_parameter 已另行报错
+    const propType = prop.type ?? "";
+    if (!propType) continue; // 类型缺失（如 union）→ 跳过类型检查
+    const paramNumeric = paramSpec.kind === "int" || paramSpec.kind === "number";
+    const compatible = paramNumeric ? numeric.has(propType) : paramSpec.kind === propType;
+    if (!compatible) {
+      diagnostics.push({
+        line,
+        code: "config_type_mismatch",
+        message: `map 绑定字段 _.${field}（类型 ${propType}）与参数 ${param}（期望 ${paramSpec.kind}）类型不匹配`,
+        suggestion: `改绑一个 ${paramSpec.kind} 类型的字段`,
+      });
+    }
+  }
 }
 
 function buildTakeNode(
@@ -927,6 +1027,8 @@ export function compileExecutionDsl(
 
   const defined = new Set<string>();
   const nodes: ExecutionNode[] = [];
+  // REQ-5：语句名 → 元素 schema 的符号表（map 绑定字段校验的事实源）
+  const symbols = new Map<string, ElementSchema | undefined>();
 
   for (const statement of parsed.statements) {
     if (defined.has(statement.name)) {
@@ -940,8 +1042,12 @@ export function compileExecutionDsl(
     }
     const node = buildNode(statement, options, defined, diagnostics);
     if (!node) continue;
+    if (node.kind === "map") {
+      validateMapBindings(node, options.tools ?? [], symbols, diagnostics, statement.line);
+    }
     nodes.push(node);
     defined.add(statement.name);
+    symbols.set(statement.name, nodeElementSchema(node, options.tools ?? [], symbols));
   }
 
   if (diagnostics.length > 0) throw new ExecutionDslCompileError(diagnostics);
