@@ -512,7 +512,7 @@ ToolContract        静态契约：id / label / description / inputSchema / outp
 RegisteredTool      在 ToolContract 之上绑定 execute（可运行工具）
 ```
 
-`ToolRegistry<T>` 实现薄接口 `ToolCatalog`（`get` / `all`）——Compiler、catalog renderer、Runtime 三方只依赖该接口，数组必须先经 `new ToolRegistry(...)` 包装。
+`ToolRegistry<T>` 实现薄接口 `ToolCatalog`（`get` / `all`）——Compiler、LLM Catalog、Runtime 三方只依赖该接口，数组必须先经 `new ToolRegistry(...)` 包装。
 
 ```text
 JSON / OpenAI / MCP / local tool
@@ -522,7 +522,9 @@ JSON / OpenAI / MCP / local tool
          ToolCatalog
         /      |       \
        /       |        \
- Compiler   Catalog    Runtime
+ Compiler  LLM Catalog  Runtime
+               |
+          jit_describe_tools
 ```
 
 ### Compiler
@@ -537,9 +539,47 @@ output fields
 reference compatibility
 ```
 
-### LLM catalog renderer
+### Compact LLM Catalog
 
-把 registry 自动渲染成模型可使用的 DSL 工具目录。渲染走归一化的 SchemaView 层（`src/tools/schemaView.ts`）：`string | null`、嵌套、union 都能正确表达，无法识别的类型保留 `unknown`，不默认当成 string。
+`renderCompactToolCatalog` / `renderToolContracts`（`src/tools/llmCatalog.ts`）把 registry 自动渲染成给模型的紧凑 callable signature + 命名类型定义：
+
+```text
+github.search_repositories(
+  query: string
+  limit?: integer
+) -> RepositorySummary[]   # 按查询条件搜索仓库，返回仓库摘要列表。
+
+## 类型定义（结构相同的类型只展示一次）
+RepositorySummary {
+  full_name: string
+  stars: integer
+  archived: boolean
+  pushed_at: string
+  language: string
+}
+```
+
+- 只渲染契约（input / output schema），**绝不渲染真实返回内容或示例 JSON**；
+- 输出对象提取为命名类型，**结构相同的类型只展示一次**（共享类型去重，如 crm 两个工具同为 `Customer`）；
+- 渲染走归一化的 SchemaView 层（`src/tools/schemaView.ts`）：`string | null`、嵌套、union、record 都能正确表达，无法识别的类型保留 `unknown`，不默认当成 string；
+- compiler 内部仍然使用完整 JSON Schema——目录只是给模型的紧凑投影。
+
+原则：
+
+> **工具调用只需要 input contract；工具编排必须同时有 output contract。**
+
+### JIT 元工具（jit_describe_tools / jit_execute_program）
+
+同一个渲染内核被包装成 **Agent Tool**（`src/tools/jitTools.ts`），形成普通工具与 JIT 元工具的天然分工：
+
+```text
+普通工具：github.search_repositories / github.get_repository / ...（单次怎么调用）
+JIT 元工具：
+  jit_describe_tools(tool_names=[...])   模型决定编排时按需获取这些工具的 DSL 契约
+  jit_execute_program(source)            提交 DSL 程序给 Harness 编译执行
+```
+
+`jit_describe_tools` 是**确定性**的：`tool_names → ToolRegistry.get → SchemaView → compact DSL 契约文本`，没有概率过程。因此 DSL 臂的常驻 system prompt **不内嵌业务工具目录**——只包含 DSL 语法/原则 + 两个元工具的说明；模型只有在判断"接下来这几步可以程序化"时才调用 describe_tools 获取契约，再写程序、调用 execute_program。
 
 ### Runtime
 
@@ -628,6 +668,11 @@ Input schema 和 output schema 都是编译器的一部分。
 
 能够静态知道的东西，应尽量在执行前检查。
 
+Agent JIT 是 programmatic orchestration：模型写 `A → B → C` 时 A 尚未执行，因此：
+
+> **工具调用只需要 input contract；工具编排必须同时有 output contract。**
+> input schema 告诉模型"这个工具怎么调用"；output schema 告诉模型"这个工具怎么被组合"。
+
 ## 5. Internal execution state should stay internal
 
 Runtime 处理的数据量可以随 fan-out 增长。
@@ -713,7 +758,9 @@ src/language/
 
 src/tools/
     ToolContract / RegisteredTool / ToolCatalog / ToolRegistry
+    jitTools.ts                      JIT 元工具（jit_describe_tools / jit_execute_program）
     schemaView（归一化 schema 层：JSON Schema → SchemaView）
+    llmCatalog（Compact LLM Catalog：全量目录 + describe_tools 子集渲染）
     providers/
         github/{contracts,real,mock}.ts   契约 + 真实 adapter + mock
         domain/mock.ts                    跨域 mock（CRM / users / email）
@@ -732,6 +779,9 @@ src/runtime/
 
 src/llm/
     LLM gateway
+
+src/prompt/
+    unified DSL system prompt（语法构造注册表 + 两个元工具的工作方式，不内嵌工具目录）
 
 src/experiments/
     language experiments

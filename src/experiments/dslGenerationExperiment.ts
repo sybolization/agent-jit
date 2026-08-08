@@ -19,12 +19,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Type } from "typebox";
-import type { Tool } from "@earendil-works/pi-ai";
-
 import { compileExecutionDslLegacy } from "./languageVariants/legacyCompile.js";
 import { ExecutionDslCompileError } from "../compiler/compile.js";
-import { renderExecutionToolCatalog } from "../compiler/catalog.js";
+import { buildDslSystemPrompt as buildDslPrompt } from "../prompt/systemPrompt.js";
+import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL, JIT_META_TOOLS, describeToolsResult } from "../tools/jitTools.js";
 import { mapLimit } from "../runtime/executor.js";
 import { createMockGithubTools } from "../tools/providers/github/mock.js";
 import { createMockDomainTools } from "../tools/providers/domain/mock.js";
@@ -38,20 +36,6 @@ import { checkTaskCorrectness, type TaskSpec } from "./taskSpec.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
-
-/**
- * 传输协议（transport envelope）：模型通过 submit_program 工具提交程序，
- * 工具调用只负责可靠 transport，不承担程序的结构表达——DSL 仍是程序语言，
- * tool call 只是"交卷动作"。assistant text 通道不再参与程序解析。
- */
-const SUBMIT_PROGRAM_TOOL: Tool = {
-  name: "submit_program",
-  description:
-    "提交一段 Agent Execution DSL 程序源码给 Harness 编译执行。这是唯一允许的提交方式——把完整程序放在 source 参数里，不要直接写在回复文本中。",
-  parameters: Type.Object({
-    source: Type.String({ description: "Agent Execution DSL 程序源码（每条语句独占一行）" }),
-  }),
-};
 
 // ---------------------------------------------------------------------------
 // .env 加载（不依赖 dotenv）
@@ -88,38 +72,11 @@ const ARMS: readonly ArmConfig[] = [
   { id: "C", binding: "lambda" },
 ];
 
-const BINDING_GUIDE: Record<ArmConfig["binding"], string> = {
-  key: "- map：第一个位置参数是源数组，第二个位置参数是工具 id（双引号字符串）；用 key=\"<字段名>\" 指定从每个元素取哪个字段作为该工具的参数\n" +
-    "  示例：map(repos, \"github.get_repository\", key=\"full_name\")",
-  call: "- map：第一个位置参数是源数组，第二个位置参数是一个“绑定调用”：<工具id>(<参数名>=_.<字段>)，表示把每个元素的 <字段> 传给该工具的 <参数名>\n" +
-    "  示例：map(repos, github.get_repository(full_name=_.full_name))",
-  lambda: "- map：第一个位置参数是源数组，第二个位置参数是一个 lambda：lambda <元素名>: <工具id>(<参数名>=<元素名>.<字段>)\n" +
-    "  示例：map(repos, lambda repo: github.get_repository(full_name=repo.full_name))",
-};
-
-function buildSystemPrompt(arm: ArmConfig, task: R3Task): string {
-  const lines = [
-    "你是一名 Agent Execution DSL 编程助手。你的任务是用下面这门小语言写出程序，程序会被编译并在 Harness 上执行。",
-    "",
-    "## 语法（newline 分隔语句，每条独占一行）",
-    "<name> = <callee>(<参数>, ...)",
-    "- <name>：变量名（[a-zA-Z_][a-zA-Z0-9_]*），变量名即图中的节点",
-    "- <callee>：已注册工具 id，或语言关键字 map / take / return",
-    "- <value>：字符串（双引号）、数字、布尔、null，或先前定义的变量名（裸标识符即引用，定义数据流边）",
-    "- take：第一个位置参数是源数组，第二个位置参数是截取条数",
-    "- return：直接写要返回的变量名（如 return top）",
-    BINDING_GUIDE[arm.binding],
-    "",
-    "## 可用工具",
-    renderExecutionToolCatalog(new ToolRegistry(task.tools)),
-    "",
-    "## 硬约束",
-    "1. 必须通过调用 submit_program 工具提交程序（把 DSL 源码放在 source 参数里）；不要直接在回复文本中输出代码或 Markdown",
-    "2. 参数名必须与工具目录完全一致，不得自创参数名",
-    "3. 变量必须先定义再引用（不允许前向引用）",
-    "4. 编译失败时，根据返回的诊断修正 DSL，再次调用 submit_program 重新提交，直到成功为止",
-  ];
-  return lines.join("\n");
+function buildSystemPrompt(arm: ArmConfig): string {
+  const mapConstruct = arm.binding === "key" ? "map-key" : arm.binding === "lambda" ? "map-lambda" : "map";
+  return buildDslPrompt({
+    constructs: ["take", "return", mapConstruct],
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -131,7 +88,7 @@ interface RoundRecord {
   llm_output: string;
   /** 模型 text 输出（留档；不参与程序解析——transport 协议分层） */
   text: string;
-  /** 本轮是否成功通过 submit_program 拿到非空 source */
+  /** 本轮是否成功通过 jit_execute_program 拿到非空 source */
   transport_ok: boolean;
   diagnostics: Array<{ line: number; code: string; message: string }>;
 }
@@ -140,7 +97,7 @@ interface RunResult {
   success: boolean;
   rounds_used: number;
   first_attempt: boolean;
-  /** 首轮是否成功 transport（submit_program 调用且 source 非空） */
+  /** 首轮是否成功 transport（jit_execute_program 调用且 source 非空） */
   transport_pass: boolean;
   first_round_parse_ok: boolean;
   task_pass: boolean;
@@ -172,7 +129,7 @@ async function runOnce(
   backend: "real" | "mock",
 ): Promise<RunResult> {
   const messages: LlmMessage[] = [
-    { role: "system", content: buildSystemPrompt(arm, task) },
+    { role: "system", content: buildSystemPrompt(arm) },
     { role: "user", content: task.prompt },
   ];
   const usage: LlmUsage = { input: 0, output: 0, cacheRead: 0, totalTokens: 0 };
@@ -180,23 +137,32 @@ async function runOnce(
   const rounds: RoundRecord[] = [];
 
   for (let round = 1; round <= maxRounds; round += 1) {
-    const { content, toolCalls, usage: turnUsage } = await gateway.complete(messages, { tools: [SUBMIT_PROGRAM_TOOL] });
+    const { content, toolCalls, usage: turnUsage } = await gateway.complete(messages, { tools: JIT_META_TOOLS });
     usage.input += turnUsage.input;
     usage.output += turnUsage.output;
     usage.cacheRead += turnUsage.cacheRead;
     usage.totalTokens += turnUsage.totalTokens;
 
-    // 传输协议：程序只从 submit_program 的 source 参数取，text 通道不参与解析
-    const submit = toolCalls.find((call) => call.name === "submit_program");
+    // 协议要求：toolResult 必须跟在带 tool_calls 的 assistant 消息之后
+    messages.push({ role: "assistant", content, toolCalls });
+
+    // 元工具 dispatch：模型先调 jit_describe_tools 获取契约，再写程序提交
+    const describe = toolCalls.find((call) => call.name === DESCRIBE_TOOLS_TOOL.name);
+    if (describe) {
+      messages.push(describeToolsResult(new ToolRegistry(task.tools), describe));
+      continue;
+    }
+
+    // 传输协议：程序只从 jit_execute_program 的 source 参数取，text 通道不参与解析
+    const submit = toolCalls.find((call) => call.name === EXECUTE_PROGRAM_TOOL.name);
     const dsl = typeof submit?.arguments.source === "string" ? submit.arguments.source.trim() : "";
     const transportOk = submit !== undefined && dsl !== "";
     rounds.push({ round, llm_output: dsl, text: content, transport_ok: transportOk, diagnostics: [] });
-    messages.push({ role: "assistant", content, toolCalls });
 
     if (!transportOk) {
       messages.push({
         role: "user",
-        content: "你没有通过 submit_program 工具提交程序。请调用 submit_program 工具，把完整 DSL 程序放在 source 参数里（不要写在回复文本中）。",
+        content: `你没有通过 ${EXECUTE_PROGRAM_TOOL.name} 工具提交程序。请调用 ${EXECUTE_PROGRAM_TOOL.name} 工具，把完整 DSL 程序放在 source 参数里（不要写在回复文本中）。`,
       });
       continue;
     }
@@ -208,7 +174,7 @@ async function runOnce(
         allowMapBinding: arm.binding,
       });
       if (graph.nodes.length === 0) {
-        messages.push({ role: "toolResult", toolCallId: submit.id, toolName: "submit_program", content: "编译通过但程序为空（没有任何语句）。请重新提交一段完整的 DSL 程序。", isError: true });
+        messages.push({ role: "toolResult", toolCallId: submit.id, toolName: EXECUTE_PROGRAM_TOOL.name, content: "编译通过但程序为空（没有任何语句）。请重新提交一段完整的 DSL 程序。", isError: true });
         continue;
       }
       const correctness = checkTaskCorrectness(graph, task.spec);
@@ -238,10 +204,10 @@ async function runOnce(
         errorCodes.push(...diagnostics.map((item) => item.code));
         rounds[rounds.length - 1]!.diagnostics = diagnostics;
         const feedback = [
-          "编译失败，请根据以下诊断修正 DSL 后再次调用 submit_program 重新提交：",
+          "编译失败，请根据以下诊断修正 DSL 后再次调用 jit_execute_program 重新提交：",
           ...diagnostics.map((item) => `L${item.line}: ${item.code}: ${item.message}`),
         ].join("\n");
-        messages.push({ role: "toolResult", toolCallId: submit.id, toolName: "submit_program", content: feedback, isError: true });
+        messages.push({ role: "toolResult", toolCallId: submit.id, toolName: EXECUTE_PROGRAM_TOOL.name, content: feedback, isError: true });
         continue;
       }
       return {
@@ -295,7 +261,7 @@ interface ArmTaskSummary {
   success_rate: number;
   first_attempt_count: number;
   first_attempt_rate: number;
-  /** 首轮 transport 成功率（submit_program 调用且 source 非空）——与语法/编译解耦 */
+  /** 首轮 transport 成功率（jit_execute_program 调用且 source 非空）——与语法/编译解耦 */
   transport_success_rate: number;
   parse_success_rate: number;
   task_correctness_rate: number;

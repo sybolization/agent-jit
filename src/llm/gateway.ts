@@ -20,7 +20,7 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
  *
  * 支持两通道（传输协议分层）：
  * - text：模型的自然语言输出（给人）；
- * - tool call：结构化 transport（给机器），如 `submit_program(source)`。
+ * - tool call：结构化 transport（给机器），如 `jit_execute_program(source)`。
  * 两通道互不污染——`LlmResult.content` 与 `LlmResult.toolCalls` 分离。
  *
  * API key 从环境变量 `DEEPSEEK_API_KEY` 读取（.env，已被 gitignore）。
@@ -150,6 +150,12 @@ export function createDeepSeekGateway(): LlmGateway {
       };
 
       const response = await models.completeSimple(model, context);
+
+      // pi-ai 对 HTTP 错误（如 400 非法 tool name / 429 限流）不抛异常，
+      // 而是返回 stopReason="error" + errorMessage——这里显式抛出，避免实验静默空转。
+      if (response.stopReason === "error") {
+        throw new Error(response.errorMessage ?? "模型调用失败（stopReason=error）");
+      }
 
       const content = response.content
         .filter((block) => block.type === "text")

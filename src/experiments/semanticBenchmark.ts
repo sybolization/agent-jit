@@ -27,11 +27,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Type } from "typebox";
-import type { Tool } from "@earendil-works/pi-ai";
-
 import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compile.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
+import { buildDslSystemPrompt as buildDslPrompt } from "../prompt/systemPrompt.js";
+import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL, JIT_META_TOOLS, describeToolsResult } from "../tools/jitTools.js";
 import { githubTools } from "../tools/providers/github/contracts.js";
 import type { RegisteredTool, ToolContract } from "../tools/definition.js";
 import { ToolRegistry } from "../tools/registry.js";
@@ -332,42 +331,10 @@ export async function fetchR4dGroundTruth(
 // DSL 臂
 // ---------------------------------------------------------------------------
 
-const SUBMIT_PROGRAM_TOOL: Tool = {
-  name: "submit_program",
-  description:
-    "提交一段 Agent Execution DSL 程序源码给 Harness 编译执行。这是唯一允许的提交方式——把完整程序放在 source 参数里，不要直接写在回复文本中。",
-  parameters: Type.Object({
-    source: Type.String({ description: "Agent Execution DSL 程序源码（每条语句独占一行）" }),
-  }),
-};
-
-function buildDslSystemPrompt(task: R4dTask): string {
-  return [
-    "你是一名 Agent Execution DSL 编程助手。你的任务是用下面这门小语言写出程序，程序会被编译并在 Harness 上执行。",
-    "",
-    "## 语法（newline 分隔语句，每条独占一行）",
-    "<name> = <callee>(<参数>, ...)",
-    "- <name>：变量名（[a-zA-Z_][a-zA-Z0-9_]*），变量名即图中的节点",
-    "- <callee>：已注册工具 id，或语言关键字 map / take / filter / sort / return",
-    "- <value>：字符串（双引号）、数字、布尔、null，或先前定义的变量名（裸标识符即引用，定义数据流边）",
-    "- take：第一个位置参数是源数组，第二个位置参数是截取条数",
-    "- filter：第一个位置参数是源数组，其余参数是等值条件（<字段>=<字面量>），保留满足全部条件的元素",
-    "  示例：active = filter(details, language=\"TypeScript\")",
-    "- sort：第一个位置参数是源数组，key=<字段名> 必填（字符串字面量），desc=true|false 可选（默认升序）",
-    "  示例：ranked = sort(contribs, key=\"total_contributions\", desc=true)",
-    "- return：直接写要返回的变量名（如 return top）",
-    "- map：第一个位置参数是源数组，第二个位置参数是一个“绑定调用”：<工具id>(<参数名>=_.<字段>)，表示把每个元素的 <字段> 传给该工具的 <参数名>",
-    "  示例：map(repos, github.get_repository(full_name=_.full_name))",
-    "",
-    "## 可用工具",
-    renderExecutionToolCatalog(new ToolRegistry(task.tools)),
-    "",
-    "## 硬约束",
-    "1. 必须通过调用 submit_program 工具提交程序（把 DSL 源码放在 source 参数里）；不要直接在回复文本中输出代码或 Markdown",
-    "2. 参数名必须与工具目录完全一致，不得自创参数名",
-    "3. 变量必须先定义再引用（不允许前向引用）",
-    "4. 编译失败时，根据返回的诊断修正 DSL，再次调用 submit_program 重新提交，直到成功为止",
-  ].join("\n");
+function buildDslSystemPrompt(): string {
+  return buildDslPrompt({
+    constructs: ["map", "take", "filter", "sort", "return"],
+  });
 }
 
 interface DslArmResult {
@@ -395,7 +362,7 @@ async function runDslArm(
   groundTruth: readonly string[],
 ): Promise<DslArmResult> {
   const messages: LlmMessage[] = [
-    { role: "system", content: buildDslSystemPrompt(task) },
+    { role: "system", content: buildDslSystemPrompt() },
     { role: "user", content: task.dslPrompt },
   ];
   const usage: LlmUsage = { input: 0, output: 0, cacheRead: 0, totalTokens: 0 };
@@ -431,7 +398,7 @@ async function runDslArm(
   for (let round = 1; round <= maxRounds; round += 1) {
     modelIngressBytes += sumMessageBytes(messages);
     const t0 = performance.now();
-    const { content, toolCalls, usage: turnUsage } = await gateway.complete(messages, { tools: [SUBMIT_PROGRAM_TOOL] });
+    const { content, toolCalls, usage: turnUsage } = await gateway.complete(messages, { tools: JIT_META_TOOLS });
     llmMs += performance.now() - t0;
     modelEgressBytes +=
       Buffer.byteLength(content, "utf8") +
@@ -442,12 +409,19 @@ async function runDslArm(
     usage.totalTokens += turnUsage.totalTokens;
     messages.push({ role: "assistant", content, toolCalls });
 
-    const submit = toolCalls.find((call) => call.name === "submit_program");
+    // 元工具 dispatch：模型先调 jit_describe_tools 获取契约，再写程序提交
+    const describe = toolCalls.find((call) => call.name === DESCRIBE_TOOLS_TOOL.name);
+    if (describe) {
+      messages.push(describeToolsResult(new ToolRegistry(task.tools), describe));
+      continue;
+    }
+
+    const submit = toolCalls.find((call) => call.name === EXECUTE_PROGRAM_TOOL.name);
     const source = typeof submit?.arguments.source === "string" ? submit.arguments.source.trim() : "";
     if (!source) {
       messages.push({
         role: "user",
-        content: "你没有通过 submit_program 工具提交程序。请调用 submit_program 工具，把完整 DSL 程序放在 source 参数里。",
+        content: `你没有通过 ${EXECUTE_PROGRAM_TOOL.name} 工具提交程序。请调用 ${EXECUTE_PROGRAM_TOOL.name} 工具，把完整 DSL 程序放在 source 参数里。`,
       });
       continue;
     }
@@ -485,10 +459,10 @@ async function runDslArm(
     } catch (error) {
       if (error instanceof ExecutionDslCompileError) {
         const feedback = [
-          "编译失败，请根据以下诊断修正 DSL 后再次调用 submit_program 重新提交：",
+          "编译失败，请根据以下诊断修正 DSL 后再次调用 jit_execute_program 重新提交：",
           ...error.diagnostics.map((item) => `L${item.line}: ${item.code}: ${item.message}`),
         ].join("\n");
-        messages.push({ role: "toolResult", toolCallId: submit!.id, toolName: "submit_program", content: feedback, isError: true });
+        messages.push({ role: "toolResult", toolCallId: submit!.id, toolName: EXECUTE_PROGRAM_TOOL.name, content: feedback, isError: true });
         continue;
       }
       return {

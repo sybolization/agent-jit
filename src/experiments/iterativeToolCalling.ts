@@ -9,7 +9,7 @@ import { mapLimit } from "../runtime/executor.js";
  * Traditional 臂：迭代工具调用 agent loop（R4b benchmark 的对照架构）。
  *
  * `LLM → tool call → 执行 → tool result → LLM` 逐轮，模型决定每一步。
- * 与 DSL 臂（一次 submit_program + deterministic runtime）对比以下指标：
+ * 与 DSL 臂（一次 jit_execute_program + deterministic runtime）对比以下指标：
  * - round_trips：complete 调用次数；
  * - model_ingress_bytes：喂给模型的输入字节累计（含历史累积——context 膨胀度量）；
  * - model_egress_bytes：模型输出字节累计；
