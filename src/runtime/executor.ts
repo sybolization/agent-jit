@@ -55,6 +55,15 @@ function validateToolOutput(toolId: string, schema: TSchema, output: unknown): v
   );
 }
 
+/** REQ-3：工具入参必须匹配其声明的 inputSchema；不匹配抛错（execute 不应被调用）。 */
+function validateToolInput(toolId: string, schema: TSchema, input: unknown): void {
+  if (Value.Check(schema, input)) return;
+  const first = Value.Errors(schema, input)[0];
+  throw new Error(
+    `TOOL_INPUT_SCHEMA_MISMATCH: 工具 ${toolId} 入参与声明 schema 不匹配${first ? `（${first.message}）` : ""}`,
+  );
+}
+
 /** 并发受限的数组映射：最多 concurrency 个任务同时进行，保持输出顺序。 */
 export async function mapLimit<T, R>(
   items: readonly T[],
@@ -101,8 +110,9 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
     case "tool": {
       const tool = ctx.registry.get(node.tool);
       if (!tool) throw new Error(`未注册的工具：${node.tool}`);
-      if (!tool.execute) throw new Error(`工具 ${node.tool} 未提供 execute 实现`);
-      const output = await tool.execute(resolveArgs(node.args, ctx.store));
+      const args = resolveArgs(node.args, ctx.store);
+      validateToolInput(node.tool, tool.inputSchema, args);
+      const output = await tool.execute(args);
       validateToolOutput(node.tool, tool.outputSchema, output);
       return output;
     }
@@ -113,7 +123,6 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
       }
       const tool = ctx.registry.get(node.tool);
       if (!tool) throw new Error(`map 引用了未注册的工具：${node.tool}`);
-      if (!tool.execute) throw new Error(`map 引用的工具 ${node.tool} 未提供 execute 实现`);
       trace.fanout = source.length;
       trace.concurrency = node.concurrency;
       return mapLimit(source, node.concurrency, async (item) => {
@@ -122,7 +131,8 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
         for (const [param, field] of Object.entries(node.bindings)) {
           args[param] = itemRecord[field];
         }
-        const output = await tool.execute!(args);
+        validateToolInput(node.tool, tool.inputSchema, args);
+        const output = await tool.execute(args);
         validateToolOutput(node.tool, tool.outputSchema, output);
         return output;
       });

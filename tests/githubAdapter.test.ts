@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { createRealGithubTools } from "../src/runtime/githubAdapter.js";
+import { createRealGithubTools } from "../src/tools/providers/github/real.js";
 
 /** mock fetch：记录调用，返回预设响应，不打真实 API。 */
 function makeFetch(results: Response[]): { fn: typeof fetch; calls: Array<{ url: string; headers: Record<string, string> }> } {

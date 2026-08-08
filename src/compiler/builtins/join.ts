@@ -1,6 +1,6 @@
 import type { ParsedStatement } from "../../language/ast.js";
 import type { DslDiagnostic } from "../../language/diagnostics.js";
-import type { ToolDefinition } from "../../tools/definition.js";
+import type { ToolCatalog } from "../../tools/registry.js";
 import type { ExecutionNode } from "../ir.js";
 import { pushMissing } from "../helpers.js";
 
@@ -11,7 +11,7 @@ import { pushMissing } from "../helpers.js";
  */
 export function buildJoinNode(
   statement: ParsedStatement,
-  _options: { tools?: readonly ToolDefinition[] },
+  _options: { tools?: ToolCatalog },
   defined: ReadonlySet<string>,
   diagnostics: DslDiagnostic[],
 ): ExecutionNode | undefined {

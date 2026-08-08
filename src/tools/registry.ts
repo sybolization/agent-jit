@@ -1,21 +1,27 @@
-import type { ToolDefinition } from "./definition.js";
+import type { ToolContract } from "./definition.js";
 
-/** 工具注册表：register / get / has / all / ids。Compiler、catalog、Runtime 共同消费。 */
-export class ToolRegistry {
-  private readonly byId = new Map<string, ToolDefinition>();
-  constructor(definitions: readonly ToolDefinition[] = []) {
+/** 三方共享的薄接口：compiler / catalog renderer / runtime 只依赖 get / all。 */
+export interface ToolCatalog {
+  get(id: string): ToolContract | undefined;
+  all(): readonly ToolContract[];
+}
+
+/** 工具注册表：register / get / has / all / ids。泛型 T 保留具体契约类型（如 RegisteredTool）。 */
+export class ToolRegistry<T extends ToolContract = ToolContract> implements ToolCatalog {
+  private readonly byId = new Map<string, T>();
+  constructor(definitions: readonly T[] = []) {
     for (const definition of definitions) this.register(definition);
   }
-  register(definition: ToolDefinition): void {
+  register(definition: T): void {
     this.byId.set(definition.id, definition);
   }
-  get(id: string): ToolDefinition | undefined {
+  get(id: string): T | undefined {
     return this.byId.get(id);
   }
   has(id: string): boolean {
     return this.byId.has(id);
   }
-  all(): readonly ToolDefinition[] {
+  all(): readonly T[] {
     return [...this.byId.values()];
   }
   ids(): readonly string[] {

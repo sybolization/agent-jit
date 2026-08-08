@@ -1,6 +1,8 @@
 import type { LiteralValue, ParsedStatement } from "../language/ast.js";
 import type { DslDiagnostic } from "../language/diagnostics.js";
-import type { ToolDefinition } from "../tools/definition.js";
+import type { ToolContract } from "../tools/definition.js";
+import type { ToolCatalog } from "../tools/registry.js";
+import { schemaViewOf, type SchemaView } from "../tools/schemaView.js";
 import type { ExecutionNode } from "./ir.js";
 
 /**
@@ -16,60 +18,70 @@ export function compareNodes(left: { id: string }, right: { id: string }): numbe
   return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
 }
 
-/** 编译器看到的工具参数（从 inputSchema 提取）。 */
+/** 编译器看到的工具参数（从 inputSchema 经 SchemaView 提取）。 */
 export interface ToolParamSpec {
   key: string;
-  kind: "string" | "int" | "number" | "boolean";
+  /** "unknown" 表示非原始类型（union/array/object/null/record）——编译器跳过字面量类型检查，不误报也不当 string 放行。 */
+  kind: "string" | "int" | "number" | "boolean" | "unknown";
   required: boolean;
 }
 
-export function toolParams(tool: ToolDefinition): ToolParamSpec[] {
-  const schema = tool.inputSchema as unknown as {
-    properties?: Record<string, { type?: string }>;
-    required?: string[];
-  };
-  const required = new Set(schema.required ?? []);
-  return Object.entries(schema.properties ?? {}).map(([key, prop]) => ({
+/** 原始类型 → ToolParamSpec.kind；其余（含 union/array/object/null/record）→ "unknown"。 */
+function kindOfParam(view: SchemaView): ToolParamSpec["kind"] {
+  switch (view.kind) {
+    case "string":
+      return "string";
+    case "integer":
+      return "int";
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
+    default:
+      return "unknown";
+  }
+}
+
+export function toolParams(tool: ToolContract): ToolParamSpec[] {
+  const view = schemaViewOf(tool.inputSchema);
+  if (view.kind !== "object") return [];
+  const required = new Set(view.required);
+  return Object.entries(view.properties).map(([key, prop]) => ({
     key,
-    kind: (prop.type === "integer" ? "int" : prop.type === "number" ? "number" : prop.type === "boolean" ? "boolean" : "string") as ToolParamSpec["kind"],
+    kind: kindOfParam(prop),
     required: required.has(key),
   }));
 }
 
 /**
  * REQ-5：编译期"元素 schema"——map 绑定校验所需的字段形状视图
- * （只关心字段存在性与 type，不建模嵌套/联合的完整 JSON schema）。
+ * （从 outputSchema 的 SchemaView 提取，字段值为 SchemaView）。
  */
 export interface ElementSchema {
-  properties: Record<string, { type?: string }>;
+  properties: Record<string, SchemaView>;
 }
 
-/** 从工具 outputSchema 提取元素 schema：array 取 items 的 properties，object 取自身 properties。 */
-export function elementSchemaOf(definition: ToolDefinition | undefined): ElementSchema | undefined {
+/** 从工具 outputSchema 提取元素 schema：array 取 items 的 object，object 取自身。 */
+export function elementSchemaOf(definition: ToolContract | undefined): ElementSchema | undefined {
   if (!definition) return undefined;
-  const schema = definition.outputSchema as unknown as {
-    type?: string;
-    items?: { type?: string; properties?: Record<string, { type?: string }> };
-    properties?: Record<string, { type?: string }>;
-  };
-  if (schema.type === "array" && schema.items) {
-    const item = schema.items as { properties?: Record<string, { type?: string }> };
-    return item.properties ? { properties: item.properties } : undefined;
+  const view = schemaViewOf(definition.outputSchema);
+  if (view.kind === "array" && view.items.kind === "object") {
+    return { properties: view.items.properties };
   }
-  if (schema.type === "object" && schema.properties) return { properties: schema.properties };
+  if (view.kind === "object") return { properties: view.properties };
   return undefined;
 }
 
 /** 节点输出 → 元素 schema（编译循环随符号表维护）；compute 形状动态未知，join 取基准 source。 */
 export function nodeElementSchema(
   node: ExecutionNode,
-  tools: readonly ToolDefinition[],
+  tools: ToolCatalog | undefined,
   symbols: ReadonlyMap<string, ElementSchema | undefined>,
 ): ElementSchema | undefined {
   switch (node.kind) {
     case "tool":
     case "map":
-      return elementSchemaOf(tools.find((tool) => tool.id === node.tool));
+      return tools ? elementSchemaOf(tools.get(node.tool)) : undefined;
     case "compute":
       // compute 会新增字段，元素形状不可静态确定 → 视为未知（避免 _.ratio 误报 UNKNOWN_FIELD）
       return undefined;
@@ -98,6 +110,8 @@ export function normalizeLiteral(value: LiteralValue, kind: string): LiteralValu
 export function literalKindError(value: LiteralValue, parameterKey: string, kind: string): string | null {
   if (value === null || value === undefined) return null;
   const normalized = kind.toLowerCase();
+  // "unknown"（非原始类型参数）：不校验类型，保留 unknown（不误报，也不当 string 放行）
+  if (normalized === "unknown") return null;
   if (normalized === "int" || normalized === "integer") {
     if (typeof value !== "number" || !Number.isInteger(value)) {
       return `参数“${parameterKey}”期望整数，得到 ${typeof value === "number" ? "非整数" : typeof value}`;

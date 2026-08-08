@@ -1,14 +1,15 @@
 import { describe, expect, test } from "vitest";
 
 import { compileExecutionDsl } from "../src/compiler/compile.js";
-import { githubTools } from "../src/compiler/registry.js";
-import { mockDomainToolSpecs } from "../src/runtime/mockTools.js";
+import { githubTools } from "../src/tools/providers/github/contracts.js";
+import { mockDomainToolSpecs } from "../src/tools/providers/domain/mock.js";
+import { ToolRegistry } from "../src/tools/registry.js";
 import { checkTaskCorrectness, type TaskSpec } from "../src/experiments/taskSpec.js";
 
 const SPEC: TaskSpec = { query: "agent framework", limit: 10, mapKey: "full_name", takeCount: 3 };
 
 function compile(dsl: string) {
-  const { graph } = compileExecutionDsl(dsl, { tools: githubTools });
+  const { graph } = compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools) });
   return graph;
 }
 
@@ -99,7 +100,7 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
   ].join("\n");
 
   test("同名绑定正确 → bindingPass 且 pass", () => {
-    const graph = compileExecutionDsl(githubBindingDsl, { tools: githubTools}).graph;
+    const graph = compileExecutionDsl(githubBindingDsl, { tools: new ToolRegistry(githubTools)}).graph;
     const result = checkTaskCorrectness(graph, { ...SPEC, bindings: { full_name: "full_name" } });
     expect(result.bindingPass).toBe(true);
     expect(result.pass).toBe(true);
@@ -108,7 +109,7 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
   test("绑定错字段（_.language 而非 _.full_name）→ bindingFailures 且 pass 失败", () => {
     // 用 repos 元素上真实存在的 string 字段 language（否则 REQ-5 编译期就报错，测不到 bindingFailures）
     const dsl = githubBindingDsl.replace("_.full_name", "_.language");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools)}).graph;
     const result = checkTaskCorrectness(graph, { ...SPEC, bindings: { full_name: "full_name" } });
     expect(result.bindingPass).toBe(false);
     expect(result.pass).toBe(false);
@@ -122,7 +123,7 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
       "top = take(m, 3)",
       "return top",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(mockDomainToolSpecs)}).graph;
     const result = checkTaskCorrectness(graph, { sourceTool: "crm.search_customers", limit: 10, takeCount: 3, bindings: { customer_id: "id" } });
     expect(result.bindingPass).toBe(true);
     expect(result.pass).toBe(true);
@@ -135,7 +136,7 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
       "top = take(m, 3)",
       "return top",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(mockDomainToolSpecs)}).graph;
     const result = checkTaskCorrectness(graph, { sourceTool: "users.list_users", takeCount: 3, bindings: { to: "email", name: "name" } });
     expect(result.bindingPass).toBe(false);
     expect(result.bindingFailures?.some((item) => item.includes("name"))).toBe(true);
@@ -148,7 +149,7 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
       "top = take(m, 3)",
       "return top",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(mockDomainToolSpecs)}).graph;
     const result = checkTaskCorrectness(graph, { sourceTool: "users.list_users", takeCount: 3, bindings: { to: "email" } });
     expect(result.bindingPass).toBe(false);
     expect(result.bindingFailures?.some((item) => item.includes("多余绑定 name"))).toBe(true);
@@ -177,7 +178,7 @@ describe("checkTaskCorrectness — R4d filter/sort 语义检查（D2 风格）",
     stageTools: ["github.get_contributor_stats", "github.get_repository"],
   };
   const compileD2 = (dsl: string) =>
-    compileExecutionDsl(dsl, { tools: githubTools}).graph;
+    compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools)}).graph;
 
   test("D2 正确程序通过 filter/sort/stageTools 检查", () => {
     const result = checkTaskCorrectness(compileD2(CORRECT_D2), d2Spec);
@@ -285,7 +286,7 @@ describe("checkTaskCorrectness — R4d 多阶段图检查（D3：双 take / 阶�
     takeCounts: [3, 5],
   };
   const compileD3 = (dsl: string) =>
-    compileExecutionDsl(dsl, { tools: githubTools}).graph;
+    compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools)}).graph;
 
   test("D3 正确程序通过（双 take 序列 + 阶段工具按序）", () => {
     const result = checkTaskCorrectness(compileD3(CORRECT_D3), d3Spec);
@@ -343,7 +344,7 @@ describe("checkTaskCorrectness — R4e 分支重组图检查（compute/select/jo
     joinSpec: { key: "full_name", sourceCount: 3, extraTools: ["github.get_contributor_stats", "github.list_commits"] },
   };
   const compileR4e = (dsl: string) =>
-    compileExecutionDsl(dsl, { tools: githubTools}).graph;
+    compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools)}).graph;
 
   test("R4e 正确程序通过（compute/select×3/join 全检查）", () => {
     const result = checkTaskCorrectness(compileR4e(CORRECT_R4E), r4eSpec);

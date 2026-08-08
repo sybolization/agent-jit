@@ -6,9 +6,9 @@
  * - 任务 4：mock CRM 单字段**异名**（id → customer_id，测命名映射）；
  * - 任务 5：mock 用户**多字段**（email/name → to/name，测 A 臂 key= 的扩展性）。
  */
-import { githubTools } from "../compiler/registry.js";
-import type { ToolDefinition } from "../tools/definition.js";
-import { mockDomainToolSpecs } from "../runtime/mockTools.js";
+import { githubTools } from "../tools/providers/github/contracts.js";
+import type { ToolContract } from "../tools/definition.js";
+import { mockDomainToolSpecs } from "../tools/providers/domain/mock.js";
 import type { TaskSpec } from "./taskSpec.js";
 
 export interface R3Task {
@@ -19,7 +19,7 @@ export interface R3Task {
   /** 期望程序（TaskSpec + bindings） */
   spec: TaskSpec;
   /** 该任务对模型可见的工具目录 */
-  tools: readonly ToolDefinition[];
+  tools: readonly ToolContract[];
 }
 
 const takeLine = "最后截取前 3 个作为最终结果并返回（return）。";

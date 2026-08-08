@@ -3,8 +3,8 @@ import { describe, expect, test } from "vitest";
 import { compileExecutionDslLegacy } from "../src/experiments/languageVariants/legacyCompile.js";
 import { ExecutionDslCompileError } from "../src/compiler/compile.js";
 import type { ExecutionNode } from "../src/compiler/ir.js";
-import { githubTools } from "../src/compiler/registry.js";
-import { mockDomainToolSpecs } from "../src/runtime/mockTools.js";
+import { githubTools } from "../src/tools/providers/github/contracts.js";
+import { mockDomainToolSpecs } from "../src/tools/providers/domain/mock.js";
 import { tokenize } from "../src/language/tokenizer.js";
 import { Parser } from "../src/language/parser.js";
 

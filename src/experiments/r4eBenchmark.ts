@@ -34,11 +34,12 @@ import type { Tool } from "@earendil-works/pi-ai";
 
 import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compile.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
-import type { ToolDefinition } from "../tools/definition.js";
+import type { RegisteredTool, ToolContract } from "../tools/definition.js";
+import { ToolRegistry } from "../tools/registry.js";
 import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
 import { mapLimit } from "../runtime/executor.js";
-import { createAdversarialGithubTools, ADVERSARIAL_REPOS } from "../runtime/mockTools.js";
-import { execute, type RuntimeTool } from "../runtime/runtime.js";
+import { createAdversarialGithubTools, ADVERSARIAL_REPOS } from "../tools/providers/github/mock.js";
+import { execute } from "../runtime/runtime.js";
 import { exactAnswerMatch, runIterativeToolCalling, sumMessageBytes, toPiToolName, type IterativeToolResult } from "./iterativeToolCalling.js";
 import { checkTaskCorrectness, type TaskSpec } from "./taskSpec.js";
 
@@ -77,7 +78,7 @@ export interface R4eTask {
   scoreThreshold: number;
   dslPrompt: string;
   iterativePrompt: string;
-  tools: readonly ToolDefinition[];
+  tools: readonly ToolContract[];
 }
 
 const R4E_TOOLS = createAdversarialGithubTools().filter((tool) =>
@@ -146,16 +147,16 @@ export function computeR4eAnswer(
 
 /** ground truth：确定性 mock 链式取数（search → details → 按 ratio 分支取两路 score）→ oracle。 */
 export async function fetchR4eGroundTruth(
-  searchTool: RuntimeTool,
-  repoTool: RuntimeTool,
-  statsTool: RuntimeTool,
-  commitTool: RuntimeTool,
+  searchTool: RegisteredTool,
+  repoTool: RegisteredTool,
+  statsTool: RegisteredTool,
+  commitTool: RegisteredTool,
   task: R4eTask,
 ): Promise<string[]> {
-  const result = await searchTool.execute!({ query: QUERY, limit: task.n });
+  const result = await searchTool.execute({ query: QUERY, limit: task.n });
   const items = Array.isArray(result) ? (result as Array<{ full_name: string }>) : [];
   const details = (await mapLimit(items, 5, async (item) => {
-    const detail = await repoTool.execute!({ full_name: item.full_name });
+    const detail = await repoTool.execute({ full_name: item.full_name });
     return detail as AdversarialDetail;
   })) as AdversarialDetail[];
 
@@ -163,9 +164,9 @@ export async function fetchR4eGroundTruth(
   const commitMap: Record<string, { score: number }> = {};
   await mapLimit(details, 5, async (detail) => {
     if (detail.forks / detail.stars > task.ratioThreshold) {
-      statsMap[detail.full_name] = (await statsTool.execute!({ full_name: detail.full_name })) as { score: number };
+      statsMap[detail.full_name] = (await statsTool.execute({ full_name: detail.full_name })) as { score: number };
     } else {
-      commitMap[detail.full_name] = (await commitTool.execute!({ full_name: detail.full_name })) as { score: number };
+      commitMap[detail.full_name] = (await commitTool.execute({ full_name: detail.full_name })) as { score: number };
     }
   });
   return computeR4eAnswer(details, statsMap, commitMap, task);
@@ -207,7 +208,7 @@ function buildDslSystemPrompt(task: R4eTask): string {
     "  示例：map(repos, github.get_repository(full_name=_.full_name))",
     "",
     "## 可用工具",
-    renderExecutionToolCatalog(task.tools),
+    renderExecutionToolCatalog(new ToolRegistry(task.tools)),
     "",
     "## 硬约束",
     "1. 必须通过调用 submit_program 工具提交程序（把 DSL 源码放在 source 参数里）；不要直接在回复文本中输出代码或 Markdown",
@@ -242,7 +243,7 @@ async function runDslArm(
   gateway: LlmGateway,
   task: R4eTask,
   maxRounds: number,
-  tools: readonly RuntimeTool[],
+  tools: readonly RegisteredTool[],
   groundTruth: readonly string[],
 ): Promise<DslArmResult> {
   const messages: LlmMessage[] = [
@@ -256,10 +257,10 @@ async function runDslArm(
   let modelEgressBytes = 0;
 
   const runtimeInternal = { bytes: 0 };
-  const recordingTools: RuntimeTool[] = tools.map((tool) => ({
+  const recordingTools: RegisteredTool[] = tools.map((tool) => ({
     ...tool,
     execute: async (args) => {
-      const result = await tool.execute!(args);
+      const result = await tool.execute(args);
       runtimeInternal.bytes += Buffer.byteLength(JSON.stringify(result), "utf8");
       return result;
     },
@@ -309,10 +310,10 @@ async function runDslArm(
 
     try {
       const { graph } = compileExecutionDsl(source, {
-        tools: task.tools,
+        tools: new ToolRegistry(task.tools),
       });
       const correctness = checkTaskCorrectness(graph, taskSpec);
-      const registry = new Map(recordingTools.map((tool) => [tool.id, tool]));
+      const registry = new ToolRegistry(recordingTools);
       const t1 = performance.now();
       const execution = await execute(graph, registry);
       const runtimeMs = performance.now() - t1;
@@ -420,7 +421,7 @@ async function main(): Promise<number> {
   const gateway = createDeepSeekGateway();
   const mockTools = createAdversarialGithubTools();
   const tasks = buildR4eTasks();
-  const findTool = (id: string): RuntimeTool => {
+  const findTool = (id: string): RegisteredTool => {
     const tool = mockTools.find((item) => item.id === id);
     if (!tool) throw new Error(`[FAIL] 未找到工具 ${id}`);
     return tool;
@@ -453,7 +454,7 @@ async function main(): Promise<number> {
   const iterativeSystem = (task: R4eTask): string =>
     [
       "你是一个 GitHub 数据分析助手。你可以调用以下工具获取数据：",
-      renderExecutionToolCatalog(task.tools, toPiToolName),
+      renderExecutionToolCatalog(new ToolRegistry(task.tools), toPiToolName),
       "",
       "请依次调用工具完成任务；任务完成后，必须调用 submit_answer 工具提交最终答案（repositories 参数：按排名从高到低排列的仓库完整名称列表）。不要只在文本中给出答案。",
     ].join("\n");

@@ -4,7 +4,8 @@ import type { ParsedStatement } from "../../language/ast.js";
 import type { DslDiagnostic } from "../../language/diagnostics.js";
 import { Parser } from "../../language/parser.js";
 import { tokenize } from "../../language/tokenizer.js";
-import type { ToolDefinition } from "../../tools/definition.js";
+import type { ToolContract } from "../../tools/definition.js";
+import { ToolRegistry } from "../../tools/registry.js";
 import { ExecutionGraphSchema, type ExecutionGraph, type ExecutionNode } from "../../compiler/ir.js";
 import { compareNodes, literalArg, literalKindError, pushMissing, refArg } from "../../compiler/helpers.js";
 import { buildToolNode, mapCallBindings } from "../../compiler/toolCall.js";
@@ -37,7 +38,8 @@ import { ExecutionDslCompileError, type CompileExecutionDslResult } from "../../
  */
 
 export interface LegacyCompileOptions {
-  tools?: readonly ToolDefinition[];
+  /** 冻结的遗留路径：保持数组 API（canonical 路径用 ToolCatalog / ToolRegistry）。 */
+  tools?: readonly ToolContract[];
 
   /** R2 实验：允许 map 的 tool 参数以裸标识符（callable reference）书写。默认 false。 */
   allowCallableRef?: boolean;
@@ -193,14 +195,14 @@ function legacyBuildMapNode(
     return undefined;
   }
 
-  // tool 与 bindings 解析
-  const tools = options.tools ?? [];
+  // tool 与 bindings 解析（legacy 内部包装 ToolRegistry，复用 canonical 的 ToolCatalog API）
+  const catalog = new ToolRegistry(options.tools ?? []);
   let toolId: string | undefined;
   let bindings: Record<string, string> | undefined;
 
   if (allow === "call" && bindingArg?.kind === "call") {
     toolId = bindingArg.callee;
-    bindings = mapCallBindings(bindingArg, "_", tools, diagnostics);
+    bindings = mapCallBindings(bindingArg, "_", catalog, diagnostics);
   } else if (allow === "lambda" && bindingArg?.kind === "lambda") {
     const body = bindingArg.body;
     if (body?.kind !== "call") {
@@ -213,7 +215,7 @@ function legacyBuildMapNode(
       return undefined;
     }
     toolId = body.callee;
-    bindings = mapCallBindings(body, bindingArg.param ?? "_", tools, diagnostics);
+    bindings = mapCallBindings(body, bindingArg.param ?? "_", catalog, diagnostics);
   } else {
     // A 臂：字符串 tool + key= 字面量 → 单字段同名绑定
     toolId = legacyToolArg(effective, diagnostics, options.allowCallableRef ?? false);
@@ -264,7 +266,7 @@ function legacyBuildMapNode(
     }
     return undefined;
   }
-  const toolRegistered = tools.some((tool) => tool.id === toolId);
+  const toolRegistered = catalog.has(toolId);
   if (!toolRegistered) {
     diagnostics.push({
       line: statement.line,
@@ -286,16 +288,18 @@ function legacyBuildNode(
   defined: ReadonlySet<string>,
   diagnostics: DslDiagnostic[],
 ): ExecutionNode | undefined {
+  // legacy 内部包装 ToolRegistry：共享 builtins 的 ToolCatalog 参数
+  const catalog = new ToolRegistry(options.tools ?? []);
   if (statement.callee === "map") return legacyBuildMapNode(statement, options, defined, diagnostics);
-  if (statement.callee === "take") return buildTakeNode(statement, { tools: options.tools }, defined, diagnostics);
-  if (statement.callee === "filter") return buildFilterNode(statement, { tools: options.tools }, defined, diagnostics);
-  if (statement.callee === "sort") return buildSortNode(statement, { tools: options.tools }, defined, diagnostics);
-  if (statement.callee === "compute") return buildComputeNode(statement, { tools: options.tools }, defined, diagnostics);
-  if (statement.callee === "select") return buildSelectNode(statement, { tools: options.tools }, defined, diagnostics);
-  if (statement.callee === "join") return buildJoinNode(statement, { tools: options.tools }, defined, diagnostics);
-  if (statement.callee === "return") return buildReturnNode(statement, { tools: options.tools }, defined, diagnostics);
+  if (statement.callee === "take") return buildTakeNode(statement, { tools: catalog }, defined, diagnostics);
+  if (statement.callee === "filter") return buildFilterNode(statement, { tools: catalog }, defined, diagnostics);
+  if (statement.callee === "sort") return buildSortNode(statement, { tools: catalog }, defined, diagnostics);
+  if (statement.callee === "compute") return buildComputeNode(statement, { tools: catalog }, defined, diagnostics);
+  if (statement.callee === "select") return buildSelectNode(statement, { tools: catalog }, defined, diagnostics);
+  if (statement.callee === "join") return buildJoinNode(statement, { tools: catalog }, defined, diagnostics);
+  if (statement.callee === "return") return buildReturnNode(statement, { tools: catalog }, defined, diagnostics);
 
-  const tool = (options.tools ?? []).find((item) => item.id === statement.callee);
+  const tool = catalog.get(statement.callee);
   if (!tool) {
     diagnostics.push({
       line: statement.line,

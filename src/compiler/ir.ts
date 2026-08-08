@@ -6,9 +6,6 @@ import { type Static, Type } from "typebox";
  * 与画布语义图的区别：这是"LLM 不该直接书写、但必须确定性产出"的
  * 执行物——`tool`（外部 API）、`map`（动态展开）、`compute`（确定性
  * 程序）、`return`（出口）。变量引用定义数据流边。
- *
- * 第一版只覆盖四行示例所需的节点类型；`compute.op` 预留
- * take/filter/sort，但编译器当前只接 take。
  */
 
 export const ExecutionLiteralSchema = Type.Cyclic(

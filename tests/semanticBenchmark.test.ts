@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { Type } from "typebox";
 
-import type { RuntimeTool } from "../src/runtime/runtime.js";
+import type { RegisteredTool } from "../src/tools/definition.js";
 import {
   buildR4dTasks,
   computeD2Answer,
@@ -174,7 +174,7 @@ describe("fetchR4dGroundTruth — 确定性基准（search + 并行 get_reposito
     "owner/c": { full_name: "owner/c", total_commits: 50, latest_commit_at: null },
   };
 
-  const searchTool: RuntimeTool = {
+  const searchTool: RegisteredTool = {
     id: "github.search_repositories",
     label: "Search",
     inputSchema: Type.Object({}),
@@ -184,21 +184,21 @@ describe("fetchR4dGroundTruth — 确定性基准（search + 并行 get_reposito
       return Object.keys(detailByRepo).map((full_name) => ({ full_name }));
     },
   };
-  const repoTool: RuntimeTool = {
+  const repoTool: RegisteredTool = {
     id: "github.get_repository",
     label: "Get",
     inputSchema: Type.Object({}),
     outputSchema: Type.Object({}),
     execute: async (args) => detailByRepo[(args as { full_name: string }).full_name]!,
   };
-  const statsTool: RuntimeTool = {
+  const statsTool: RegisteredTool = {
     id: "github.get_contributor_stats",
     label: "Stats",
     inputSchema: Type.Object({}),
     outputSchema: Type.Object({}),
     execute: async (args) => statsByRepo[(args as { full_name: string }).full_name]!,
   };
-  const commitTool: RuntimeTool = {
+  const commitTool: RegisteredTool = {
     id: "github.list_commits",
     label: "Commits",
     inputSchema: Type.Object({}),
@@ -215,7 +215,7 @@ describe("fetchR4dGroundTruth — 确定性基准（search + 并行 get_reposito
   });
 
   test("空 search 结果 → 空数组", async () => {
-    const emptySearch: RuntimeTool = {
+    const emptySearch: RegisteredTool = {
       id: "github.search_repositories",
       label: "Search",
       inputSchema: Type.Object({}),

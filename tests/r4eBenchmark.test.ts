@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import type { RuntimeTool } from "../src/runtime/runtime.js";
-import { createAdversarialGithubTools } from "../src/runtime/mockTools.js";
+import type { RegisteredTool } from "../src/tools/definition.js";
+import { createAdversarialGithubTools } from "../src/tools/providers/github/mock.js";
 import { buildR4eTasks, computeR4eAnswer, fetchR4eGroundTruth, type AdversarialDetail } from "../src/experiments/r4eBenchmark.js";
 
 describe("buildR4eTasks — 分支重组任务（N ∈ {15, 30}）", () => {
@@ -67,7 +67,7 @@ describe("computeR4eAnswer — oracle 确定性答案", () => {
 
 describe("fetchR4eGroundTruth — 确定性链式取数", () => {
   const tools = createAdversarialGithubTools();
-  const find = (id: string): RuntimeTool => tools.find((tool) => tool.id === id)!;
+  const find = (id: string): RegisteredTool => tools.find((tool) => tool.id === id)!;
   const task15 = buildR4eTasks().find((task) => task.n === 15)!;
   const task30 = buildR4eTasks().find((task) => task.n === 30)!;
 

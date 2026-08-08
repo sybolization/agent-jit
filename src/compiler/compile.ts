@@ -4,7 +4,7 @@ import type { ParsedStatement } from "../language/ast.js";
 import type { DslDiagnostic } from "../language/diagnostics.js";
 import { Parser } from "../language/parser.js";
 import { tokenize } from "../language/tokenizer.js";
-import type { ToolDefinition } from "../tools/definition.js";
+import type { ToolCatalog } from "../tools/registry.js";
 import {
   ExecutionGraphSchema,
   type ExecutionGraph,
@@ -41,7 +41,7 @@ import { buildTakeNode } from "./builtins/take.js";
  */
 
 export interface CompileExecutionDslOptions {
-  tools?: readonly ToolDefinition[];
+  tools?: ToolCatalog;
 }
 
 export interface CompileExecutionDslResult {
@@ -74,7 +74,7 @@ function buildNode(
   if (statement.callee === "join") return buildJoinNode(statement, options, defined, diagnostics);
   if (statement.callee === "return") return buildReturnNode(statement, options, defined, diagnostics);
 
-  const tool = (options.tools ?? []).find((item) => item.id === statement.callee);
+  const tool = options.tools?.get(statement.callee);
   if (!tool) {
     diagnostics.push({
       line: statement.line,
@@ -120,11 +120,11 @@ export function compileExecutionDsl(
     const node = buildNode(statement, options, defined, diagnostics);
     if (!node) continue;
     if (node.kind === "map") {
-      validateMapBindings(node, options.tools ?? [], symbols, diagnostics, statement.line);
+      validateMapBindings(node, options.tools, symbols, diagnostics, statement.line);
     }
     nodes.push(node);
     defined.add(statement.name);
-    symbols.set(statement.name, nodeElementSchema(node, options.tools ?? [], symbols));
+    symbols.set(statement.name, nodeElementSchema(node, options.tools, symbols));
   }
 
   if (diagnostics.length > 0) throw new ExecutionDslCompileError(diagnostics);

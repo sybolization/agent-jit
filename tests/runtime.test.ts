@@ -4,10 +4,12 @@ import { Type } from "typebox";
 import { compileExecutionDsl } from "../src/compiler/compile.js";
 import { compileExecutionDslLegacy } from "../src/experiments/languageVariants/legacyCompile.js";
 import type { ExecutionGraph } from "../src/compiler/ir.js";
-import { githubTools } from "../src/compiler/registry.js";
-import type { ToolDefinition } from "../src/tools/definition.js";
-import { createAdversarialGithubTools, createMockGithubTools, createMockDomainTools, mockDomainToolSpecs } from "../src/runtime/mockTools.js";
-import { execute, type RuntimeRegistry, type RuntimeTool } from "../src/runtime/runtime.js";
+import { githubTools } from "../src/tools/providers/github/contracts.js";
+import type { RegisteredTool, ToolContract } from "../src/tools/definition.js";
+import { ToolRegistry } from "../src/tools/registry.js";
+import { createAdversarialGithubTools, createMockGithubTools } from "../src/tools/providers/github/mock.js";
+import { createMockDomainTools, mockDomainToolSpecs } from "../src/tools/providers/domain/mock.js";
+import { execute, type RuntimeRegistry } from "../src/runtime/runtime.js";
 import { renderTraceText } from "../src/runtime/trace.js";
 
 const FOUR_LINE = [
@@ -26,13 +28,13 @@ function fourLineWithConcurrency(concurrency: number): string {
   ].join("\n");
 }
 
-function mockRegistry(repositoryCount = 10): RuntimeRegistry {
-  return new Map(createMockGithubTools({ repositoryCount }).map((tool) => [tool.id, tool]));
+function mockRegistry(repositoryCount = 10): ToolRegistry<RegisteredTool> {
+  return new ToolRegistry(createMockGithubTools({ repositoryCount }));
 }
 
 describe("runtime — four-line end to end", () => {
   test("executes search -> dynamic map -> take -> return", async () => {
-    const graph = compileExecutionDsl(FOUR_LINE, { tools: githubTools }).graph;
+    const graph = compileExecutionDsl(FOUR_LINE, { tools: new ToolRegistry(githubTools) }).graph;
     const result = await execute(graph, mockRegistry());
     const output = result.status === "success" ? result.result : undefined;
 
@@ -50,7 +52,7 @@ describe("runtime — four-line end to end", () => {
   });
 
   test("execution is independent of node order (scheduler scans dependencies)", async () => {
-    const graph = compileExecutionDsl(FOUR_LINE, { tools: githubTools }).graph;
+    const graph = compileExecutionDsl(FOUR_LINE, { tools: new ToolRegistry(githubTools) }).graph;
     const reversed: ExecutionGraph = { schema_version: "1", nodes: [...graph.nodes].reverse() };
 
     const ordered = await execute(graph, mockRegistry());
@@ -63,7 +65,7 @@ describe("runtime — four-line end to end", () => {
   });
 
   test("renders a readable trace text", async () => {
-    const graph = compileExecutionDsl(FOUR_LINE, { tools: githubTools }).graph;
+    const graph = compileExecutionDsl(FOUR_LINE, { tools: new ToolRegistry(githubTools) }).graph;
     const result = await execute(graph, mockRegistry());
     const text = renderTraceText(result.trace, result.totalDurationMs, "run_001");
 
@@ -76,8 +78,8 @@ describe("runtime — four-line end to end", () => {
   });
 
   test("rejects an unregistered tool at runtime → status=failed（不向上 throw）", async () => {
-    const graph = compileExecutionDsl(FOUR_LINE, { tools: githubTools }).graph;
-    const result = await execute(graph, new Map());
+    const graph = compileExecutionDsl(FOUR_LINE, { tools: new ToolRegistry(githubTools) }).graph;
+    const result = await execute(graph, new ToolRegistry());
     expect(result.status).toBe("failed");
     if (result.status === "failed") {
       expect(result.error).toContain("未注册的工具");
@@ -90,10 +92,10 @@ describe("runtime — map concurrency", () => {
   function probeRegistry(concurrency: number): { registry: RuntimeRegistry; peak: () => number } {
     let active = 0;
     let peak = 0;
-    const registry = new Map(mockRegistry());
+    const registry = mockRegistry();
     const original = registry.get("github.get_repository");
     if (!original) throw new Error("mock registry missing get_repository");
-    registry.set("github.get_repository", {
+    registry.register({
       ...original,
       execute: async (args) => {
         active += 1;
@@ -114,7 +116,7 @@ describe("runtime — map concurrency", () => {
   }
 
   test.each([1, 2, 5, 10])("DSL 描述逻辑并行度，runtime 实际限制并发（concurrency=%i）", async (concurrency) => {
-    const graph = compileExecutionDsl(fourLineWithConcurrency(concurrency), { tools: githubTools }).graph;
+    const graph = compileExecutionDsl(fourLineWithConcurrency(concurrency), { tools: new ToolRegistry(githubTools) }).graph;
     const { registry, peak } = probeRegistry(concurrency);
     const result = await execute(graph, registry);
 
@@ -130,8 +132,7 @@ describe("runtime — map concurrency", () => {
 });
 
 describe("runtime — R3 map bindings 多字段与异名展开", () => {
-  const domainRegistry = (): RuntimeRegistry =>
-    new Map(createMockDomainTools().map((tool) => [tool.id, tool]));
+  const domainRegistry = (): RuntimeRegistry => new ToolRegistry(createMockDomainTools());
 
   test("bindings 多字段：email/name → email.prepare(to, name)", async () => {
     const dsl = [
@@ -139,7 +140,7 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
       "m = map(users, email.prepare(to=_.email, name=_.name))",
       "return m",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(mockDomainToolSpecs)}).graph;
     const result = await execute(graph, domainRegistry());
     const output = result.status === "success" ? result.result : undefined;
     expect(result.status).toBe("success");
@@ -153,7 +154,7 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
       "m = map(cs, crm.get_customer(customer_id=_.id))",
       "return m",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(mockDomainToolSpecs)}).graph;
     const result = await execute(graph, domainRegistry());
     const output = result.status === "success" ? result.result : undefined;
     expect(result.status).toBe("success");
@@ -177,11 +178,11 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
 });
 
 describe("runtime — R4c compute filter/sort", () => {
-  const specOf = (id: string): ToolDefinition => githubTools.find((tool) => tool.id === id)!;
+  const specOf = (id: string): ToolContract => githubTools.find((tool) => tool.id === id)!;
 
   function literalSourceRegistry(items: unknown[]): RuntimeRegistry {
-    return new Map<string, RuntimeTool>([
-      ["github.search_repositories", { ...specOf("github.search_repositories"), execute: async () => items }],
+    return new ToolRegistry<RegisteredTool>([
+      { ...specOf("github.search_repositories"), execute: async () => items },
     ]);
   }
 
@@ -191,7 +192,7 @@ describe("runtime — R4c compute filter/sort", () => {
       'active = filter(src, archived=false, language="TypeScript")',
       "return active",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools)}).graph;
     // 输出须匹配 search 的 outputSchema（full_name/stars/archived/pushed_at/language）——缺字段/非对象已被 schema 校验在上游拦截
     const result = await execute(graph, literalSourceRegistry([
       { full_name: "a", stars: 1, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
@@ -211,7 +212,7 @@ describe("runtime — R4c compute filter/sort", () => {
       'ranked = sort(src, key="stars", desc=true)',
       "return ranked",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools)}).graph;
     const source = [
       { full_name: "a", stars: 5, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
       { full_name: "b", stars: 1, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
@@ -235,7 +236,7 @@ describe("runtime — R4c compute filter/sort", () => {
       'ranked = sort(src, key="full_name")',
       "return ranked",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools)}).graph;
     const result = await execute(graph, literalSourceRegistry([
       { full_name: "b", stars: 1, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
       { full_name: "a", stars: 2, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
@@ -253,29 +254,23 @@ describe("runtime — R4c compute filter/sort", () => {
       { full_name: "owner/c", stars: 3, forks: 20, archived: true, language: "TypeScript" },
       { full_name: "owner/d", stars: 4, forks: 5, archived: false, language: "JavaScript" },
     ];
-    const registry = new Map<string, RuntimeTool>([
-      [
-        "github.search_repositories",
-        {
-          ...specOf("github.search_repositories"),
-          // search 输出必须匹配其 outputSchema（无 forks）——forks 只来自 get_repository（REQ-2 校验）
-          execute: async () =>
-            details.map(({ full_name, stars, archived, language }) => ({
-              full_name,
-              stars,
-              archived,
-              pushed_at: "2026-01-01T00:00:00Z",
-              language,
-            })),
-        },
-      ],
-      [
-        "github.get_repository",
-        {
-          ...specOf("github.get_repository"),
-          execute: async (args) => details.find((d) => d.full_name === (args as { full_name: string }).full_name),
-        },
-      ],
+    const registry = new ToolRegistry<RegisteredTool>([
+      {
+        ...specOf("github.search_repositories"),
+        // search 输出必须匹配其 outputSchema（无 forks）——forks 只来自 get_repository（REQ-2 校验）
+        execute: async () =>
+          details.map(({ full_name, stars, archived, language }) => ({
+            full_name,
+            stars,
+            archived,
+            pushed_at: "2026-01-01T00:00:00Z",
+            language,
+          })),
+      },
+      {
+        ...specOf("github.get_repository"),
+        execute: async (args) => details.find((d) => d.full_name === (args as { full_name: string }).full_name),
+      },
     ]);
     const dsl = [
       'repos = github.search_repositories(query="agent framework language:typescript", limit=20)',
@@ -285,7 +280,7 @@ describe("runtime — R4c compute filter/sort", () => {
       "top = take(ranked, 3)",
       "return top",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools)}).graph;
     const result = await execute(graph, registry);
     expect(result.status).toBe("success");
     const output = result.status === "success" ? result.result : undefined;
@@ -297,7 +292,7 @@ describe("runtime — R4c compute filter/sort", () => {
 });
 
 describe("runtime — R4e compute/select/join 执行", () => {
-  const registry = new Map(createAdversarialGithubTools().map((tool) => [tool.id, tool]));
+  const registry = new ToolRegistry(createAdversarialGithubTools());
 
   const DSL = [
     'repos = github.search_repositories(query="agent framework", limit=15)',
@@ -315,7 +310,7 @@ describe("runtime — R4e compute/select/join 执行", () => {
   ].join("\n");
 
   test("端到端：compute→分支→两路 map→join→阈值→sort→take 与 oracle 一致", async () => {
-    const graph = compileExecutionDsl(DSL, { tools: githubTools}).graph;
+    const graph = compileExecutionDsl(DSL, { tools: new ToolRegistry(githubTools)}).graph;
     const result = await execute(graph, registry);
     expect(result.status).toBe("success");
     const output = result.status === "success" ? result.result : undefined;
@@ -331,7 +326,7 @@ describe("runtime — R4e compute/select/join 执行", () => {
       'ratio = compute(details, ratio="forks / stars")',
       "return ratio",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools)}).graph;
     const result = await execute(graph, registry);
     const output = result.status === "success" ? result.result : undefined;
     const items = output as Array<Record<string, unknown>>;
@@ -351,7 +346,7 @@ describe("runtime — R4e compute/select/join 执行", () => {
       'merged = join(ratio, contrib, commit, key="full_name")',
       "return merged",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
+    const graph = compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools)}).graph;
     const result = await execute(graph, registry);
     const output = result.status === "success" ? result.result : undefined;
     const items = output as Array<Record<string, unknown>>;
@@ -366,21 +361,18 @@ describe("runtime — R4e compute/select/join 执行", () => {
 });
 
 describe("runtime — REQ-2/REQ-4 输出 schema 校验与失败模型", () => {
-  const specOf = (id: string): ToolDefinition => githubTools.find((tool) => tool.id === id)!;
+  const specOf = (id: string): ToolContract => githubTools.find((tool) => tool.id === id)!;
 
   test("工具 execute 抛错 → status=failed 不向上 throw，trace 记 error", async () => {
-    const registry = new Map<string, RuntimeTool>([
-      [
-        "github.search_repositories",
-        {
-          ...specOf("github.search_repositories"),
-          execute: async () => {
-            throw new Error("boom");
-          },
+    const registry = new ToolRegistry<RegisteredTool>([
+      {
+        ...specOf("github.search_repositories"),
+        execute: async () => {
+          throw new Error("boom");
         },
-      ],
+      },
     ]);
-    const graph = compileExecutionDsl('repos = github.search_repositories(query="x")', { tools: githubTools }).graph;
+    const graph = compileExecutionDsl('repos = github.search_repositories(query="x")', { tools: new ToolRegistry(githubTools) }).graph;
     const result = await execute(graph, registry);
     // execute() 不向上抛：await 正常返回，status=failed
     expect(result.status).toBe("failed");
@@ -394,25 +386,148 @@ describe("runtime — REQ-2/REQ-4 输出 schema 校验与失败模型", () => {
   });
 
   test("工具输出与 outputSchema 不匹配 → status=failed，error 含 TOOL_OUTPUT_SCHEMA_MISMATCH", async () => {
-    const registry = new Map<string, RuntimeTool>([
-      [
-        "github.search_repositories",
-        {
-          id: "github.search_repositories",
-          label: "Search GitHub repositories",
-          description: "按查询条件搜索仓库。",
-          inputSchema: Type.Object({ query: Type.Optional(Type.String()) }, { additionalProperties: false }),
-          outputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
-          execute: async () => ({ full_name: 123 }),
-        },
-      ],
+    const registry = new ToolRegistry<RegisteredTool>([
+      {
+        id: "github.search_repositories",
+        label: "Search GitHub repositories",
+        description: "按查询条件搜索仓库。",
+        inputSchema: Type.Object({ query: Type.Optional(Type.String()) }, { additionalProperties: false }),
+        outputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
+        execute: async () => ({ full_name: 123 }),
+      },
     ]);
-    const graph = compileExecutionDsl('repos = github.search_repositories(query="x")', { tools: githubTools }).graph;
+    const graph = compileExecutionDsl('repos = github.search_repositories(query="x")', { tools: new ToolRegistry(githubTools) }).graph;
     const result = await execute(graph, registry);
     expect(result.status).toBe("failed");
     if (result.status === "failed") {
       expect(result.error).toContain("TOOL_OUTPUT_SCHEMA_MISMATCH");
     }
     expect(result.trace.find((entry) => entry.id === "repos")).toMatchObject({ status: "error" });
+  });
+
+  test("工具入参与 inputSchema 不匹配 → status=failed，execute 未被调用，error 含 TOOL_INPUT_SCHEMA_MISMATCH", async () => {
+    let executed = false;
+    const registry = new ToolRegistry<RegisteredTool>([
+      {
+        ...specOf("github.search_repositories"),
+        execute: async () => {
+          executed = true;
+          return [];
+        },
+      },
+    ]);
+    // 外部构造 graph：query 为数字字面量（编译器本会拦截，runtime 是最终防线）
+    const graph: ExecutionGraph = {
+      schema_version: "1",
+      nodes: [
+        {
+          id: "repos",
+          kind: "tool",
+          tool: "github.search_repositories",
+          args: { query: { kind: "literal", value: 123 } },
+        },
+      ],
+    };
+    const result = await execute(graph, registry);
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") {
+      expect(result.error).toContain("TOOL_INPUT_SCHEMA_MISMATCH");
+    }
+    expect(executed).toBe(false);
+    expect(result.trace.find((entry) => entry.id === "repos")).toMatchObject({ status: "error" });
+  });
+
+  test("map 绑定入参与 inputSchema 不匹配 → TOOL_INPUT_SCHEMA_MISMATCH，目标 execute 未被调用", async () => {
+    let bCalled = false;
+    const registry = new ToolRegistry<RegisteredTool>([
+      {
+        id: "src.a",
+        label: "A",
+        inputSchema: Type.Object({}, { additionalProperties: false }),
+        outputSchema: Type.Array(Type.Object({ count: Type.Integer() }, { additionalProperties: false })),
+        execute: async () => [{ count: 1 }],
+      },
+      {
+        id: "dst.b",
+        label: "B",
+        inputSchema: Type.Object({ count: Type.String() }, { additionalProperties: false }),
+        outputSchema: Type.Object({}, { additionalProperties: false }),
+        execute: async () => {
+          bCalled = true;
+          return {};
+        },
+      },
+    ]);
+    const graph: ExecutionGraph = {
+      schema_version: "1",
+      nodes: [
+        { id: "src", kind: "tool", tool: "src.a", args: {} },
+        { id: "m", kind: "map", source: "src", tool: "dst.b", bindings: { count: "count" }, concurrency: 2 },
+      ],
+    };
+    const result = await execute(graph, registry);
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") {
+      expect(result.error).toContain("TOOL_INPUT_SCHEMA_MISMATCH");
+    }
+    expect(bCalled).toBe(false);
+  });
+
+  test("同批兄弟节点不被取消：A 失败后 B 仍执行到稳定结束，trace 完整记录 B", async () => {
+    const order: string[] = [];
+    const registry = new ToolRegistry<RegisteredTool>([
+      {
+        id: "t.a",
+        label: "A",
+        inputSchema: Type.Object({}, { additionalProperties: false }),
+        outputSchema: Type.Object({}, { additionalProperties: false }),
+        execute: async () => {
+          order.push("a:start");
+          throw new Error("A 失败");
+        },
+      },
+      {
+        id: "t.b",
+        label: "B",
+        inputSchema: Type.Object({}, { additionalProperties: false }),
+        outputSchema: Type.Object({}, { additionalProperties: false }),
+        execute: async () => {
+          order.push("b:start");
+          await new Promise((resolve) => setTimeout(resolve, 30));
+          order.push("b:end");
+          return {};
+        },
+      },
+    ]);
+    const graph: ExecutionGraph = {
+      schema_version: "1",
+      nodes: [
+        { id: "a", kind: "tool", tool: "t.a", args: {} },
+        { id: "b", kind: "tool", tool: "t.b", args: {} },
+      ],
+    };
+    const result = await execute(graph, registry);
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") {
+      expect(result.error).toContain("A 失败");
+    }
+    expect(order).toEqual(["a:start", "b:start", "b:end"]);
+    expect(result.trace.find((entry) => entry.id === "b")).toMatchObject({ status: "success" });
+  });
+
+  test("人工构造的环不静默结束 → GRAPH_CYCLE_OR_UNRESOLVED_DEPENDENCY", async () => {
+    const registry = new ToolRegistry<RegisteredTool>();
+    const graph: ExecutionGraph = {
+      schema_version: "1",
+      nodes: [
+        { id: "a", kind: "tool", tool: "x", args: { b: { kind: "ref", name: "b" } } },
+        { id: "b", kind: "tool", tool: "x", args: { a: { kind: "ref", name: "a" } } },
+      ],
+    };
+    const result = await execute(graph, registry);
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") {
+      expect(result.error).toContain("GRAPH_CYCLE_OR_UNRESOLVED_DEPENDENCY");
+    }
   });
 });

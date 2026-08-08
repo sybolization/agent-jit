@@ -1,7 +1,6 @@
 import { Type } from "typebox";
-import { githubTools } from "../compiler/registry.js";
-import { defineTool, type ToolDefinition } from "../tools/definition.js";
-import type { RuntimeTool } from "./runtime.js";
+import { githubTools } from "./contracts.js";
+import { defineTool, type RegisteredTool, type ToolContract } from "../../definition.js";
 
 /**
  * Mock GitHub tools：与 `githubTools` 相同的 spec，但执行是确定性的
@@ -70,7 +69,7 @@ export const ADVERSARIAL_REPOS: readonly AdversarialRepoRow[] = [
 ];
 
 /**
- * R4e adversarial mock 工具：**自持契约**（不复用 githubTools，Task 2 契约分离）——
+ * R4e adversarial mock 工具：**自持契约**（不复用 githubTools，契约分离）——
  * - search：{limit 可选} → [{full_name}]（返回前 N 个仓库，按表序，忽略 query）；
  * - get_repository：{full_name 必填} → {full_name, forks, stars, language}；
  * - get_contributor_stats：{full_name 必填} → {full_name, score: contributor_count * 3}
@@ -78,8 +77,8 @@ export const ADVERSARIAL_REPOS: readonly AdversarialRepoRow[] = [
  * - list_commits：{full_name 必填, per_page 可选} → {full_name, score: total_commits * 2}
  *   （仅 commits 路径 repo 才有高值；score 与 stats 同尺度）。
  */
-export function createAdversarialGithubTools(): RuntimeTool[] {
-  const contracts: ToolDefinition[] = [
+export function createAdversarialGithubTools(): RegisteredTool[] {
+  const contracts: ToolContract[] = [
     defineTool({
       id: "github.search_repositories",
       label: "Search GitHub repositories",
@@ -121,7 +120,7 @@ export function createAdversarialGithubTools(): RuntimeTool[] {
       outputSchema: Type.Object({ full_name: Type.String(), score: Type.Integer() }, { additionalProperties: false }),
     }),
   ];
-  const contractOf = (id: string): ToolDefinition => {
+  const contractOf = (id: string): ToolContract => {
     const contract = contracts.find((item) => item.id === id);
     if (!contract) throw new Error(`mock: 未注册的工具 ${id}`);
     return contract;
@@ -163,12 +162,12 @@ export function createAdversarialGithubTools(): RuntimeTool[] {
   ];
 }
 
-export function createMockGithubTools(options: MockGithubOptions = {}): RuntimeTool[] {
+export function createMockGithubTools(options: MockGithubOptions = {}): RegisteredTool[] {
   const [minDelay = 20, maxDelay = 100] = options.delayMs ?? [20, 100];
   const count = options.repositoryCount ?? 10;
   const delay = () => new Promise<void>((resolve) => setTimeout(resolve, minDelay + Math.random() * (maxDelay - minDelay)));
   const byId = new Map(githubTools.map((spec) => [spec.id, spec]));
-  const specOf = (id: string): ToolDefinition => {
+  const specOf = (id: string): ToolContract => {
     const spec = byId.get(id);
     if (!spec) throw new Error(`mock: 未注册的工具 ${id}`);
     return spec;
@@ -237,72 +236,6 @@ export function createMockGithubTools(options: MockGithubOptions = {}): RuntimeT
           latest_commit_at: "2026-07-01T00:00:00Z",
         };
       },
-    },
-  ];
-}
-
-/**
- * R3 跨域 mock 工具（契约 + execute）：
- * - crm.search_customers / crm.get_customer：单字段**异名**绑定（id → customer_id）；
- * - users.list_users / email.prepare：多字段绑定（email/name → to/name）。
- */
-export const mockDomainToolSpecs: readonly ToolDefinition[] = [
-  defineTool({
-    id: "crm.search_customers",
-    label: "Search CRM customers",
-    description: "按条件搜索客户，返回客户列表。",
-    inputSchema: Type.Object({ limit: Type.Optional(Type.Integer()) }, { additionalProperties: false }),
-    outputSchema: Type.Array(
-      Type.Object({ id: Type.String(), name: Type.String() }, { additionalProperties: false }),
-    ),
-  }),
-  defineTool({
-    id: "crm.get_customer",
-    label: "Get a customer",
-    description: "按 customer_id 获取单个客户详情。",
-    inputSchema: Type.Object({ customer_id: Type.String() }, { additionalProperties: false }),
-    outputSchema: Type.Object(
-      { id: Type.String(), name: Type.String() },
-      { additionalProperties: false },
-    ),
-  }),
-  defineTool({
-    id: "users.list_users",
-    label: "List users",
-    description: "返回用户列表。",
-    inputSchema: Type.Object({}, { additionalProperties: false }),
-    outputSchema: Type.Array(
-      Type.Object(
-        { id: Type.String(), email: Type.String(), name: Type.String() },
-        { additionalProperties: false },
-      ),
-    ),
-  }),
-  defineTool({
-    id: "email.prepare",
-    label: "Prepare an email",
-    description: "构造一封邮件（收件人 + 姓名）。",
-    inputSchema: Type.Object(
-      { to: Type.String(), name: Type.String() },
-      { additionalProperties: false },
-    ),
-    outputSchema: Type.Object(
-      { to: Type.String(), name: Type.String() },
-      { additionalProperties: false },
-    ),
-  }),
-];
-
-export function createMockDomainTools(): RuntimeTool[] {
-  const customers = Array.from({ length: 6 }, (_, i) => ({ id: `cust-${i + 1}`, name: `Customer ${i + 1}` }));
-  const users = Array.from({ length: 6 }, (_, i) => ({ id: `user-${i + 1}`, email: `user${i + 1}@example.com`, name: `User ${i + 1}` }));
-  return [
-    { ...mockDomainToolSpecs[0]!, execute: async () => customers },
-    { ...mockDomainToolSpecs[1]!, execute: async (args) => customers.find((c) => c.id === (args as Record<string, unknown>).customer_id) ?? customers[0] },
-    { ...mockDomainToolSpecs[2]!, execute: async () => users },
-    {
-      ...mockDomainToolSpecs[3]!,
-      execute: async (args) => ({ to: (args as Record<string, unknown>).to, name: (args as Record<string, unknown>).name }),
     },
   ];
 }

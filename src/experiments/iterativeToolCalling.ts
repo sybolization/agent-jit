@@ -1,10 +1,9 @@
 import { Type, type TSchema } from "typebox";
 import type { Tool } from "@earendil-works/pi-ai";
 
-import type { ToolDefinition } from "../tools/definition.js";
+import type { ToolContract, RegisteredTool } from "../tools/definition.js";
 import type { LlmGateway, LlmMessage, LlmUsage } from "../llm/gateway.js";
 import { mapLimit } from "../runtime/executor.js";
-import type { RuntimeTool } from "../runtime/runtime.js";
 
 /**
  * Traditional 臂：迭代工具调用 agent loop（R4b benchmark 的对照架构）。
@@ -71,8 +70,8 @@ export function toPiToolName(specId: string): string {
   return specId.replace(/\./g, "_");
 }
 
-/** 把 ToolDefinition 转为 pi-ai 工具定义（typebox 参数 schema，名字经 toPiToolName 映射）。 */
-export function toPiTools(specs: readonly ToolDefinition[]): Tool[] {
+/** 把 ToolContract 转为 pi-ai 工具定义（typebox 参数 schema，名字经 toPiToolName 映射）。 */
+export function toPiTools(specs: readonly ToolContract[]): Tool[] {
   return specs.map((spec) => {
     const input = spec.inputSchema as unknown as {
       properties?: Record<string, { type?: string }>;
@@ -152,9 +151,9 @@ export interface IterativeOptions {
   gateway: LlmGateway;
   initialMessages: LlmMessage[];
   /** 可执行的运行时工具（真实 adapter 或 mock） */
-  tools: readonly RuntimeTool[];
+  tools: readonly RegisteredTool[];
   /** 给模型的工具定义（与 tools 同 id） */
-  toolSpecs: readonly ToolDefinition[];
+  toolSpecs: readonly ToolContract[];
   maxSteps: number;
   groundTruth: readonly string[];
   /** 至少命中 ground truth 中多少个才算通过 */

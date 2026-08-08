@@ -1,9 +1,9 @@
 {
-  "name": "agent-execution-dsl-seed",
+  "name": "agent-jit",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Agent Execution DSL seed: 基于 pi-agent（@earendil-works/pi-agent-core）基座的 Canvas DSL 编译器与实验代码",
+  "description": "Agent JIT: a compiler/runtime that offloads deterministic execution paths from LLM agent loops.",
   "license": "MIT",
   "scripts": {
     "test": "vitest run",

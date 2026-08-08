@@ -7,12 +7,13 @@ import type { Tool } from "@earendil-works/pi-ai";
 
 import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compile.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
-import { githubTools } from "../compiler/registry.js";
-import type { ToolDefinition } from "../tools/definition.js";
+import { githubTools } from "../tools/providers/github/contracts.js";
+import type { RegisteredTool, ToolContract } from "../tools/definition.js";
+import { ToolRegistry } from "../tools/registry.js";
 import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
 import { mapLimit } from "../runtime/executor.js";
-import { createRealGithubTools } from "../runtime/githubAdapter.js";
-import { execute, type RuntimeTool } from "../runtime/runtime.js";
+import { createRealGithubTools } from "../tools/providers/github/real.js";
+import { execute } from "../runtime/runtime.js";
 import { matchAnswer, runIterativeToolCalling, toPiToolName } from "./iterativeToolCalling.js";
 import { checkTaskCorrectness } from "./taskSpec.js";
 
@@ -54,7 +55,7 @@ interface BenchmarkTask {
   k: number;
   dslPrompt: string;
   iterativePrompt: string;
-  tools: readonly ToolDefinition[];
+  tools: readonly ToolContract[];
 }
 
 const GITHUB_QUERY = "agent framework language:typescript";
@@ -82,8 +83,8 @@ export function buildBenchmarkTasks(): BenchmarkTask[] {
 }
 
 /** ground truth：真实 search 的前 K 个 full_name（确定性，两臂共用）。 */
-export async function fetchGroundTruth(searchTool: RuntimeTool, n: number, k: number): Promise<string[]> {
-  const result = await searchTool.execute!({ query: GITHUB_QUERY, limit: n });
+export async function fetchGroundTruth(searchTool: RegisteredTool, n: number, k: number): Promise<string[]> {
+  const result = await searchTool.execute({ query: GITHUB_QUERY, limit: n });
   const items = Array.isArray(result) ? (result as Array<{ full_name: string }>) : [];
   return items.slice(0, k).map((item) => item.full_name);
 }
@@ -116,7 +117,7 @@ function buildDslSystemPrompt(task: BenchmarkTask): string {
     "  示例：map(repos, github.get_repository(full_name=_.full_name))",
     "",
     "## 可用工具",
-    renderExecutionToolCatalog(task.tools),
+    renderExecutionToolCatalog(new ToolRegistry(task.tools)),
     "",
     "## 硬约束",
     "1. 必须通过调用 submit_program 工具提交程序（把 DSL 源码放在 source 参数里）；不要直接在回复文本中输出代码或 Markdown",
@@ -143,7 +144,7 @@ async function runDslArm(
   gateway: LlmGateway,
   task: BenchmarkTask,
   maxRounds: number,
-  tools: readonly RuntimeTool[],
+  tools: readonly RegisteredTool[],
   groundTruth: readonly string[],
 ): Promise<DslArmResult> {
   const messages: LlmMessage[] = [
@@ -186,10 +187,10 @@ async function runDslArm(
 
     try {
       const { graph } = compileExecutionDsl(source, {
-        tools: task.tools,
+        tools: new ToolRegistry(task.tools),
       });
       const correctness = checkTaskCorrectness(graph, taskSpec);
-      const registry = new Map(tools.map((tool) => [tool.id, tool]));
+      const registry = new ToolRegistry(tools);
       const t1 = performance.now();
       const execution = await execute(graph, registry);
       const runtimeMs = performance.now() - t1;
@@ -313,7 +314,7 @@ async function main(): Promise<number> {
   const iterativeSystem = (task: BenchmarkTask): string =>
     [
       "你是一个 GitHub 数据分析助手。你可以调用以下工具获取数据：",
-      renderExecutionToolCatalog(task.tools, toPiToolName),
+      renderExecutionToolCatalog(new ToolRegistry(task.tools), toPiToolName),
       "",
       "请依次调用工具完成任务；任务完成后，在最后一条回复的文本中给出答案（每条一行）。",
     ].join("\n");

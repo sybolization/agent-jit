@@ -1,9 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { Type } from "typebox";
 
-import type { ToolDefinition } from "../src/tools/definition.js";
+import type { ToolContract, RegisteredTool } from "../src/tools/definition.js";
 import type { LlmGateway, LlmMessage, LlmResult } from "../src/llm/gateway.js";
-import type { RuntimeTool } from "../src/runtime/runtime.js";
 import { exactAnswerMatch, extractFullNames, matchAnswer, runIterativeToolCalling, toPiTools } from "../src/experiments/iterativeToolCalling.js";
 
 // ---------------------------------------------------------------------------
@@ -88,11 +87,11 @@ describe("exactAnswerMatch — 长度 + 逐元素 + 顺序严格匹配", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 纯逻辑：ToolDefinition → pi-ai 工具定义
+// 纯逻辑：ToolContract → pi-ai 工具定义
 // ---------------------------------------------------------------------------
 
-describe("toPiTools — ToolDefinition 转 pi-ai Tool", () => {
-  const specs: readonly ToolDefinition[] = [
+describe("toPiTools — ToolContract 转 pi-ai Tool", () => {
+  const specs: readonly ToolContract[] = [
     {
       id: "github.search_repositories",
       label: "Search",
@@ -119,7 +118,7 @@ describe("toPiTools — ToolDefinition 转 pi-ai Tool", () => {
 // 工具循环（mock gateway 注入）
 // ---------------------------------------------------------------------------
 
-const SEARCH_TOOL: RuntimeTool = {
+const SEARCH_TOOL: RegisteredTool = {
   id: "github.search_repositories",
   label: "Search",
   inputSchema: Type.Object({ query: Type.String() }),
@@ -225,7 +224,7 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
   });
 
   test("工具执行抛错：错误进 toolResult，不中断循环", async () => {
-    const failingTool: RuntimeTool = {
+    const failingTool: RegisteredTool = {
       id: "boom",
       label: "Boom",
       inputSchema: Type.Object({}),
@@ -254,7 +253,7 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
 
   test("同一 completion 的多个 toolCalls 并行执行，toolResult 按调用顺序回填", async () => {
     const order: string[] = [];
-    const slowTool: RuntimeTool = {
+    const slowTool: RegisteredTool = {
       id: "slow",
       label: "Slow",
       inputSchema: Type.Object({}),

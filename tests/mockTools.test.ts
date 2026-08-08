@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { Value } from "typebox/value";
 
-import { ADVERSARIAL_REPOS, createAdversarialGithubTools } from "../src/runtime/mockTools.js";
-import { githubTools } from "../src/compiler/registry.js";
+import { ADVERSARIAL_REPOS, createAdversarialGithubTools } from "../src/tools/providers/github/mock.js";
+import { githubTools } from "../src/tools/providers/github/contracts.js";
 import { computeR4eAnswer, type AdversarialDetail } from "../src/experiments/r4eBenchmark.js";
 
 const TASK = { ratioThreshold: 0.15, scoreThreshold: 100, takeCount: 3 };

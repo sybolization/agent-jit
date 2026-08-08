@@ -2,167 +2,798 @@
 
 **A compiler/runtime for dynamically offloading deterministic execution paths from LLM agent loops.**
 
-## 这里的 "JIT" 指什么
+> Agent JIT does not replace the agent. The agent remains the planner; Agent JIT is an execution offload layer for paths that no longer require model reasoning.
 
-不是传统意义上的 just-in-time 机器码编译器。这里的 **JIT = dynamic agent path compilation / offloading**：
+```text
+Agent reasoning
+      ↓
+decides a path is deterministic
+      ↓
+execute_program(source)
+      ↓
+Compiler → typed Execution IR → Runtime → Tools
+      ↓
+compressed result
+      ↓
+Agent reasoning continues
+```
 
-> 传统 agent loop 把每一步工具编排都经过 LLM context（"解释执行"）；Agent JIT 让 agent 用一门受限 DSL 写出确定性执行路径，compiler 把它编译成 typed Execution IR，graph runtime 确定性执行——**被编译的确定性路径从此不再回到模型 context**。
+Agent JIT 的目标不是让 Agent 更聪明，而是让 Agent **不再为那些根本不需要智能的执行步骤付 token**。
 
-一句话类比：传统 JIT 把"频繁执行的代码路径"编译成机器码以避开解释器；Agent JIT 把"频繁重复的确定性 agent 路径"编译成执行图以避开 LLM。
+传统 agent loop 会把大量确定性的工具编排、状态维护和中间数据反复送回模型。Agent JIT 将这部分路径编译成可静态检查的程序，并交给 graph runtime 确定性执行：
+
+> **把“数据怎么流通”从模型手里拿走。**
+
+---
+
+## 为什么叫 JIT
+
+这里的 JIT 不是传统意义上的 just-in-time 机器码编译器。
+
+这里的 **JIT = dynamic agent path compilation / offloading**：
+
+> Agent 在运行过程中识别出一段已经足够确定的未来执行路径，用受限 DSL 描述它；compiler 将其编译成 typed Execution IR；runtime 直接执行这段路径，而不再让每一步工具调用重新经过 LLM context。
+
+类比传统 JIT：
+
+```text
+传统 JIT
+运行中的程序
+  ↓
+发现值得优化的代码路径
+  ↓
+编译
+  ↓
+避开后续解释执行
+```
+
+```text
+Agent JIT
+运行中的 Agent
+  ↓
+发现已经确定的执行路径
+  ↓
+编译成 Execution IR
+  ↓
+避开逐步 LLM orchestration
+```
+
+这个类比强调的是 **运行时路径编译**，而不是机器码生成、hot-path profiling 或传统编译器优化。
+
+---
+
+## 为什么需要它
+
+传统 agent 的工具编排主要有两个放大器。
+
+### 1. Model round trips
+
+典型执行方式：
+
+```text
+LLM → tool → LLM → tool → LLM → tool → ...
+```
+
+很多中间步骤并不需要新的语义判断，但仍然必须重新进入模型。
+
+### 2. Context growth
+
+工具返回的中间数据会不断进入模型上下文：
+
+```text
+search results
++ repository details
++ contributor stats
++ commit stats
++ previous tool calls
++ previous outputs
++ ...
+```
+
+当任务 fan-out 增长时，Agent 不只是“调用更多工具”，还要持续搬运和维护更多执行状态。
+
+Agent JIT 将这部分工作迁移到 runtime：
 
 ```text
 LLM / Agent
     ↓  识别 deterministic execution path
 生成受限 DSL 程序
     ↓
-Compiler（static checking → typed IR）
+Compiler
+(static checking → typed IR)
     ↓
-Execution IR（tool / map / compute / join / return）
+Execution IR
+(tool / map / compute / join / return)
     ↓
-Runtime / Scheduler（依赖图调度 / 并发 map / value store / trace）
+Runtime / Scheduler
+(dependency graph / concurrency / value store / trace)
 ```
 
-## 为什么需要它
+中间执行数据保留在 runtime，不再随着 fan-out 逐轮回填模型 context。
 
-传统 agent 的工具编排有两个放大器：
+在当前 benchmark 中，这使模型侧 context growth 与执行宽度显著解耦。
 
-1. **round trips**：`LLM → tool → LLM → tool → …` 每步一次模型往返，中间数据反复回填 context。
-2. **context 膨胀**：中间结果（如 N 个仓库的 JSON）每轮重新喂给模型，随任务规模线性增长。
+---
 
-Agent JIT 的解法是**把"数据怎么流通"从模型手里拿走**：模型只写一次意图（程序），compiler 静态检查，runtime 确定性执行——中间数据全部留在 runtime，模型 context 恒定。
+## 一个最小例子
 
-## 核心抽象
+Agent 想完成：
 
-### 1. DSL（语言前端，`src/language/`）
+> 搜索候选仓库，批量获取详情，按 stars 排序并返回 Top 3。
 
-模型写的是代码形状的小语言，不是 JSON。语法：`<name> = <callee>(<key>=<value>, ...)`，裸标识符即引用、定义数据流边。
+传统 iterative agent 可能经历多轮：
+
+```text
+LLM
+→ search
+→ LLM
+→ get_repository × N
+→ LLM
+→ sort / select
+→ answer
+```
+
+Agent JIT 可以把已经确定的部分压缩成一段程序：
 
 ```agent
-let repos = github.search_repositories(query="agent framework", limit=15)
-let details = map(repos, github.get_repository(full_name=_.full_name))
-let ranked = sort(details, key="stars", desc=true)
+repos = github.search_repositories(
+    query="agent framework",
+    limit=15
+)
+
+details = map(
+    repos,
+    github.get_repository(full_name=_.full_name)
+)
+
+ranked = sort(details, key="stars", desc=true)
+
 return take(ranked, 3)
 ```
 
-内置 construct：`tool 调用` / `map` / `take` / `filter` / `sort` / `compute` / `select` / `join` / `return`。
+模型只负责描述一次数据流。
 
-**为什么不用 JSON 手写 graph？** JSON 等价于让模型手写 IR——node ID、edge、引用一致性全由模型管理，token 爆炸且错误到运行时才暴露。DSL 让变量引用定义边，compiler 产生图。
+之后的 fan-out、依赖调度、并发执行、中间状态和排序都由 runtime 接管。
 
-### 2. Compiler（`src/compiler/`）
+---
 
-手写 tokenizer + 递归下降 parser（错误恢复、批量诊断）+ 语义编译。13 种编译期诊断码把错误从"运行时"提前到"编译期"：
+## 实验结果
 
-| 诊断 | 拦截的错误 |
-|---|---|
-| `unknown_tool` | 调用目录外的工具 |
-| `undefined_reference` | 引用未定义变量 |
-| `type_mismatch` | 引用类型不兼容 |
-| `unknown_parameter` | **模型幻觉参数名**（如 `prompt` vs `positive_prompt`，编译期拒绝，后端不再拒） |
-| `duplicate_name` / `duplicate_argument` / `invalid_key` … | 语法与形状错误 |
+完整实验报告位于 [`experiment_result/`](./experiment_result/)。
 
-确定性：同一段 DSL 永远编译出同一张图（纯函数、无副作用、可 hash、可离线测试）。
+当前证据的重点不是“Agent 做不到 iterative tool calling”。
 
-### 3. Execution IR（`src/compiler/ir.ts`）
+相反，强模型在这些 benchmark 上通常可以保持很高的正确率。
 
-typed 中间表示（typebox 契约），五类节点：
+Agent JIT 目前观察到的主要优势集中在：
 
-```text
-tool      外部工具/API 调用（参数为 literal | ref）
-map       动态展开：source × 元素→参数绑定 + concurrency（运行时 fan-out）
-compute   op ∈ take / filter / sort / compute / select（确定性程序）
-join      多输入按 key 合并字段（分支结果重组）
-return    出口
-```
+- token usage
+- model round trips
+- model-exposed intermediate data
+- end-to-end latency
+- deterministic state ownership
 
-变量引用定义数据流边——IR 是可调度的图，不是扁平的节点列表。
+### R4b：一次程序提交 vs 迭代工具调用
 
-### 4. Runtime / Scheduler（`src/runtime/`）
-
-`execute(graph, registry)` 按依赖图调度，不依赖节点顺序：
-
-- **map 并发**：以 DSL 声明的 concurrency 做 fan-out，运行时并行执行 N 个工具调用；
-- **value store**：中间值留在 runtime，不进模型 context；
-- **trace**：每节点产出执行轨迹，可审计。
-
-### 5. 工具接入（`src/tools/`）
-
-统一 `ToolDefinition`（`id` / `description` / `inputSchema` / `outputSchema` / `execute`）→ `ToolRegistry`，**一次注册，三处消费**：compiler 契约、给 LLM 的目录渲染、runtime 实现。
+任务：
 
 ```text
-JSON / OpenAI / MCP tool
-        ↓
-   ToolDefinition
-        ↓
-    ToolRegistry
-     ↙         ↘
-Compiler   DSL catalog renderer
+search
+→ get_repository × N
+→ return top-k
 ```
 
-配套两个后端：`githubAdapter`（真实 GitHub API）+ `mockTools`（可控 adversarial mock，用于可复现实验）。
+真实 GitHub 工具，`N ∈ {2, 5, 10, 20}`，两臂各 10 个样本。
 
-## 实验证据
+| 指标（N=20） | DSL / JIT | Iterative | 差距 |
+| --- | ---: | ---: | ---: |
+| tokens | 941 | 8,904 | **9.5×** |
+| exposed bytes | ~460 | 4,196 | **9.1×** |
+| model round trips | 1.0 | 4.0 | **4.0×** |
+| LLM ms | 1,117 | 7,393 | **6.6×** |
+| end-to-end ms | 4,711 | 18,844 | **4.0×** |
 
-`experiment_result/` 下每轮有完整报告。
+在测试规模内，DSL/JIT 侧模型 token 基本保持稳定，而 iterative agent 的模型输入随工具结果增长。
 
-### R4b：DSL 一次提交 vs 迭代工具调用（真实 GitHub）
+机制不是“模型更聪明”，而是：
 
-`search → get_repository × N → 返回 top-k`，N ∈ {2, 5, 10, 20}，两臂各 10 样本：
+> **确定性数据流由 runtime 消费，而不是由 LLM context 消费。**
 
-| 指标（N=20） | DSL | iterative | 差距 |
-|---|---:|---:|---:|
-| tokens | 941（恒定） | 8,904（线性增长） | **9.5×** |
-| exposed_bytes | ~460（恒定） | 4,196 | 9.1× |
-| round_trips | 1.0 | 4.0 | 4.0× |
-| llm_ms / e2e_ms | 1,117 / 4,711 | 7,393 / 18,844 | 6.6× / 4.0× |
+### R4e：Branching + Recombination
 
-机制：DSL 把"数据怎么流通"编译成确定性 IR 由 runtime 消费；iterative 每轮把全部中间数据重新喂给模型。
+任务：
 
-### R4e：分支 + 数据重组（mock adversarial dataset）
-
-`search → details → 分支（ratio>0.15 走 contributors / 否则走 commits）→ join → select → sort → take`，N ∈ {15, 30}，各 10 样本：
-
-- tokens **6.9× / 8.1×**，round_trips 1.0-1.3 vs 4.0-4.1；
-- DSL 侧 `runtime_internal` 随 N 增长（2,273 → 4,570，中间数据全留 runtime），iterative 恒 0（全经 model context）；
-- 本轮还暴露了 DSL 的信息瓶颈：工具契约不透明时模型幻觉返回字段（正确率 70%/50% vs iterative 100%）；契约写清后两臂恢复 100%——**模型没有运行时反馈时必须精确"记住"工具契约**。
-
-### 诚实的边界
-
-- 正确率侧两臂在 benchmark 中均饱和（100%），证据集中在**成本侧**（tokens / context / round trips / latency）；
-- 单模型（DeepSeek）；R4e 用可控 mock 后端，无真实 API 随机性；
-- 定位是 **agent execution 层的动态路径编译**——不是传统 JIT compiler，README 首页已澄清。
-
-## Install
-
+```text
+search
+→ details
+→ branch by ratio
+   ├─ contributors
+   └─ commits
+→ join
+→ select
+→ sort
+→ take
 ```
+
+使用可控 adversarial mock dataset，`N ∈ {15, 30}`。
+
+结果：
+
+- token usage：**6.9× / 8.1×** 差距
+- model round trips：约 **1.0–1.3 vs 4.0–4.1**
+- JIT runtime 内部状态随 N 增长，但中间数据不需要全部进入模型上下文
+- 在工具契约完整时，两臂 benchmark correctness 均达到 100%
+
+R4e 也暴露了一个早期实现缺口：
+
+> 当工具 output contract 没有被 compiler 完整建模时，模型可能幻觉工具返回字段。
+
+补全工具契约后，两臂恢复到相同 correctness。
+
+这个结果推动了当前 `ToolContract` 设计：工具的 input/output schema 应成为 compiler、LLM catalog 和 runtime 共同使用的唯一事实源，使参数和字段错误尽可能在执行前被静态发现。
+
+---
+
+## 当前结论
+
+Agent JIT 目前并没有证明：
+
+> “DSL 能完成 iterative agent 无法完成的任务。”
+
+当前实验更支持一个更具体的结论：
+
+> **对于可以提前表达成确定性程序的工具执行路径，可以把 orchestration state 从 LLM loop 迁移到 compiler/runtime，在保持任务质量的同时显著降低 token、context exposure 和 model round trips。**
+
+因此，Agent JIT 的定位不是新的 Agent Framework，也不是用 DSL 替代 Agent。
+
+它更接近：
+
+> **an execution accelerator / path compiler for existing agents**
+
+未来的理想使用方式是让 Agent 自己决定什么时候调用：
+
+```text
+execute_program(source)
+```
+
+Agent 保留开放式规划和语义判断能力；Harness 只接管那些已经不需要模型持续参与的确定性路径。
+
+---
+
+# Architecture
+
+## 1. DSL frontend — `src/language/`
+
+模型写的是代码形状的小语言，而不是 JSON execution graph。
+
+基本形式：
+
+```text
+<name> = <callee>(...)
+```
+
+变量引用直接定义数据流边。
+
+支持的核心 construct 包括：
+
+```text
+tool call
+map
+take
+filter
+sort
+compute
+select
+join
+return
+```
+
+例如：
+
+```agent
+repos = github.search_repositories(
+    query="agent framework",
+    limit=15
+)
+
+details = map(
+    repos,
+    github.get_repository(full_name=_.full_name)
+)
+
+active = filter(details, expr="archived == false")
+ranked = sort(active, key="stars", desc=true)
+
+return take(ranked, 3)
+```
+
+### 为什么不是 JSON graph
+
+让模型直接手写 JSON graph，本质上是在让模型手写 IR：
+
+```text
+node ids
+edges
+references
+argument bindings
+graph consistency
+```
+
+这些结构性约束会占用大量 token，并把很多原本可以由 compiler 确定处理的问题交给概率模型。
+
+Agent JIT 使用变量引用表达边：
+
+```text
+details = ...
+ranked = sort(details, ...)
+```
+
+然后由 compiler 产生 Execution IR。
+
+---
+
+## 2. Compiler — `src/compiler/`
+
+Compiler 负责：
+
+```text
+source
+→ tokenizer / parser
+→ AST
+→ static validation
+→ typed Execution IR
+```
+
+当前包括：
+
+- 手写 tokenizer
+- 递归下降 parser
+- 错误恢复
+- 批量诊断
+- 工具参数校验
+- 引用检查
+- DSL construct 编译
+- Execution IR 生成
+
+典型诊断包括：
+
+| Diagnostic | 拦截的问题 |
+| --- | --- |
+| `unknown_tool` | 调用了 registry 中不存在的工具 |
+| `undefined_reference` | 引用了尚未定义的数据 |
+| `type_mismatch` | 值与目标类型不兼容 |
+| `unknown_parameter` | 模型幻觉了工具参数名 |
+| `duplicate_name` | 重复定义变量 |
+| `duplicate_argument` | 重复传递参数 |
+| `invalid_key` | 非法字段 / key 使用 |
+
+目标是尽可能把：
+
+```text
+“后端执行以后才发现错了”
+```
+
+变成：
+
+```text
+“执行前 compiler 就拒绝”
+```
+
+同一段合法 DSL 应确定性地产生同一份 Execution IR，因此可以：
+
+- hash
+- cache
+- snapshot
+- offline test
+- audit
+
+---
+
+## 3. Execution IR — `src/compiler/ir.ts`
+
+Execution IR 是 compiler 与 runtime 之间的稳定边界。
+
+核心节点类别：
+
+```text
+tool
+map
+compute
+join
+return
+```
+
+其中 `compute` 覆盖一组确定性数据操作，例如：
+
+```text
+take
+filter
+sort
+compute
+select
+```
+
+### Tool
+
+外部 API / function / agent tool 调用。
+
+参数来自：
+
+```text
+literal
+or
+reference
+```
+
+### Map
+
+对 runtime 数据动态 fan-out：
+
+```text
+source × item
+→ tool invocation
+```
+
+并支持 concurrency。
+
+### Compute
+
+运行确定性的数据变换。
+
+### Join
+
+把不同执行分支产生的数据按 key 重新组合。
+
+### Return
+
+定义程序出口。
+
+变量引用定义依赖，因此 IR 本质上是一个可调度的数据流图，而不是按书写顺序解释的节点列表。
+
+---
+
+## 4. Runtime / Scheduler — `src/runtime/`
+
+Runtime 接收 Execution IR，并根据依赖图执行。
+
+```text
+execute(graph, registry)
+```
+
+它不依赖节点在 source 中的物理顺序。
+
+主要职责：
+
+### Dependency scheduling
+
+根据节点引用建立 dependency graph 和 ready queue。
+
+### Concurrent map
+
+按 DSL 声明的 concurrency 执行 fan-out：
+
+```text
+N items
+↓
+bounded parallel execution
+```
+
+### Value store
+
+中间值保留在 runtime：
+
+```text
+search results
+details
+filtered candidates
+joined records
+scores
+```
+
+这些数据不会因为 Agent 每前进一步就自动进入模型 context。
+
+### Trace
+
+每个节点记录执行轨迹，用于：
+
+- debugging
+- audit
+- benchmark
+- failure analysis
+
+---
+
+## 5. Tool Registry — `src/tools/`
+
+工具契约与实现分离为两个类型：
+
+```text
+ToolContract        静态契约：id / label / description / inputSchema / outputSchema
+RegisteredTool      在 ToolContract 之上绑定 execute（可运行工具）
+```
+
+`ToolRegistry<T>` 实现薄接口 `ToolCatalog`（`get` / `all`）——Compiler、catalog renderer、Runtime 三方只依赖该接口，数组必须先经 `new ToolRegistry(...)` 包装。
+
+```text
+JSON / OpenAI / MCP / local tool
+              ↓
+   ToolContract / RegisteredTool
+              ↓
+         ToolCatalog
+        /      |       \
+       /       |        \
+ Compiler   Catalog    Runtime
+```
+
+### Compiler
+
+读取 schema 做：
+
+```text
+tool existence
+required arguments
+argument types
+output fields
+reference compatibility
+```
+
+### LLM catalog renderer
+
+把 registry 自动渲染成模型可使用的 DSL 工具目录。渲染走归一化的 SchemaView 层（`src/tools/schemaView.ts`）：`string | null`、嵌套、union 都能正确表达，无法识别的类型保留 `unknown`，不默认当成 string。
+
+### Runtime
+
+调用同一个工具实现，并在执行前后各做一道 schema 校验（runtime validation 是不变量的最终防线）：
+
+```text
+args
+ ↓  inputSchema 校验（TOOL_INPUT_SCHEMA_MISMATCH）
+execute()
+ ↓  outputSchema 校验（TOOL_OUTPUT_SCHEMA_MISMATCH）
+```
+
+这样无需维护：
+
+```text
+Agent tool registry
++
+DSL tool registry
+```
+
+两份独立定义。
+
+工具契约只有一个事实源。
+
+Provider 实现与契约按域隔离在 `src/tools/providers/`（Compiler 与 Runtime 对具体工具零感知）：
+
+- `src/tools/providers/github/contracts.ts`：GitHub 只读工具契约
+- `src/tools/providers/github/real.ts`：真实 GitHub API adapter
+- `src/tools/providers/github/mock.ts`：可控 adversarial mock（可复现实验）
+- `src/tools/providers/domain/mock.ts`：跨域 mock（CRM / users / email）
+
+---
+
+# Design Principles
+
+## 1. Agent remains the planner
+
+Agent JIT 不试图替代模型的开放式推理能力。
+
+当任务需要：
+
+```text
+semantic judgment
+open-ended planning
+natural-language interpretation
+hypothesis formation
+```
+
+控制权应保留在 Agent。
+
+## 2. Deterministic paths should not repeatedly cross the model boundary
+
+如果接下来的工作已经可以完整写成：
+
+```text
+map
+filter
+branch
+join
+sort
+aggregate
+tool calls with known bindings
+```
+
+那么继续逐步进入 LLM 通常只是额外的 orchestration cost。
+
+## 3. Compiler owns structure; runtime owns state
+
+模型负责描述程序。
+
+Compiler 负责结构正确性。
+
+Runtime 负责执行状态。
+
+## 4. Tool contracts are first-class
+
+Input schema 和 output schema 都是编译器的一部分。
+
+模型不应该靠运行后观察错误来猜：
+
+```text
+参数叫什么
+输出有哪些字段
+字段是什么类型
+```
+
+能够静态知道的东西，应尽量在执行前检查。
+
+## 5. Internal execution state should stay internal
+
+Runtime 处理的数据量可以随 fan-out 增长。
+
+但这些数据不应该默认全部暴露回 Agent。
+
+未来的 Agent-Harness interface 将重点研究：
+
+> **什么是让 Agent 继续推理所需的最小充分执行输出。**
+
+---
+
+# Limitations
+
+当前结果需要在明确边界内理解。
+
+- benchmark correctness 在多个任务上已经出现 ceiling effect，两臂均可达到 100%
+- 当前主要证据集中在成本侧，而不是证明 DSL/JIT 拥有更高智能能力
+- 当前实验主要使用单一模型（DeepSeek）
+- 部分实验使用可控 mock backend，以减少外部 API 随机性并构造可验证任务
+- 当前的 “JIT” 是 agent execution 层的动态路径编译类比，不是传统机器码 JIT compiler
+- Agent 自动判断“什么时候值得 offload”仍是下一阶段需要直接验证的问题
+- Harness → Agent 的最小充分 output / continuation state 仍在设计中
+
+这些限制是当前研究边界的一部分，而不是被隐藏的假设。
+
+---
+
+# Install
+
+```bash
 npm install
 ```
 
-依赖：`@earendil-works/pi-agent-core`（agent 基座）+ `typebox`（IR 契约）。
+主要依赖：
 
-## 运行实验（agent 生成程序）
+- `@earendil-works/pi-agent-core` — agent 基座
+- `typebox` — schema / IR contract
 
-```
-# 1. 配置 DeepSeek key（.env 已被 .gitignore 排除）
+---
+
+# Run Experiments
+
+配置 DeepSeek API key：
+
+```bash
 echo 'DEEPSEEK_API_KEY=sk-...' > .env
+```
 
-# 2. 跑 DSL 生成实验（多轮修订，mock tools 执行，不碰真实 GitHub）
+`.env` 已被 `.gitignore` 排除。
+
+运行实验：
+
+```bash
 npm run experiment
 ```
 
-`src/llm/gateway.ts` 是唯一接触模型的地方；实验报告写入 `logs/experiments/` 与 `experiment_result/`。
+实验会让模型生成程序，并通过 compiler / runtime 执行。
 
-## Layout
+相关代码：
 
+```text
+src/llm/gateway.ts
 ```
-src/language/         DSL 前端：tokenizer / parser / AST / 诊断（通用）
-src/tools/            ToolDefinition / ToolRegistry（工具唯一事实源）
-src/compiler/         ExecutionIR 编译器（tool/map/compute/select/join）+ 工具目录渲染
-src/runtime/          图 runtime：依赖调度 / 并发 map / value store / trace / 表达式求值
-src/llm/              LLM gateway（pi-ai DeepSeek 端点）
-src/contracts/        canvas 语义图契约（历史产品场景输出）
-src/domain/canvas/    canvas 语义编译层（历史产品场景）
-src/experiments/      R1-R4 语言实验 + R4b/e 对比实验脚本
-tests/                编译器 + runtime + 实验测试
-experiment_result/    各轮实验报告（markdown）
-docs/                 设计文档 + dsl-memory 项目知识档案
+
+是模型 gateway 的集中入口。
+
+实验结果写入：
+
+```text
+logs/experiments/
+experiment_result/
 ```
+
+---
+
+# Repository Layout
+
+```text
+src/language/
+    DSL frontend
+    tokenizer / parser / AST / diagnostics
+
+src/tools/
+    ToolContract / RegisteredTool / ToolCatalog / ToolRegistry
+    schemaView（归一化 schema 层：JSON Schema → SchemaView）
+    providers/
+        github/{contracts,real,mock}.ts   契约 + 真实 adapter + mock
+        domain/mock.ts                    跨域 mock（CRM / users / email）
+
+src/compiler/
+    Execution IR compiler
+    tool catalog renderer
+    static checking
+
+src/runtime/
+    dependency scheduler
+    concurrent map
+    value store
+    trace
+    expression evaluation
+
+src/llm/
+    LLM gateway
+
+src/experiments/
+    language experiments
+    iterative-vs-programmatic benchmarks
+
+tests/
+    compiler / runtime / experiment tests
+
+experiment_result/
+    markdown reports for experiment rounds
+
+docs/
+    design notes and project knowledge
+```
+
+---
+
+# Research Direction
+
+目前能力实验已经基本确认：
+
+```text
+Agent can do the work iteratively
+```
+
+以及：
+
+```text
+the same deterministic path can often be executed
+with much less model involvement
+```
+
+下一阶段不再主要研究“DSL 能不能完成更复杂的工具流”，而是研究 Agent JIT 如何作为普通 Agent 的 execution accelerator：
+
+```text
+Existing Agent
+    │
+    ├── normal tools
+    │
+    └── execute_program(...)
+              ↓
+          Compiler
+              ↓
+       Execution Runtime
+              ↓
+          same tools
+```
+
+重点问题包括：
+
+1. Agent 是否会自主识别值得 offload 的 deterministic path？
+2. Agent 会压缩多长的执行路径？
+3. 什么情况下它应该继续 reasoning，而不是 offload？
+4. Harness 应该返回多少信息，才能保持后续 reasoning quality？
+5. 是否可以在不损失任务质量的情况下继续降低 model-visible intermediate state？
+
+---
+
+## Thesis
+
+> **Agent JIT does not make the model smarter. It compiles away the parts of agent execution that do not need intelligence.**
+
+Or, more concretely:
+
+> **Let the model reason. Let the compiler and runtime own deterministic execution.**

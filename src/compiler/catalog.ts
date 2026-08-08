@@ -1,4 +1,6 @@
-import type { ToolDefinition } from "../tools/definition.js";
+import type { ToolContract } from "../tools/definition.js";
+import type { ToolCatalog } from "../tools/registry.js";
+import { schemaViewOf, schemaViewText } from "../tools/schemaView.js";
 
 /**
  * 把 tool registry 渲染为 DSL 调用签名目录（给 LLM 的系统 prompt）。
@@ -15,43 +17,17 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-interface SchemaNode {
-  type?: string;
-  properties?: Record<string, { type?: string }>;
-  items?: unknown;
-  patternProperties?: Record<string, { type?: string }>;
-  additionalProperties?: unknown;
-}
-
-/** 把 outputSchema 渲染为目录文本：array → list<...>、object → { k: type, ... }、record → Record<string, ...>。 */
+/** 把任意 JSON Schema / TypeBox schema 渲染为目录文本（经 SchemaView 归一，支持 string | null / 嵌套 / union）。 */
 export function schemaTypeText(schema: unknown): string {
-  const node = (schema ?? {}) as SchemaNode;
-  if (node.type === "array" && node.items !== undefined) {
-    return `list<${schemaTypeText(node.items)}>`;
-  }
-  if (node.type === "object" && node.properties) {
-    const fields = Object.entries(node.properties)
-      .map(([key, prop]) => `${key}: ${prop.type ?? "unknown"}`)
-      .join(", ");
-    return `{ ${fields} }`;
-  }
-  if (node.type === "object" && (node.patternProperties || node.additionalProperties)) {
-    const valueSchema = node.patternProperties
-      ? (Object.values(node.patternProperties)[0] as { type?: string } | undefined)
-      : (node.additionalProperties as { type?: string } | undefined);
-    return `Record<string, ${valueSchema?.type ?? "unknown"}>`;
-  }
-  return node.type ?? "unknown";
+  return schemaViewText(schemaViewOf(schema));
 }
 
-function renderToolSignature(tool: ToolDefinition, nameTransform: (id: string) => string): string {
-  const input = tool.inputSchema as unknown as {
-    properties?: Record<string, { type?: string }>;
-    required?: string[];
-  };
-  const required = new Set(input.required ?? []);
-  const args = Object.entries(input.properties ?? {})
-    .map(([key, prop]) => `${key}=${prop.type ?? "unknown"}${required.has(key) ? "*" : ""}`)
+function renderToolSignature(tool: ToolContract, nameTransform: (id: string) => string): string {
+  const inputView = schemaViewOf(tool.inputSchema);
+  const required = inputView.kind === "object" ? new Set(inputView.required) : new Set<string>();
+  const properties = inputView.kind === "object" ? inputView.properties : {};
+  const args = Object.entries(properties)
+    .map(([key, prop]) => `${key}=${schemaViewText(prop)}${required.has(key) ? "*" : ""}`)
     .join(", ");
   const description = tool.description ? `  # ${tool.description}` : "";
   return `${nameTransform(tool.id)}(${args}) -> ${schemaTypeText(tool.outputSchema)}${description}`;
@@ -61,8 +37,8 @@ function renderToolSignature(tool: ToolDefinition, nameTransform: (id: string) =
  * 渲染工具目录。nameTransform 用于与 pi-ai 工具定义的命名保持一致
  * （如把 "github.search_repositories" 映射为 "github_search_repositories"）。
  */
-export function renderExecutionToolCatalog(tools: readonly ToolDefinition[], nameTransform: (id: string) => string = (id) => id): string {
-  const sorted = [...tools].sort((left, right) => compareText(left.id, right.id));
+export function renderExecutionToolCatalog(catalog: ToolCatalog, nameTransform: (id: string) => string = (id) => id): string {
+  const sorted = [...catalog.all()].sort((left, right) => compareText(left.id, right.id));
   const lines = [
     `# 工具目录（DSL 调用签名）— 共 ${sorted.length} 个`,
     "# 参数格式 <名称>=<类型>*（* = 必填）；参数名必须与签名完全一致，不得自创参数",

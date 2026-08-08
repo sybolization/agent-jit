@@ -12,11 +12,5 @@
     "types": ["node"]
   },
   "include": ["src", "tests"],
-  "exclude": [
-    "src/domain/canvas",
-    "src/contracts",
-    "src/experiments/dslHarness.ts",
-    "tests/canvasDsl.test.ts",
-    "tests/canvasDslCatalog.test.ts"
-  ]
+  "exclude": []
 }

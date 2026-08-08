@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { Type } from "typebox";
 
-import type { RuntimeTool } from "../src/runtime/runtime.js";
+import type { RegisteredTool } from "../src/tools/definition.js";
 import { buildBenchmarkTasks, fetchGroundTruth } from "../src/experiments/programmaticBenchmark.js";
 
 const SEARCH_SPEC = {
@@ -12,7 +12,7 @@ const SEARCH_SPEC = {
 };
 
 function makeSearchTool(items: Array<{ full_name: string }>): {
-  tool: RuntimeTool;
+  tool: RegisteredTool;
   calls: Array<Record<string, unknown>>;
 } {
   const calls: Array<Record<string, unknown>> = [];

@@ -1,6 +1,5 @@
-import { githubTools } from "../compiler/registry.js";
-import type { ToolDefinition } from "../tools/definition.js";
-import type { RuntimeTool } from "./runtime.js";
+import { githubTools } from "./contracts.js";
+import type { RegisteredTool, ToolContract } from "../../definition.js";
 
 /**
  * 真实 GitHub adapter（P4）：与 `githubTools` 同 spec 的执行实现，用
@@ -51,7 +50,7 @@ interface CommitItem {
   commit?: { committer?: { date?: string } };
 }
 
-export function createRealGithubTools(options: RealGithubAdapterOptions = {}): RuntimeTool[] {
+export function createRealGithubTools(options: RealGithubAdapterOptions = {}): RegisteredTool[] {
   const token = options.token ?? process.env.GITHUB_TOKEN;
   const fetchFn = options.fetch ?? globalThis.fetch;
   const baseUrl = options.baseUrl ?? GITHUB_API_BASE;
@@ -104,7 +103,7 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
   }
 
   const byId = new Map(githubTools.map((tool) => [tool.id, tool]));
-  const specOf = (id: string): ToolDefinition => {
+  const specOf = (id: string): ToolContract => {
     const spec = byId.get(id);
     if (!spec) throw new Error(`adapter: 未注册的工具 ${id}`);
     return spec;

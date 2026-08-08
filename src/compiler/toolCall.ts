@@ -1,6 +1,7 @@
 import type { ParsedArg, ParsedStatement } from "../language/ast.js";
 import type { DslDiagnostic } from "../language/diagnostics.js";
-import type { ToolDefinition } from "../tools/definition.js";
+import type { ToolContract } from "../tools/definition.js";
+import type { ToolCatalog } from "../tools/registry.js";
 import type { ExecutionNode, MapNode, ValueExpr } from "./ir.js";
 import {
   literalKindError,
@@ -8,7 +9,9 @@ import {
   pushMissing,
   toolParams,
   type ElementSchema,
+  type ToolParamSpec,
 } from "./helpers.js";
+import { schemaViewText, type SchemaView } from "../tools/schemaView.js";
 
 /**
  * 工具调用构建（`buildToolNode`）与 map 绑定校验（`mapCallBindings` /
@@ -20,10 +23,10 @@ import {
 export function mapCallBindings(
   call: { callee?: string; args?: ParsedArg[] },
   prefix: string,
-  tools: readonly ToolDefinition[],
+  tools: ToolCatalog,
   diagnostics: DslDiagnostic[],
 ): Record<string, string> | undefined {
-  const tool = tools.find((item) => item.id === call.callee);
+  const tool = tools.get(call.callee ?? "");
   if (!tool) return undefined; // unknown_tool 由调用方统一处理
   const parameterKeys = new Set(toolParams(tool).map((parameter) => parameter.key));
   const bindings: Record<string, string> = {};
@@ -77,7 +80,7 @@ export function mapCallBindings(
 
 export function buildToolNode(
   statement: ParsedStatement,
-  tool: ToolDefinition,
+  tool: ToolContract,
   defined: ReadonlySet<string>,
   diagnostics: DslDiagnostic[],
 ): ExecutionNode | undefined {
@@ -153,23 +156,23 @@ export function buildToolNode(
  * REQ-5：map 绑定字段校验——`_.<field>` 必须存在于 source 元素 schema
  * （不存在 → UNKNOWN_FIELD，suggestion 列出可用字段），且字段类型与绑定参数
  * 的 inputSchema 类型基础匹配（integer/number 互配，string 配 string，
- * boolean 配 boolean；其余组合 → config_type_mismatch；prop.type 缺失则跳过）。
- * source 元素形状未知（compute 产物 / 未注册工具）时跳过，避免误报。
+ * boolean 配 boolean；union 任一成员匹配即可；unknown 跳过避免误报）。
+ * source 元素形状未知（compute 产物 / 未注册工具）时跳过。
  * `line` 指向该 map 语句的行号，供诊断定位。
  */
 export function validateMapBindings(
   node: MapNode,
-  tools: readonly ToolDefinition[],
+  tools: ToolCatalog | undefined,
   symbols: ReadonlyMap<string, ElementSchema | undefined>,
   diagnostics: DslDiagnostic[],
   line: number,
 ): void {
+  if (!tools) return; // 无工具目录 → 跳过（unknown_tool 已另行报错）
   const elementSchema = symbols.get(node.source);
   if (!elementSchema) return; // 未知元素形状 → 跳过（不误报）
-  const tool = tools.find((item) => item.id === node.tool);
+  const tool = tools.get(node.tool);
   if (!tool) return; // unknown_tool 已另行报错
   const paramByKey = new Map(toolParams(tool).map((parameter) => [parameter.key, parameter]));
-  const numeric = new Set(["integer", "number"]);
   for (const [param, field] of Object.entries(node.bindings)) {
     const prop = elementSchema.properties[field];
     if (!prop) {
@@ -184,17 +187,23 @@ export function validateMapBindings(
     }
     const paramSpec = paramByKey.get(param);
     if (!paramSpec) continue; // unknown_parameter 已另行报错
-    const propType = prop.type ?? "";
-    if (!propType) continue; // 类型缺失（如 union）→ 跳过类型检查
-    const paramNumeric = paramSpec.kind === "int" || paramSpec.kind === "number";
-    const compatible = paramNumeric ? numeric.has(propType) : paramSpec.kind === propType;
-    if (!compatible) {
+    if (!fieldCompatibleWithParam(prop, paramSpec.kind)) {
       diagnostics.push({
         line,
         code: "config_type_mismatch",
-        message: `map 绑定字段 _.${field}（类型 ${propType}）与参数 ${param}（期望 ${paramSpec.kind}）类型不匹配`,
+        message: `map 绑定字段 _.${field}（类型 ${schemaViewText(prop)}）与参数 ${param}（期望 ${paramSpec.kind}）类型不匹配`,
         suggestion: `改绑一个 ${paramSpec.kind} 类型的字段`,
       });
     }
   }
+}
+
+/** 字段 SchemaView 与参数 kind 是否兼容：union 任一成员匹配即可；unknown（任一侧）跳过检查。 */
+function fieldCompatibleWithParam(view: SchemaView, kind: ToolParamSpec["kind"]): boolean {
+  if (view.kind === "unknown" || kind === "unknown") return true; // 无法判断 → 跳过（不误报）
+  const numeric = new Set(["integer", "number"]);
+  const matches = (candidate: SchemaView): boolean =>
+    kind === "int" || kind === "number" ? numeric.has(candidate.kind) : candidate.kind === kind;
+  if (view.kind === "union") return view.members.some(matches);
+  return matches(view);
 }

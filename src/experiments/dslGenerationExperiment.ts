@@ -26,9 +26,12 @@ import { compileExecutionDslLegacy } from "./languageVariants/legacyCompile.js";
 import { ExecutionDslCompileError } from "../compiler/compile.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
 import { mapLimit } from "../runtime/executor.js";
-import { createMockGithubTools, createMockDomainTools } from "../runtime/mockTools.js";
-import { createRealGithubTools } from "../runtime/githubAdapter.js";
-import { execute, type RuntimeTool } from "../runtime/runtime.js";
+import { createMockGithubTools } from "../tools/providers/github/mock.js";
+import { createMockDomainTools } from "../tools/providers/domain/mock.js";
+import { createRealGithubTools } from "../tools/providers/github/real.js";
+import { execute } from "../runtime/runtime.js";
+import type { RegisteredTool } from "../tools/definition.js";
+import { ToolRegistry } from "../tools/registry.js";
 import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
 import { R3_TASKS, type R3Task } from "./r3Tasks.js";
 import { checkTaskCorrectness, type TaskSpec } from "./taskSpec.js";
@@ -108,7 +111,7 @@ function buildSystemPrompt(arm: ArmConfig, task: R3Task): string {
     BINDING_GUIDE[arm.binding],
     "",
     "## 可用工具",
-    renderExecutionToolCatalog(task.tools),
+    renderExecutionToolCatalog(new ToolRegistry(task.tools)),
     "",
     "## 硬约束",
     "1. 必须通过调用 submit_program 工具提交程序（把 DSL 源码放在 source 参数里）；不要直接在回复文本中输出代码或 Markdown",
@@ -154,11 +157,11 @@ interface RunResult {
 function buildRuntimeRegistry(
   task: R3Task,
   backend: "real" | "mock",
-): Map<string, RuntimeTool> {
+): ToolRegistry<RegisteredTool> {
   const githubRuntime = backend === "real" ? createRealGithubTools() : createMockGithubTools();
   const tools = [...githubRuntime, ...createMockDomainTools()];
   const allowed = new Set(task.tools.map((tool) => tool.id));
-  return new Map(tools.filter((tool) => allowed.has(tool.id)).map((tool) => [tool.id, tool]));
+  return new ToolRegistry(tools.filter((tool) => allowed.has(tool.id)));
 }
 
 async function runOnce(

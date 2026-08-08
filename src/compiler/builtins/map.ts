@@ -1,6 +1,6 @@
 import type { ParsedStatement } from "../../language/ast.js";
 import type { DslDiagnostic } from "../../language/diagnostics.js";
-import type { ToolDefinition } from "../../tools/definition.js";
+import type { ToolCatalog } from "../../tools/registry.js";
 import type { ExecutionNode } from "../ir.js";
 import { applyPositionalArgs, literalArg, literalKindError, refArg } from "../helpers.js";
 import { mapCallBindings } from "../toolCall.js";
@@ -16,7 +16,7 @@ import { mapCallBindings } from "../toolCall.js";
 
 export function buildMapNode(
   statement: ParsedStatement,
-  options: { tools?: readonly ToolDefinition[] },
+  options: { tools?: ToolCatalog },
   defined: ReadonlySet<string>,
   diagnostics: DslDiagnostic[],
 ): ExecutionNode | undefined {
@@ -48,9 +48,9 @@ export function buildMapNode(
     return undefined;
   }
 
-  const tools = options.tools ?? [];
+  const tools = options.tools;
   const toolId = bindingArg.callee;
-  const bindings = mapCallBindings(bindingArg, "_", tools, diagnostics);
+  const bindings = tools ? mapCallBindings(bindingArg, "_", tools, diagnostics) : undefined;
 
   let concurrency = 5;
   const concurrencyArg = literalArg(effective, "concurrency", diagnostics);
@@ -83,7 +83,7 @@ export function buildMapNode(
     }
   }
 
-  const toolRegistered = typeof toolId === "string" && tools.some((tool) => tool.id === toolId);
+  const toolRegistered = typeof toolId === "string" && tools?.get(toolId) !== undefined;
   if (!toolRegistered) {
     diagnostics.push({
       line: statement.line,

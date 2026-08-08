@@ -1,6 +1,6 @@
 import type { ParsedStatement } from "../../language/ast.js";
 import type { DslDiagnostic } from "../../language/diagnostics.js";
-import type { ToolDefinition } from "../../tools/definition.js";
+import type { ToolCatalog } from "../../tools/registry.js";
 import { isComparisonExpr, parseExpr, type ExprNode } from "../../language/expression.js";
 import type { ExecutionNode } from "../ir.js";
 import { applyPositionalArgs, literalArg, refArg } from "../helpers.js";
@@ -12,7 +12,7 @@ import { applyPositionalArgs, literalArg, refArg } from "../helpers.js";
  */
 export function buildSelectNode(
   statement: ParsedStatement,
-  _options: { tools?: readonly ToolDefinition[] },
+  _options: { tools?: ToolCatalog },
   defined: ReadonlySet<string>,
   diagnostics: DslDiagnostic[],
 ): ExecutionNode | undefined {
