@@ -1,4 +1,4 @@
-import { Type } from "typebox";
+import { Type, type TSchema } from "typebox";
 import type { Tool } from "@earendil-works/pi-ai";
 
 import type { ToolDefinition } from "../tools/definition.js";
@@ -78,7 +78,7 @@ export function toPiTools(specs: readonly ToolDefinition[]): Tool[] {
       properties?: Record<string, { type?: string }>;
       required?: string[];
     };
-    const properties: Record<string, unknown> = {};
+    const properties: Record<string, TSchema> = {};
     for (const [key, prop] of Object.entries(input.properties ?? {})) {
       const type = prop.type;
       properties[key] =

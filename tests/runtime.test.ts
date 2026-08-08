@@ -34,11 +34,12 @@ describe("runtime — four-line end to end", () => {
   test("executes search -> dynamic map -> take -> return", async () => {
     const graph = compileExecutionDsl(FOUR_LINE, { tools: githubTools }).graph;
     const result = await execute(graph, mockRegistry());
+    const output = result.status === "success" ? result.result : undefined;
 
     expect(result.status).toBe("success");
-    expect(Array.isArray(result.result)).toBe(true);
-    expect(result.result as unknown[]).toHaveLength(5);
-    expect((result.result as Array<Record<string, unknown>>)[0]).toMatchObject({ full_name: expect.any(String) });
+    expect(Array.isArray(output)).toBe(true);
+    expect(output as unknown[]).toHaveLength(5);
+    expect((output as Array<Record<string, unknown>>)[0]).toMatchObject({ full_name: expect.any(String) });
 
     expect(result.trace).toHaveLength(4);
     const byId = new Map(result.trace.map((entry) => [entry.id, entry]));
@@ -56,7 +57,9 @@ describe("runtime — four-line end to end", () => {
     const unordered = await execute(reversed, mockRegistry());
 
     expect(unordered.status).toBe("success");
-    expect(JSON.stringify(unordered.result)).toBe(JSON.stringify(ordered.result));
+    const orderedOutput = ordered.status === "success" ? ordered.result : undefined;
+    const unorderedOutput = unordered.status === "success" ? unordered.result : undefined;
+    expect(JSON.stringify(unorderedOutput)).toBe(JSON.stringify(orderedOutput));
   });
 
   test("renders a readable trace text", async () => {
@@ -87,7 +90,7 @@ describe("runtime — map concurrency", () => {
   function probeRegistry(concurrency: number): { registry: RuntimeRegistry; peak: () => number } {
     let active = 0;
     let peak = 0;
-    const registry = mockRegistry();
+    const registry = new Map(mockRegistry());
     const original = registry.get("github.get_repository");
     if (!original) throw new Error("mock registry missing get_repository");
     registry.set("github.get_repository", {
@@ -138,8 +141,9 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
     ].join("\n");
     const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
     const result = await execute(graph, domainRegistry());
+    const output = result.status === "success" ? result.result : undefined;
     expect(result.status).toBe("success");
-    const items = result.result as Array<Record<string, unknown>>;
+    const items = output as Array<Record<string, unknown>>;
     expect(items[0]).toMatchObject({ to: "user1@example.com", name: "User 1" });
   });
 
@@ -151,8 +155,9 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
     ].join("\n");
     const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
     const result = await execute(graph, domainRegistry());
+    const output = result.status === "success" ? result.result : undefined;
     expect(result.status).toBe("success");
-    const items = result.result as Array<Record<string, unknown>>;
+    const items = output as Array<Record<string, unknown>>;
     expect(items[0]).toMatchObject({ id: "cust-1", name: "Customer 1" });
   });
 
@@ -164,8 +169,9 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
     ].join("\n");
     const graph = compileExecutionDslLegacy(dsl, { tools: mockDomainToolSpecs, allowMapBinding: "lambda" }).graph;
     const result = await execute(graph, domainRegistry());
+    const output = result.status === "success" ? result.result : undefined;
     expect(result.status).toBe("success");
-    const items = result.result as Array<Record<string, unknown>>;
+    const items = output as Array<Record<string, unknown>>;
     expect(items[0]).toMatchObject({ to: "user1@example.com", name: "User 1" });
   });
 });
@@ -194,7 +200,8 @@ describe("runtime — R4c compute filter/sort", () => {
       { full_name: "d", stars: 4, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "Java" }, // language 不符
     ]));
     expect(result.status).toBe("success");
-    const items = result.result as Array<Record<string, unknown>>;
+    const output = result.status === "success" ? result.result : undefined;
+    const items = output as Array<Record<string, unknown>>;
     expect(items.map((item) => item.full_name)).toEqual(["a"]);
   });
 
@@ -213,8 +220,9 @@ describe("runtime — R4c compute filter/sort", () => {
       { full_name: "e", stars: 3, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
     ];
     const result = await execute(graph, literalSourceRegistry(source));
+    const output = result.status === "success" ? result.result : undefined;
     expect(result.status).toBe("success");
-    const items = result.result as Array<Record<string, unknown>>;
+    const items = output as Array<Record<string, unknown>>;
     // stars 相等时保持原序（a 在 d 前）；c（最小）排最后
     expect(items.map((item) => item.full_name)).toEqual(["a", "d", "e", "b", "c"]);
     // 源数组未被修改
@@ -233,7 +241,8 @@ describe("runtime — R4c compute filter/sort", () => {
       { full_name: "a", stars: 2, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
       { full_name: "c", stars: 3, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
     ]));
-    const items = result.result as Array<Record<string, unknown>>;
+    const output = result.status === "success" ? result.result : undefined;
+    const items = output as Array<Record<string, unknown>>;
     expect(items.map((item) => item.full_name)).toEqual(["a", "b", "c"]);
   });
 
@@ -279,7 +288,8 @@ describe("runtime — R4c compute filter/sort", () => {
     const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
     const result = await execute(graph, registry);
     expect(result.status).toBe("success");
-    const items = result.result as Array<Record<string, unknown>>;
+    const output = result.status === "success" ? result.result : undefined;
+    const items = output as Array<Record<string, unknown>>;
     expect(items.map((item) => item.full_name)).toEqual(["owner/b", "owner/a"]);
     expect(result.trace.find((entry) => entry.id === "active")).toMatchObject({ kind: "compute.filter", inputSize: 4, outputSize: 2 });
     expect(result.trace.find((entry) => entry.id === "ranked")).toMatchObject({ kind: "compute.sort", inputSize: 2, outputSize: 2 });
@@ -308,7 +318,8 @@ describe("runtime — R4e compute/select/join 执行", () => {
     const graph = compileExecutionDsl(DSL, { tools: githubTools}).graph;
     const result = await execute(graph, registry);
     expect(result.status).toBe("success");
-    const items = result.result as Array<Record<string, unknown>>;
+    const output = result.status === "success" ? result.result : undefined;
+    const items = output as Array<Record<string, unknown>>;
     // N=15：阈值后仅 repo-0（contrib）与 repo-1（commits）通过 → 混合两路的正确答案
     expect(items.map((item) => item.full_name)).toEqual(["adv/org-repo-0", "adv/org-repo-1"]);
   });
@@ -322,7 +333,8 @@ describe("runtime — R4e compute/select/join 执行", () => {
     ].join("\n");
     const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
     const result = await execute(graph, registry);
-    const items = result.result as Array<Record<string, unknown>>;
+    const output = result.status === "success" ? result.result : undefined;
+    const items = output as Array<Record<string, unknown>>;
     expect(items[0]).toMatchObject({ full_name: "adv/org-repo-0", ratio: 80 / 530 });
     expect(items[0]).toHaveProperty("forks");
   });
@@ -341,7 +353,8 @@ describe("runtime — R4e compute/select/join 执行", () => {
     ].join("\n");
     const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
     const result = await execute(graph, registry);
-    const items = result.result as Array<Record<string, unknown>>;
+    const output = result.status === "success" ? result.result : undefined;
+    const items = output as Array<Record<string, unknown>>;
     const byName = new Map(items.map((item) => [item.full_name, item]));
     // repo-0（contributors 路径）score=801；repo-1（commits 路径）score=750；repo-3（commits）score=80
     expect(byName.get("adv/org-repo-0")).toMatchObject({ score: 801 });

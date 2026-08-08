@@ -59,7 +59,7 @@ class ExprParser {
     return false;
   }
 
-  private parse(): ParseExprResult {
+  parse(): ParseExprResult {
     const node = this.parseComparison();
     if (!node) return { ok: false, error: "表达式为空或语法错误" };
     this.skipSpace();

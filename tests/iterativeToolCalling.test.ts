@@ -182,8 +182,8 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
     const secondCall = received[1]!;
     const toolResult = secondCall.find((m) => m.role === "toolResult");
     expect(toolResult).toBeDefined();
-    expect(toolResult!.role === "toolResult" && toolResult.toolName).toBe("github_search_repositories");
-    expect(toolResult!.role === "toolResult" && toolResult.isError).toBe(false);
+    expect(toolResult?.role === "toolResult" && toolResult.toolName).toBe("github_search_repositories");
+    expect(toolResult?.role === "toolResult" && toolResult.isError).toBe(false);
   });
 
   test("minConsecutiveNoTool=2 显式指定时仍需要连续两轮无工具调用", async () => {

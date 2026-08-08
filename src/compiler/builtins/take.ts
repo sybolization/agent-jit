@@ -22,7 +22,7 @@ export function buildTakeNode(
     }
   }
   for (const arg of effective.args) {
-    if (!["source", "count"].includes(arg.key)) {
+    if (!["source", "count"].includes(arg.key ?? "")) {
       diagnostics.push({
         line: arg.line,
         code: "unknown_parameter",

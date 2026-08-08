@@ -1,4 +1,4 @@
-import type { ExecutionGraph, ExecutionNode } from "../compiler/ir.js";
+import type { ComputeNode, ExecutionGraph, ExecutionNode, ToolNode } from "../compiler/ir.js";
 import { nodeDependencies } from "../runtime/dependencies.js";
 
 /**
@@ -118,7 +118,7 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
   }
 
   const sourceToolId = spec.sourceTool ?? "github.search_repositories";
-  const sourceNode = path.find((node) => node.kind === "tool" && node.tool === sourceToolId);
+  const sourceNode = path.find((node): node is ToolNode => node.kind === "tool" && node.tool === sourceToolId);
   if (!sourceNode) {
     failures.push(`return 数据流中缺少源工具 ${sourceToolId}`);
   } else {
@@ -164,7 +164,7 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
     }
   }
 
-  const takeNode = path.find((node) => node.kind === "compute" && node.op === "take");
+  const takeNode = path.find((node): node is ComputeNode => node.kind === "compute" && node.op === "take");
   if (!takeNode) {
     failures.push("return 数据流中缺少 take 节点");
   } else if (takeNode.args["count"] !== spec.takeCount) {
@@ -173,7 +173,7 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
 
   // R4c：filter 等值条件检查（期望提供时才要求 filter 节点存在）
   if (spec.filterConditions) {
-    const filterNode = path.find((node) => node.kind === "compute" && node.op === "filter");
+    const filterNode = path.find((node): node is ComputeNode => node.kind === "compute" && node.op === "filter");
     if (!filterNode) {
       failures.push("return 数据流中缺少 filter 节点");
     } else {
@@ -193,7 +193,7 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
 
   // R4c：sort 键/方向检查
   if (spec.sortKey) {
-    const sortNode = path.find((node) => node.kind === "compute" && node.op === "sort");
+    const sortNode = path.find((node): node is ComputeNode => node.kind === "compute" && node.op === "sort");
     if (!sortNode) {
       failures.push(`return 数据流中缺少 sort 节点（key=${spec.sortKey}）`);
     } else {
@@ -227,7 +227,7 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
   // R4d：多阶段 take 序列（return 侧在前），如 D3 = [3, 5]
   if (spec.takeCounts) {
     const counts = path
-      .filter((node) => node.kind === "compute" && node.op === "take")
+      .filter((node): node is ComputeNode => node.kind === "compute" && node.op === "take")
       .map((node) => node.args["count"]);
     if (JSON.stringify(counts) !== JSON.stringify(spec.takeCounts)) {
       failures.push(`take 序列应为 ${JSON.stringify(spec.takeCounts)}（实际 ${JSON.stringify(counts)}）`);
@@ -238,14 +238,14 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
   if (spec.computeExprs || spec.selectPreds || spec.joinSpec) {
     const reachable = returnReachableNodes(graph);
     if (spec.computeExprs) {
-      const computeNodes = reachable.filter((node) => node.kind === "compute" && node.op === "compute");
+      const computeNodes = reachable.filter((node): node is ComputeNode => node.kind === "compute" && node.op === "compute");
       for (const [out, expr] of Object.entries(spec.computeExprs)) {
         const found = computeNodes.some((node) => node.args[out] === expr);
         if (!found) failures.push(`compute 缺少字段 ${out} = "${expr}"`);
       }
     }
     if (spec.selectPreds) {
-      const selectNodes = reachable.filter((node) => node.kind === "compute" && node.op === "select");
+      const selectNodes = reachable.filter((node): node is ComputeNode => node.kind === "compute" && node.op === "select");
       const normalize = (value: string): string => value.replace(/\s+/g, "");
       for (const pred of spec.selectPreds) {
         const found = selectNodes.some((node) => normalize(String(node.args.pred ?? "")) === normalize(pred));
@@ -255,12 +255,13 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
     if (spec.joinSpec) {
       // 存在性匹配：任一 join 节点满足（key + sources 数量 + 分支工具）即通过——
       // 模型可能额外做二次 join（把 score 再合并一次），第一个 join 未必是分支 join。
+      const joinSpec = spec.joinSpec;
       const joinNodes = reachable.filter((node) => node.kind === "join");
       const graphById = new Map(graph.nodes.map((node) => [node.id, node]));
       const satisfied = joinNodes.some((joinNode) => {
-        if (joinNode.key !== spec.joinSpec.key) return false;
-        if (spec.joinSpec.sourceCount !== undefined && joinNode.sources.length !== spec.joinSpec.sourceCount) return false;
-        if (spec.joinSpec.extraTools && spec.joinSpec.extraTools.length > 0) {
+        if (joinNode.key !== joinSpec.key) return false;
+        if (joinSpec.sourceCount !== undefined && joinNode.sources.length !== joinSpec.sourceCount) return false;
+        if (joinSpec.extraTools && joinSpec.extraTools.length > 0) {
           const extraToolIds = new Set(
             joinNode.sources.slice(1).flatMap((sourceId) => {
               const source = graphById.get(sourceId);
@@ -268,7 +269,7 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
               return [];
             }),
           );
-          for (const toolId of spec.joinSpec.extraTools) {
+          for (const toolId of joinSpec.extraTools) {
             if (!extraToolIds.has(toolId)) return false;
           }
         }
@@ -276,7 +277,7 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
       });
       if (!satisfied) {
         failures.push(
-          `缺少满足条件的 join 节点（key=${spec.joinSpec.key}，分支工具 ${(spec.joinSpec.extraTools ?? []).join("、")}）`,
+          `缺少满足条件的 join 节点（key=${joinSpec.key}，分支工具 ${(joinSpec.extraTools ?? []).join("、")}）`,
         );
       }
     }

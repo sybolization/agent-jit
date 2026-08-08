@@ -73,7 +73,7 @@ export function buildMapNode(
   }
 
   for (const arg of effective.args) {
-    if (!["source", "tool", "concurrency"].includes(arg.key)) {
+    if (!["source", "tool", "concurrency"].includes(arg.key ?? "")) {
       diagnostics.push({
         line: arg.line,
         code: "unknown_parameter",

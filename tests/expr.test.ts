@@ -9,6 +9,13 @@ describe("parseExpr / evalExpr — 受限表达式求值", () => {
     return evalExpr(parsed.node, record);
   };
 
+  /** 解析并断言成功，返回 AST 节点（测试输入均为合法表达式）。 */
+  const parseNode = (src: string) => {
+    const parsed = parseExpr(src);
+    if (!parsed.ok) throw new Error(parsed.error);
+    return parsed.node;
+  };
+
   test("算术：四则 + 括号 + 优先级", () => {
     expect(evalSrc("forks / stars", { forks: 80, stars: 530 })).toBeCloseTo(80 / 530);
     expect(evalSrc("1 + 2 * 3", {})).toBe(7);
@@ -37,9 +44,9 @@ describe("parseExpr / evalExpr — 受限表达式求值", () => {
   });
 
   test("isComparisonExpr：只有顶层比较才是谓词", () => {
-    expect(isComparisonExpr(parseExpr("ratio > 0.15")!.node)).toBe(true);
-    expect(isComparisonExpr(parseExpr("score >= 100")!.node)).toBe(true);
-    expect(isComparisonExpr(parseExpr("forks / stars")!.node)).toBe(false);
+    expect(isComparisonExpr(parseNode("ratio > 0.15"))).toBe(true);
+    expect(isComparisonExpr(parseNode("score >= 100"))).toBe(true);
+    expect(isComparisonExpr(parseNode("forks / stars"))).toBe(false);
   });
 
   test("非法表达式报错（拒绝函数调用 / 多余内容 / 空）", () => {

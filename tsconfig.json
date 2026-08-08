@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": ["src", "tests"],
+  "exclude": [
+    "src/domain/canvas",
+    "src/contracts",
+    "src/experiments/dslHarness.ts",
+    "tests/canvasDsl.test.ts",
+    "tests/canvasDslCatalog.test.ts"
+  ]
+}

@@ -3,7 +3,7 @@ import { Value } from "typebox/value";
 
 import { compileExecutionDsl, ExecutionDslCompileError } from "../src/compiler/compile.js";
 import { compileExecutionDslLegacy } from "../src/experiments/languageVariants/legacyCompile.js";
-import { ExecutionGraphSchema, type ExecutionNode } from "../src/compiler/ir.js";
+import { ExecutionGraphSchema, type ComputeNode, type ExecutionNode } from "../src/compiler/ir.js";
 import { githubTools } from "../src/compiler/registry.js";
 
 const FOUR_LINE = [
@@ -335,9 +335,9 @@ describe("compileExecutionDsl — R4e compute/select/join", () => {
     expect(diagnostics).toEqual([]);
     const nodes = graph.nodes;
     expect(nodes.find((n) => n.id === "ratio")).toMatchObject({ kind: "compute", op: "compute", args: { ratio: "forks / stars" } });
-    expect(nodes.find((n) => n.id === "ratio")!.expr).toEqual({ ratio: expect.objectContaining({ kind: "binary", op: "/" }) });
+    expect((nodes.find((n) => n.id === "ratio")! as ComputeNode).expr).toEqual({ ratio: expect.objectContaining({ kind: "binary", op: "/" }) });
     expect(nodes.find((n) => n.id === "high")).toMatchObject({ kind: "compute", op: "select", args: { pred: "ratio > 0.15" } });
-    expect(nodes.find((n) => n.id === "high")!.expr).toEqual({ pred: expect.objectContaining({ kind: "binary", op: ">" }) });
+    expect((nodes.find((n) => n.id === "high")! as ComputeNode).expr).toEqual({ pred: expect.objectContaining({ kind: "binary", op: ">" }) });
     expect(nodes.find((n) => n.id === "merged")).toMatchObject({
       kind: "join",
       key: "full_name",

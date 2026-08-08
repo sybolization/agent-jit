@@ -33,6 +33,8 @@ function nodeKindLabel(node: ExecutionNode): string {
       return `compute.${node.op}`;
     case "return":
       return "return";
+    case "join":
+      return "join";
   }
 }
 

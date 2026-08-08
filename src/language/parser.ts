@@ -204,7 +204,7 @@ export class Parser {
 
     // keyword 形态：<ident>=<value>
     if (this.peek()?.type === "ident" && this.peekNext()?.type === "symbol" && this.peekNext()?.value === "=") {
-      const keyToken = this.next();
+      const keyToken = this.next()!;
       this.next(); // 吃掉 =
       const value = this.parseValue(diagnostics);
       if (!value) return undefined;

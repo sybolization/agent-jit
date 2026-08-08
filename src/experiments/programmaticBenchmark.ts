@@ -194,7 +194,8 @@ async function runDslArm(
       const execution = await execute(graph, registry);
       const runtimeMs = performance.now() - t1;
 
-      const resultArray = Array.isArray(execution.result) ? (execution.result as unknown[]) : [];
+      const result = execution.status === "success" ? execution.result : undefined;
+      const resultArray = Array.isArray(result) ? (result as unknown[]) : [];
       const answered = resultArray
         .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
         .map((item) => String(item["full_name"] ?? ""));
@@ -218,7 +219,7 @@ async function runDslArm(
           "编译失败，请根据以下诊断修正 DSL 后再次调用 submit_program 重新提交：",
           ...error.diagnostics.map((item) => `L${item.line}: ${item.code}: ${item.message}`),
         ].join("\n");
-        messages.push({ role: "toolResult", toolCallId: submit.id, toolName: "submit_program", content: feedback, isError: true });
+        messages.push({ role: "toolResult", toolCallId: submit!.id, toolName: "submit_program", content: feedback, isError: true });
         continue;
       }
       return {
@@ -259,11 +260,13 @@ interface ArmResult {
   round_trips: number;
   exposed_bytes: number;
   llm_ms: number;
-  tool_ms: number;
+  /** DSL 臂以 runtime_ms 计量运行时，传统臂用 tool_ms——共用类型上 tool_ms 仅可选 */
+  tool_ms?: number;
   e2e_ms: number;
   usage: LlmUsage;
   answered: string[];
   task_pass: boolean;
+  maxed_out: boolean;
 }
 
 function parseArgs(argv: string[]): { samples: number; rounds: number; parallel: number } {

@@ -191,9 +191,10 @@ function filterDetails(
   details: readonly RepoDetail[],
   task: Pick<R4dTask, "filterConditions">,
 ): RepoDetail[] {
-  if (!task.filterConditions) return [...details];
+  const conditions = task.filterConditions;
+  if (!conditions) return [...details];
   return details.filter((item) =>
-    Object.entries(task.filterConditions).every(([field, literal]) => item[field as keyof RepoDetail] === literal),
+    Object.entries(conditions).every(([field, literal]) => item[field as keyof RepoDetail] === literal),
   );
 }
 
@@ -460,7 +461,8 @@ async function runDslArm(
       const execution = await execute(graph, registry);
       const runtimeMs = performance.now() - t1;
 
-      const resultArray = Array.isArray(execution.result) ? (execution.result as unknown[]) : [];
+      const result = execution.status === "success" ? execution.result : undefined;
+      const resultArray = Array.isArray(result) ? (result as unknown[]) : [];
       const answered = resultArray
         .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
         .map((item) => String(item["full_name"] ?? ""));
@@ -485,7 +487,7 @@ async function runDslArm(
           "编译失败，请根据以下诊断修正 DSL 后再次调用 submit_program 重新提交：",
           ...error.diagnostics.map((item) => `L${item.line}: ${item.code}: ${item.message}`),
         ].join("\n");
-        messages.push({ role: "toolResult", toolCallId: submit.id, toolName: "submit_program", content: feedback, isError: true });
+        messages.push({ role: "toolResult", toolCallId: submit!.id, toolName: "submit_program", content: feedback, isError: true });
         continue;
       }
       return {

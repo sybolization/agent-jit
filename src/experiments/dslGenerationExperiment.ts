@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import type { Tool } from "@earendil-works/pi-ai";
 
-import { compileExecutionDslLegacy } from "../languageVariants/legacyCompile.js";
+import { compileExecutionDslLegacy } from "./languageVariants/legacyCompile.js";
 import { ExecutionDslCompileError } from "../compiler/compile.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
 import { mapLimit } from "../runtime/executor.js";
@@ -211,7 +211,8 @@ async function runOnce(
       const correctness = checkTaskCorrectness(graph, task.spec);
       const registry = buildRuntimeRegistry(task, backend);
       const execution = await execute(graph, registry);
-      const resultArray = Array.isArray(execution.result) ? (execution.result as unknown[]) : [];
+      const result = execution.status === "success" ? execution.result : undefined;
+      const resultArray = Array.isArray(result) ? (result as unknown[]) : [];
       return {
         success: true,
         rounds_used: round,

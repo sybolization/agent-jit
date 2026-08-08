@@ -86,7 +86,8 @@ export function buildToolNode(
   const seenArgs = new Set<string>();
 
   for (const arg of statement.args) {
-    if (seenArgs.has(arg.key)) {
+    const key = arg.key ?? "";
+    if (seenArgs.has(key)) {
       diagnostics.push({
         line: arg.line,
         code: "duplicate_argument",
@@ -95,9 +96,9 @@ export function buildToolNode(
       });
       continue;
     }
-    seenArgs.add(arg.key);
+    seenArgs.add(key);
 
-    const parameter = parameterByKey.get(arg.key);
+    const parameter = parameterByKey.get(key);
     if (!parameter) {
       diagnostics.push({
         line: arg.line,
@@ -119,13 +120,13 @@ export function buildToolNode(
         });
         continue;
       }
-      args[arg.key] = { kind: "ref", name };
+      args[key] = { kind: "ref", name };
       continue;
     }
 
     const literal = arg.value.literal ?? null;
     const normalized = normalizeLiteral(literal, parameter.kind);
-    const error = literalKindError(normalized, arg.key, parameter.kind);
+    const error = literalKindError(normalized, key, parameter.kind);
     if (error) {
       diagnostics.push({
         line: arg.line,
@@ -135,7 +136,7 @@ export function buildToolNode(
       });
       continue;
     }
-    args[arg.key] = { kind: "literal", value: normalized };
+    args[key] = { kind: "literal", value: normalized };
   }
 
   // REQ-3：inputSchema 声明的 required 参数必须提供（key 出现过但值非法时只报类型错误，不再叠加"缺失"）

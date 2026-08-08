@@ -3,6 +3,7 @@ import {
   createProvider,
   envApiKeyAuth,
   type Context,
+  type Message,
   type Model,
   type TextContent,
   type Tool,
@@ -112,6 +113,9 @@ export function createDeepSeekGateway(): LlmGateway {
               for (const call of message.toolCalls ?? []) {
                 blocks.push({ type: "toolCall", id: call.id, name: call.name, arguments: call.arguments });
               }
+              // pi-ai 的 AssistantMessage 类型要求 api/provider/model 元字段，但传输层
+              // 与上下文估算只读 role/content/usage/stopReason——回填的历史 assistant 消息
+              // 携带真实 usage（全 0）即可，元字段此处缺省；用双重断言保持发送协议不变。
               return {
                 role: "assistant",
                 content: blocks,
@@ -125,7 +129,7 @@ export function createDeepSeekGateway(): LlmGateway {
                   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
                 },
                 stopReason: (message.toolCalls?.length ?? 0) > 0 ? "toolUse" : "stop",
-              };
+              } as unknown as Message;
             }
             case "toolResult":
               return {

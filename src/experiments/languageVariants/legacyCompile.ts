@@ -242,7 +242,7 @@ function legacyBuildMapNode(
   }
 
   for (const arg of effective.args) {
-    if (!["source", "tool", "key", "concurrency"].includes(arg.key)) {
+    if (!["source", "tool", "key", "concurrency"].includes(arg.key ?? "")) {
       diagnostics.push({
         line: arg.line,
         code: "unknown_parameter",
@@ -252,10 +252,9 @@ function legacyBuildMapNode(
     }
   }
 
-  const toolRegistered = typeof toolId === "string" && tools.some((tool) => tool.id === toolId);
-  if (!toolRegistered) {
+  if (typeof toolId !== "string") {
     // tool 参数本身已报错（如裸标识符被拒绝）时，不叠加误导性的 unknown_tool
-    if (typeof toolId === "string" || !diagnostics.some((item) => item.code === "EXPECTED_STRING_GOT_CALLABLE_REF")) {
+    if (!diagnostics.some((item) => item.code === "EXPECTED_STRING_GOT_CALLABLE_REF")) {
       diagnostics.push({
         line: statement.line,
         code: "unknown_tool",
@@ -263,6 +262,16 @@ function legacyBuildMapNode(
         suggestion: "使用 registry 中已注册的工具 id（如 github.get_repository）",
       });
     }
+    return undefined;
+  }
+  const toolRegistered = tools.some((tool) => tool.id === toolId);
+  if (!toolRegistered) {
+    diagnostics.push({
+      line: statement.line,
+      code: "unknown_tool",
+      message: `map 引用了未注册的工具：${toolId}`,
+      suggestion: "使用 registry 中已注册的工具 id（如 github.get_repository）",
+    });
     return undefined;
   }
   if (!bindings || Object.keys(bindings).length === 0) return undefined;
