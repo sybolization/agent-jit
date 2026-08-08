@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
+import { Type } from "typebox";
 
-import type { ToolSpec } from "../src/compiler/registry.js";
+import type { ToolDefinition } from "../src/tools/definition.js";
 import type { LlmGateway, LlmMessage, LlmResult } from "../src/llm/gateway.js";
 import type { RuntimeTool } from "../src/runtime/runtime.js";
 import { exactAnswerMatch, extractFullNames, matchAnswer, runIterativeToolCalling, toPiTools } from "../src/experiments/iterativeToolCalling.js";
@@ -87,20 +88,17 @@ describe("exactAnswerMatch — 长度 + 逐元素 + 顺序严格匹配", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 纯逻辑：ToolSpec → pi-ai 工具定义
+// 纯逻辑：ToolDefinition → pi-ai 工具定义
 // ---------------------------------------------------------------------------
 
-describe("toPiTools — ToolSpec 转 pi-ai Tool", () => {
-  const specs: readonly ToolSpec[] = [
+describe("toPiTools — ToolDefinition 转 pi-ai Tool", () => {
+  const specs: readonly ToolDefinition[] = [
     {
       id: "github.search_repositories",
       label: "Search",
       description: "按查询搜索仓库",
-      outputKind: "list",
-      parameters: [
-        { key: "query", kind: "string", required: true },
-        { key: "limit", kind: "int" },
-      ],
+      inputSchema: Type.Object({ query: Type.String(), limit: Type.Optional(Type.Integer()) }),
+      outputSchema: Type.Array(Type.Object({ full_name: Type.String() })),
     },
   ];
 
@@ -122,12 +120,10 @@ describe("toPiTools — ToolSpec 转 pi-ai Tool", () => {
 // ---------------------------------------------------------------------------
 
 const SEARCH_TOOL: RuntimeTool = {
-  spec: {
-    id: "github.search_repositories",
-    label: "Search",
-    outputKind: "list",
-    parameters: [{ key: "query", kind: "string", required: true }],
-  },
+  id: "github.search_repositories",
+  label: "Search",
+  inputSchema: Type.Object({ query: Type.String() }),
+  outputSchema: Type.Array(Type.Object({ full_name: Type.String() })),
   execute: async () => [{ full_name: "owner/a" }, { full_name: "owner/b" }, { full_name: "owner/c" }],
 };
 
@@ -163,7 +159,7 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
         { role: "user", content: "任务" },
       ],
       tools: [SEARCH_TOOL],
-      toolSpecs: [SEARCH_TOOL.spec],
+      toolSpecs: [SEARCH_TOOL],
       maxSteps: 5,
       groundTruth: ["owner/a", "owner/b", "owner/c"],
       required: 2,
@@ -200,7 +196,7 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
       gateway,
       initialMessages: [{ role: "user", content: "任务" }],
       tools: [SEARCH_TOOL],
-      toolSpecs: [SEARCH_TOOL.spec],
+      toolSpecs: [SEARCH_TOOL],
       maxSteps: 5,
       groundTruth: ["owner/a", "owner/b", "owner/c"],
       required: 2,
@@ -218,7 +214,7 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
       gateway,
       initialMessages: [{ role: "user", content: "任务" }],
       tools: [SEARCH_TOOL],
-      toolSpecs: [SEARCH_TOOL.spec],
+      toolSpecs: [SEARCH_TOOL],
       maxSteps: 5,
       groundTruth: ["owner/a"],
       required: 1,
@@ -230,12 +226,10 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
 
   test("工具执行抛错：错误进 toolResult，不中断循环", async () => {
     const failingTool: RuntimeTool = {
-      spec: {
-        id: "boom",
-        label: "Boom",
-        outputKind: "object",
-        parameters: [],
-      },
+      id: "boom",
+      label: "Boom",
+      inputSchema: Type.Object({}),
+      outputSchema: Type.Object({}),
       execute: async () => {
         throw new Error("rate limited");
       },
@@ -249,7 +243,7 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
       gateway,
       initialMessages: [{ role: "user", content: "任务" }],
       tools: [failingTool],
-      toolSpecs: [failingTool.spec],
+      toolSpecs: [failingTool],
       maxSteps: 5,
       groundTruth: ["owner/a"],
       required: 1,
@@ -261,7 +255,10 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
   test("同一 completion 的多个 toolCalls 并行执行，toolResult 按调用顺序回填", async () => {
     const order: string[] = [];
     const slowTool: RuntimeTool = {
-      spec: { id: "slow", label: "Slow", outputKind: "object", parameters: [] },
+      id: "slow",
+      label: "Slow",
+      inputSchema: Type.Object({}),
+      outputSchema: Type.Object({}),
       execute: async () => {
         order.push("start");
         await new Promise((resolve) => setTimeout(resolve, 40));
@@ -277,7 +274,7 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
       gateway,
       initialMessages: [{ role: "user", content: "任务" }],
       tools: [slowTool],
-      toolSpecs: [slowTool.spec],
+      toolSpecs: [slowTool],
       maxSteps: 5,
       groundTruth: ["x/y"],
       required: 1,
@@ -303,7 +300,7 @@ describe("runIterativeToolCalling — agent loop 纯逻辑", () => {
       gateway,
       initialMessages: [{ role: "user", content: "任务" }],
       tools: [SEARCH_TOOL],
-      toolSpecs: [SEARCH_TOOL.spec],
+      toolSpecs: [SEARCH_TOOL],
       maxSteps: 2,
       groundTruth: ["owner/a"],
       required: 1,
@@ -325,7 +322,7 @@ describe("runIterativeToolCalling — strictAnswer（submit_answer 严格答案�
       gateway: makeGateway(script).gateway,
       initialMessages: [{ role: "user", content: "任务" }],
       tools: [SEARCH_TOOL],
-      toolSpecs: [SEARCH_TOOL.spec],
+      toolSpecs: [SEARCH_TOOL],
       maxSteps,
       groundTruth: TRUTH,
       required: 3,

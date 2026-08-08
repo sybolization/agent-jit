@@ -27,7 +27,7 @@ import { renderExecutionToolCatalog } from "../compiler/catalog.js";
 import { mapLimit } from "../runtime/executor.js";
 import { createMockGithubTools, createMockDomainTools } from "../runtime/mockTools.js";
 import { createRealGithubTools } from "../runtime/githubAdapter.js";
-import { execute } from "../runtime/runtime.js";
+import { execute, type RuntimeTool } from "../runtime/runtime.js";
 import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
 import { R3_TASKS, type R3Task } from "./r3Tasks.js";
 import { checkTaskCorrectness, type TaskSpec } from "./taskSpec.js";
@@ -153,11 +153,11 @@ interface RunResult {
 function buildRuntimeRegistry(
   task: R3Task,
   backend: "real" | "mock",
-): Map<string, { spec: { id: string }; execute: (args: Record<string, unknown>) => unknown }> {
+): Map<string, RuntimeTool> {
   const githubRuntime = backend === "real" ? createRealGithubTools() : createMockGithubTools();
   const tools = [...githubRuntime, ...createMockDomainTools()];
   const allowed = new Set(task.tools.map((tool) => tool.id));
-  return new Map(tools.filter((tool) => allowed.has(tool.spec.id)).map((tool) => [tool.spec.id, tool]));
+  return new Map(tools.filter((tool) => allowed.has(tool.id)).map((tool) => [tool.id, tool]));
 }
 
 async function runOnce(

@@ -67,7 +67,7 @@ describe("computeR4eAnswer — oracle 确定性答案", () => {
 
 describe("fetchR4eGroundTruth — 确定性链式取数", () => {
   const tools = createAdversarialGithubTools();
-  const find = (id: string): RuntimeTool => tools.find((tool) => tool.spec.id === id)!;
+  const find = (id: string): RuntimeTool => tools.find((tool) => tool.id === id)!;
   const task15 = buildR4eTasks().find((task) => task.n === 15)!;
   const task30 = buildR4eTasks().find((task) => task.n === 30)!;
 

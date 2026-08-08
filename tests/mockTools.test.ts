@@ -37,8 +37,8 @@ describe("createAdversarialGithubTools — 确定性 mock 数据", () => {
 
   test("search 尊重 limit，返回按表序的 full_name", async () => {
     const tools = createAdversarialGithubTools();
-    const search = tools.find((tool) => tool.spec.id === "github.search_repositories")!;
-    const result = await search.execute({ query: "x", limit: 5 });
+    const search = tools.find((tool) => tool.id === "github.search_repositories")!;
+    const result = await search.execute!({ query: "x", limit: 5 });
     expect(result).toEqual([
       { full_name: "adv/org-repo-0" },
       { full_name: "adv/org-repo-1" },
@@ -50,12 +50,12 @@ describe("createAdversarialGithubTools — 确定性 mock 数据", () => {
 
   test("get_repository 返回 forks/stars；两路 score 工具各自返回 score", async () => {
     const tools = createAdversarialGithubTools();
-    const repo = tools.find((tool) => tool.spec.id === "github.get_repository")!;
-    const stats = tools.find((tool) => tool.spec.id === "github.get_contributor_stats")!;
-    const commits = tools.find((tool) => tool.spec.id === "github.list_commits")!;
-    expect(await repo.execute({ full_name: "adv/org-repo-0" })).toMatchObject({ full_name: "adv/org-repo-0", forks: 80, stars: 530 });
-    expect(await stats.execute({ full_name: "adv/org-repo-0" })).toEqual({ full_name: "adv/org-repo-0", score: 801 });
-    expect(await commits.execute({ full_name: "adv/org-repo-1" })).toEqual({ full_name: "adv/org-repo-1", score: 750 });
+    const repo = tools.find((tool) => tool.id === "github.get_repository")!;
+    const stats = tools.find((tool) => tool.id === "github.get_contributor_stats")!;
+    const commits = tools.find((tool) => tool.id === "github.list_commits")!;
+    expect(await repo.execute!({ full_name: "adv/org-repo-0" })).toMatchObject({ full_name: "adv/org-repo-0", forks: 80, stars: 530 });
+    expect(await stats.execute!({ full_name: "adv/org-repo-0" })).toEqual({ full_name: "adv/org-repo-0", score: 801 });
+    expect(await commits.execute!({ full_name: "adv/org-repo-1" })).toEqual({ full_name: "adv/org-repo-1", score: 750 });
   });
 
   test("用错字段必错：stars 排序 ≠ forks 排序", () => {

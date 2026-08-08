@@ -1,76 +1,104 @@
+import { Type } from "typebox";
+import { defineTool, type ToolDefinition } from "../tools/definition.js";
+
 /**
- * Tool registry：DSL 可调用的外部工具声明。
+ * Tool registry：DSL 可调用的外部工具声明（唯一事实源，与 Runtime 共用）。
  *
- * 第一版只有 4 个 GitHub 只读工具（read-only），只描述签名（参数名 /
- * 类型 / 必填），真实 API 调用在后续阶段接入。编译器据此做
- * `unknown_parameter` / `config_type_mismatch` 校验——这是从 canvas 阶段
- * 验证过的经验（LLM 会幻觉合理参数名，编译期拒绝最可靠）。
+ * 6 个 GitHub 只读工具（read-only），只描述契约（inputSchema / outputSchema），
+ * 真实 API 调用在 provider 层（githubAdapter / mockTools）注册为 RuntimeTool
+ * 时补上 execute。编译器据此做 `unknown_parameter` / `config_type_mismatch`
+ * 校验——这是从 canvas 阶段验证过的经验（LLM 会幻觉合理参数名，编译期拒绝最可靠）。
  */
 
-export interface ToolParameterSpec {
-  key: string;
-  kind: "string" | "int" | "number" | "boolean" | "object";
-  required?: boolean;
-}
-
-export interface ToolSpec {
-  id: string;
-  label: string;
-  description?: string;
-  outputKind: string;
-  parameters: ToolParameterSpec[];
-}
-
-export const githubTools: readonly ToolSpec[] = [
-  {
+export const githubTools: readonly ToolDefinition[] = [
+  defineTool({
     id: "github.search_repositories",
     label: "Search GitHub repositories",
     description: "按查询条件搜索仓库，返回仓库摘要列表。",
-    outputKind: "list<RepositorySummary>",
-    parameters: [
-      { key: "query", kind: "string", required: true },
-      { key: "limit", kind: "int" },
-    ],
-  },
-  {
+    inputSchema: Type.Object(
+      { query: Type.String(), limit: Type.Optional(Type.Integer()) },
+      { additionalProperties: false },
+    ),
+    outputSchema: Type.Array(
+      Type.Object(
+        {
+          full_name: Type.String(),
+          stars: Type.Integer(),
+          archived: Type.Boolean(),
+          pushed_at: Type.String(),
+          language: Type.String(),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+  }),
+  defineTool({
     id: "github.get_repository",
     label: "Get a repository",
     description: "获取单个仓库的详细信息。",
-    outputKind: "Repository",
-    parameters: [{ key: "full_name", kind: "string", required: true }],
-  },
-  {
+    inputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
+    outputSchema: Type.Object(
+      {
+        full_name: Type.String(),
+        stars: Type.Integer(),
+        forks: Type.Integer(),
+        archived: Type.Boolean(),
+        language: Type.String(),
+      },
+      { additionalProperties: false },
+    ),
+  }),
+  defineTool({
     id: "github.get_languages",
     label: "Get repository languages",
     description: "获取仓库语言构成（字节占比）。",
-    outputKind: "object",
-    parameters: [{ key: "full_name", kind: "string", required: true }],
-  },
-  {
+    inputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
+    outputSchema: Type.Record(Type.String(), Type.Number()),
+  }),
+  defineTool({
     id: "github.list_contributors",
     label: "List repository contributors",
     description: "获取仓库贡献者列表。",
-    outputKind: "list<Contributor>",
-    parameters: [
-      { key: "full_name", kind: "string", required: true },
-      { key: "per_page", kind: "int" },
-    ],
-  },
-  {
+    inputSchema: Type.Object(
+      { full_name: Type.String(), per_page: Type.Optional(Type.Integer()) },
+      { additionalProperties: false },
+    ),
+    outputSchema: Type.Array(
+      Type.Object(
+        { login: Type.String(), contributions: Type.Integer() },
+        { additionalProperties: false },
+      ),
+    ),
+  }),
+  defineTool({
     id: "github.get_contributor_stats",
     label: "Get repository contributor stats",
-    description: "获取仓库贡献者统计。返回 { full_name, score }：score 为该仓库贡献者路径的统一可比较分数（与 list_commits 的 score 同尺度，可直接排序比较）。",
-    outputKind: "ContributorStats",
-    parameters: [{ key: "full_name", kind: "string", required: true }],
-  },
-  {
+    description: "获取仓库贡献者统计。返回 { full_name, contributor_count, total_contributions }。",
+    inputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
+    outputSchema: Type.Object(
+      {
+        full_name: Type.String(),
+        contributor_count: Type.Integer(),
+        total_contributions: Type.Integer(),
+      },
+      { additionalProperties: false },
+    ),
+  }),
+  defineTool({
     id: "github.list_commits",
     label: "List repository commits",
-    description: "获取仓库提交统计。返回 { full_name, score }：score 为该仓库提交路径的统一可比较分数（与 get_contributor_stats 的 score 同尺度，可直接排序比较）。",
-    outputKind: "CommitStats",
-    parameters: [
-      { key: "full_name", kind: "string", required: true },
-      { key: "per_page", kind: "int" },
-    ],
-  },
+    description: "获取仓库提交统计。返回 { full_name, total_commits, latest_commit_at }。",
+    inputSchema: Type.Object(
+      { full_name: Type.String(), per_page: Type.Optional(Type.Integer()) },
+      { additionalProperties: false },
+    ),
+    outputSchema: Type.Object(
+      {
+        full_name: Type.String(),
+        total_commits: Type.Integer(),
+        latest_commit_at: Type.Union([Type.String(), Type.Null()]),
+      },
+      { additionalProperties: false },
+    ),
+  }),
 ];

@@ -34,7 +34,8 @@ import type { Tool } from "@earendil-works/pi-ai";
 
 import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compiler.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
-import { githubTools, type ToolSpec } from "../compiler/registry.js";
+import { githubTools } from "../compiler/registry.js";
+import type { ToolDefinition } from "../tools/definition.js";
 import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
 import { mapLimit } from "../runtime/executor.js";
 import { createAdversarialGithubTools, ADVERSARIAL_REPOS } from "../runtime/mockTools.js";
@@ -77,7 +78,7 @@ export interface R4eTask {
   scoreThreshold: number;
   dslPrompt: string;
   iterativePrompt: string;
-  tools: readonly ToolSpec[];
+  tools: readonly ToolDefinition[];
 }
 
 const R4E_TOOLS = githubTools.filter((tool) =>
@@ -152,10 +153,10 @@ export async function fetchR4eGroundTruth(
   commitTool: RuntimeTool,
   task: R4eTask,
 ): Promise<string[]> {
-  const result = await searchTool.execute({ query: QUERY, limit: task.n });
+  const result = await searchTool.execute!({ query: QUERY, limit: task.n });
   const items = Array.isArray(result) ? (result as Array<{ full_name: string }>) : [];
   const details = (await mapLimit(items, 5, async (item) => {
-    const detail = await repoTool.execute({ full_name: item.full_name });
+    const detail = await repoTool.execute!({ full_name: item.full_name });
     return detail as AdversarialDetail;
   })) as AdversarialDetail[];
 
@@ -163,9 +164,9 @@ export async function fetchR4eGroundTruth(
   const commitMap: Record<string, { score: number }> = {};
   await mapLimit(details, 5, async (detail) => {
     if (detail.forks / detail.stars > task.ratioThreshold) {
-      statsMap[detail.full_name] = (await statsTool.execute({ full_name: detail.full_name })) as { score: number };
+      statsMap[detail.full_name] = (await statsTool.execute!({ full_name: detail.full_name })) as { score: number };
     } else {
-      commitMap[detail.full_name] = (await commitTool.execute({ full_name: detail.full_name })) as { score: number };
+      commitMap[detail.full_name] = (await commitTool.execute!({ full_name: detail.full_name })) as { score: number };
     }
   });
   return computeR4eAnswer(details, statsMap, commitMap, task);
@@ -257,9 +258,9 @@ async function runDslArm(
 
   const runtimeInternal = { bytes: 0 };
   const recordingTools: RuntimeTool[] = tools.map((tool) => ({
-    spec: tool.spec,
+    ...tool,
     execute: async (args) => {
-      const result = await tool.execute(args);
+      const result = await tool.execute!(args);
       runtimeInternal.bytes += Buffer.byteLength(JSON.stringify(result), "utf8");
       return result;
     },
@@ -315,7 +316,7 @@ async function runDslArm(
         allowMapBinding: "call",
       });
       const correctness = checkTaskCorrectness(graph, taskSpec);
-      const registry = new Map(recordingTools.map((tool) => [tool.spec.id, tool]));
+      const registry = new Map(recordingTools.map((tool) => [tool.id, tool]));
       const t1 = performance.now();
       const execution = await execute(graph, registry);
       const runtimeMs = performance.now() - t1;
@@ -423,7 +424,7 @@ async function main(): Promise<number> {
   const mockTools = createAdversarialGithubTools();
   const tasks = buildR4eTasks();
   const findTool = (id: string): RuntimeTool => {
-    const tool = mockTools.find((item) => item.spec.id === id);
+    const tool = mockTools.find((item) => item.id === id);
     if (!tool) throw new Error(`[FAIL] 未找到工具 ${id}`);
     return tool;
   };
@@ -464,7 +465,7 @@ async function main(): Promise<number> {
   const combos = arms.flatMap((arm) => tasks.map((task) => ({ arm, task })));
   const results = await mapLimit(combos, parallel, async ({ arm, task }) => {
     const groundTruth = groundTruthByCell.get(`R4e|${task.n}`)!;
-    const taskTools = mockTools.filter((tool) => task.tools.some((spec) => spec.id === tool.spec.id));
+    const taskTools = mockTools.filter((tool) => task.tools.some((spec) => spec.id === tool.id));
     const runs: ArmResult[] = [];
     for (let i = 0; i < samples; i += 1) {
       const run =

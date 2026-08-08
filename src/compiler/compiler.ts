@@ -6,7 +6,7 @@ import { Parser } from "../language/parser.js";
 import { tokenize } from "../language/tokenizer.js";
 import { isComparisonExpr, parseExpr } from "../runtime/expr.js";
 import { ExecutionGraphSchema, type ExecutionGraph, type ExecutionNode, type ValueExpr } from "./ir.js";
-import type { ToolSpec } from "./registry.js";
+import type { ToolDefinition } from "../tools/definition.js";
 
 /**
  * Agent Execution DSL 编译器（第一版）：把 DSL 编译为通用 ExecutionIR。
@@ -22,7 +22,7 @@ import type { ToolSpec } from "./registry.js";
  */
 
 export interface CompileExecutionDslOptions {
-  tools?: readonly ToolSpec[];
+  tools?: readonly ToolDefinition[];
 
   /**
    * 语言实验开关：允许 map 的 tool 参数以裸标识符（callable reference）书写，
@@ -70,6 +70,26 @@ export class ExecutionDslCompileError extends Error {
 
 function compareNodes(left: { id: string }, right: { id: string }): number {
   return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
+}
+
+/** 编译器看到的工具参数（从 inputSchema 提取；Task 5 会搬到 toolCall.ts）。 */
+interface ToolParamSpec {
+  key: string;
+  kind: "string" | "int" | "number" | "boolean";
+  required: boolean;
+}
+
+function toolParams(tool: ToolDefinition): ToolParamSpec[] {
+  const schema = tool.inputSchema as unknown as {
+    properties?: Record<string, { type?: string }>;
+    required?: string[];
+  };
+  const required = new Set(schema.required ?? []);
+  return Object.entries(schema.properties ?? {}).map(([key, prop]) => ({
+    key,
+    kind: (prop.type === "integer" ? "int" : prop.type === "number" ? "number" : prop.type === "boolean" ? "boolean" : "string") as ToolParamSpec["kind"],
+    required: required.has(key),
+  }));
 }
 
 function normalizeLiteral(value: LiteralValue, kind: string): LiteralValue {
@@ -270,12 +290,12 @@ function applyPositionalArgs(
 function mapCallBindings(
   call: { callee?: string; args?: ParsedArg[] },
   prefix: string,
-  tools: readonly ToolSpec[],
+  tools: readonly ToolDefinition[],
   diagnostics: DslDiagnostic[],
 ): Record<string, string> | undefined {
   const tool = tools.find((item) => item.id === call.callee);
   if (!tool) return undefined; // unknown_tool 由调用方统一处理
-  const parameterKeys = new Set(tool.parameters.map((parameter) => parameter.key));
+  const parameterKeys = new Set(toolParams(tool).map((parameter) => parameter.key));
   const bindings: Record<string, string> = {};
   let ok = true;
   for (const arg of call.args ?? []) {
@@ -787,11 +807,11 @@ function buildJoinNode(
 
 function buildToolNode(
   statement: ParsedStatement,
-  tool: ToolSpec,
+  tool: ToolDefinition,
   defined: ReadonlySet<string>,
   diagnostics: DslDiagnostic[],
 ): ExecutionNode | undefined {
-  const parameterByKey = new Map(tool.parameters.map((parameter) => [parameter.key, parameter]));
+  const parameterByKey = new Map(toolParams(tool).map((parameter) => [parameter.key, parameter]));
   const args: Record<string, ValueExpr> = {};
   const seenArgs = new Set<string>();
 

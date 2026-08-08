@@ -88,6 +88,7 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
     case "tool": {
       const tool = ctx.registry.get(node.tool);
       if (!tool) throw new Error(`未注册的工具：${node.tool}`);
+      if (!tool.execute) throw new Error(`工具 ${node.tool} 未提供 execute 实现`);
       return tool.execute(resolveArgs(node.args, ctx.store));
     }
     case "map": {
@@ -97,6 +98,7 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
       }
       const tool = ctx.registry.get(node.tool);
       if (!tool) throw new Error(`map 引用了未注册的工具：${node.tool}`);
+      if (!tool.execute) throw new Error(`map 引用的工具 ${node.tool} 未提供 execute 实现`);
       trace.fanout = source.length;
       trace.concurrency = node.concurrency;
       return mapLimit(source, node.concurrency, async (item) => {
@@ -105,7 +107,7 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
         for (const [param, field] of Object.entries(node.bindings)) {
           args[param] = itemRecord[field];
         }
-        return tool.execute(args);
+        return tool.execute!(args);
       });
     }
     case "compute": {

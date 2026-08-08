@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { Type } from "typebox";
 
 import type { RuntimeTool } from "../src/runtime/runtime.js";
 import {
@@ -174,22 +175,34 @@ describe("fetchR4dGroundTruth — 确定性基准（search + 并行 get_reposito
   };
 
   const searchTool: RuntimeTool = {
-    spec: { id: "github.search_repositories", label: "Search", outputKind: "list", parameters: [] },
+    id: "github.search_repositories",
+    label: "Search",
+    inputSchema: Type.Object({}),
+    outputSchema: Type.Object({}),
     execute: async (args) => {
       expect((args as { limit?: number }).limit).toBe(10);
       return Object.keys(detailByRepo).map((full_name) => ({ full_name }));
     },
   };
   const repoTool: RuntimeTool = {
-    spec: { id: "github.get_repository", label: "Get", outputKind: "object", parameters: [] },
+    id: "github.get_repository",
+    label: "Get",
+    inputSchema: Type.Object({}),
+    outputSchema: Type.Object({}),
     execute: async (args) => detailByRepo[(args as { full_name: string }).full_name]!,
   };
   const statsTool: RuntimeTool = {
-    spec: { id: "github.get_contributor_stats", label: "Stats", outputKind: "object", parameters: [] },
+    id: "github.get_contributor_stats",
+    label: "Stats",
+    inputSchema: Type.Object({}),
+    outputSchema: Type.Object({}),
     execute: async (args) => statsByRepo[(args as { full_name: string }).full_name]!,
   };
   const commitTool: RuntimeTool = {
-    spec: { id: "github.list_commits", label: "Commits", outputKind: "object", parameters: [] },
+    id: "github.list_commits",
+    label: "Commits",
+    inputSchema: Type.Object({}),
+    outputSchema: Type.Object({}),
     execute: async (args) => commitsByRepo[(args as { full_name: string }).full_name]!,
   };
   const statsTools = { "github.get_contributor_stats": statsTool, "github.list_commits": commitTool };
@@ -203,7 +216,10 @@ describe("fetchR4dGroundTruth — 确定性基准（search + 并行 get_reposito
 
   test("空 search 结果 → 空数组", async () => {
     const emptySearch: RuntimeTool = {
-      spec: { id: "github.search_repositories", label: "Search", outputKind: "list", parameters: [] },
+      id: "github.search_repositories",
+      label: "Search",
+      inputSchema: Type.Object({}),
+      outputSchema: Type.Object({}),
       execute: async () => [],
     };
     expect(await fetchR4dGroundTruth(emptySearch, repoTool, statsTools, d3task)).toEqual([]);

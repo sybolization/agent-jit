@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import type { Tool } from "@earendil-works/pi-ai";
 
-import type { ToolSpec } from "../compiler/registry.js";
+import type { ToolDefinition } from "../tools/definition.js";
 import type { LlmGateway, LlmMessage, LlmUsage } from "../llm/gateway.js";
 import { mapLimit } from "../runtime/executor.js";
 import type { RuntimeTool } from "../runtime/runtime.js";
@@ -71,22 +71,26 @@ export function toPiToolName(specId: string): string {
   return specId.replace(/\./g, "_");
 }
 
-/** 把 ToolSpec 转为 pi-ai 工具定义（typebox 参数 schema，名字经 toPiToolName 映射）。 */
-export function toPiTools(specs: readonly ToolSpec[]): Tool[] {
+/** 把 ToolDefinition 转为 pi-ai 工具定义（typebox 参数 schema，名字经 toPiToolName 映射）。 */
+export function toPiTools(specs: readonly ToolDefinition[]): Tool[] {
   return specs.map((spec) => {
+    const input = spec.inputSchema as unknown as {
+      properties?: Record<string, { type?: string }>;
+      required?: string[];
+    };
     const properties: Record<string, unknown> = {};
-    const required: string[] = [];
-    for (const parameter of spec.parameters) {
-      properties[parameter.key] =
-        parameter.kind === "int"
+    for (const [key, prop] of Object.entries(input.properties ?? {})) {
+      const type = prop.type;
+      properties[key] =
+        type === "integer"
           ? Type.Integer()
-          : parameter.kind === "number"
+          : type === "number"
             ? Type.Number()
-            : parameter.kind === "boolean"
+            : type === "boolean"
               ? Type.Boolean()
               : Type.String();
-      if (parameter.required) required.push(parameter.key);
     }
+    const required = input.required ?? [];
     return {
       name: toPiToolName(spec.id),
       description: spec.description ?? spec.label,
@@ -150,7 +154,7 @@ export interface IterativeOptions {
   /** 可执行的运行时工具（真实 adapter 或 mock） */
   tools: readonly RuntimeTool[];
   /** 给模型的工具定义（与 tools 同 id） */
-  toolSpecs: readonly ToolSpec[];
+  toolSpecs: readonly ToolDefinition[];
   maxSteps: number;
   groundTruth: readonly string[];
   /** 至少命中 ground truth 中多少个才算通过 */
@@ -170,7 +174,7 @@ export async function runIterativeToolCalling(options: IterativeOptions): Promis
 
   const piTools = strictAnswer ? [...toPiTools(toolSpecs), SUBMIT_ANSWER_TOOL] : toPiTools(toolSpecs);
   // toolCalls 返回的是映射名（github_search_repositories），按映射名建键反查
-  const toolById = new Map(tools.map((tool) => [toPiToolName(tool.spec.id), tool]));
+  const toolById = new Map(tools.map((tool) => [toPiToolName(tool.id), tool]));
 
   const messages: LlmMessage[] = [...initialMessages];
   const usage: LlmUsage = { input: 0, output: 0, cacheRead: 0, totalTokens: 0 };
@@ -262,6 +266,9 @@ export async function runIterativeToolCalling(options: IterativeOptions): Promis
       const tool = toolById.get(call.name);
       if (!tool) {
         return { call, content: `未知工具：${call.name}`, isError: true };
+      }
+      if (!tool.execute) {
+        return { call, content: `工具 ${call.name} 未提供 execute 实现`, isError: true };
       }
       const t1 = performance.now();
       let resultText: string;

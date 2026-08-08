@@ -7,7 +7,8 @@ import type { Tool } from "@earendil-works/pi-ai";
 
 import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compiler.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
-import { githubTools, type ToolSpec } from "../compiler/registry.js";
+import { githubTools } from "../compiler/registry.js";
+import type { ToolDefinition } from "../tools/definition.js";
 import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
 import { mapLimit } from "../runtime/executor.js";
 import { createRealGithubTools } from "../runtime/githubAdapter.js";
@@ -53,7 +54,7 @@ interface BenchmarkTask {
   k: number;
   dslPrompt: string;
   iterativePrompt: string;
-  tools: readonly ToolSpec[];
+  tools: readonly ToolDefinition[];
 }
 
 const GITHUB_QUERY = "agent framework language:typescript";
@@ -82,7 +83,7 @@ export function buildBenchmarkTasks(): BenchmarkTask[] {
 
 /** ground truth：真实 search 的前 K 个 full_name（确定性，两臂共用）。 */
 export async function fetchGroundTruth(searchTool: RuntimeTool, n: number, k: number): Promise<string[]> {
-  const result = await searchTool.execute({ query: GITHUB_QUERY, limit: n });
+  const result = await searchTool.execute!({ query: GITHUB_QUERY, limit: n });
   const items = Array.isArray(result) ? (result as Array<{ full_name: string }>) : [];
   return items.slice(0, k).map((item) => item.full_name);
 }
@@ -191,7 +192,7 @@ async function runDslArm(
         allowMapBinding: "call",
       });
       const correctness = checkTaskCorrectness(graph, taskSpec);
-      const registry = new Map(tools.map((tool) => [tool.spec.id, tool]));
+      const registry = new Map(tools.map((tool) => [tool.id, tool]));
       const t1 = performance.now();
       const execution = await execute(graph, registry);
       const runtimeMs = performance.now() - t1;
@@ -298,7 +299,7 @@ async function main(): Promise<number> {
   const tasks = buildBenchmarkTasks();
 
   // 预生成 ground truth（每档一次 search，两臂共用同一基准）
-  const searchTool = realTools.find((tool) => tool.spec.id === "github.search_repositories");
+  const searchTool = realTools.find((tool) => tool.id === "github.search_repositories");
   if (!searchTool) {
     console.error("[FAIL] 未找到 github.search_repositories");
     return 1;
@@ -322,7 +323,7 @@ async function main(): Promise<number> {
   const results = await mapLimit(combos, parallel, async ({ arm, n }) => {
     const task = tasks.find((item) => item.n === n)!;
     const groundTruth = groundTruthByN.get(n)!;
-    const taskTools = realTools.filter((tool) => task.tools.some((spec) => spec.id === tool.spec.id));
+    const taskTools = realTools.filter((tool) => task.tools.some((spec) => spec.id === tool.id));
     const runs: ArmResult[] = [];
     for (let i = 0; i < samples; i += 1) {
       const run =

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { Type } from "typebox";
 
 import type { RuntimeTool } from "../src/runtime/runtime.js";
 import { buildBenchmarkTasks, fetchGroundTruth } from "../src/experiments/programmaticBenchmark.js";
@@ -6,8 +7,8 @@ import { buildBenchmarkTasks, fetchGroundTruth } from "../src/experiments/progra
 const SEARCH_SPEC = {
   id: "github.search_repositories",
   label: "Search",
-  outputKind: "list",
-  parameters: [{ key: "query", kind: "string", required: true }],
+  inputSchema: Type.Object({}),
+  outputSchema: Type.Object({}),
 };
 
 function makeSearchTool(items: Array<{ full_name: string }>): {
@@ -17,7 +18,7 @@ function makeSearchTool(items: Array<{ full_name: string }>): {
   const calls: Array<Record<string, unknown>> = [];
   return {
     tool: {
-      spec: SEARCH_SPEC,
+      ...SEARCH_SPEC,
       execute: async (args) => {
         calls.push(args as Record<string, unknown>);
         return items;

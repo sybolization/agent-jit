@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { compileExecutionDsl } from "../src/compiler/compiler.js";
 import type { ExecutionGraph } from "../src/compiler/ir.js";
 import { githubTools } from "../src/compiler/registry.js";
+import type { ToolDefinition } from "../src/tools/definition.js";
 import { createAdversarialGithubTools, createMockGithubTools, createMockDomainTools, mockDomainToolSpecs } from "../src/runtime/mockTools.js";
 import { execute, type RuntimeRegistry, type RuntimeTool } from "../src/runtime/runtime.js";
 import { renderTraceText } from "../src/runtime/trace.js";
@@ -24,7 +25,7 @@ function fourLineWithConcurrency(concurrency: number): string {
 }
 
 function mockRegistry(repositoryCount = 10): RuntimeRegistry {
-  return new Map(createMockGithubTools({ repositoryCount }).map((tool) => [tool.spec.id, tool]));
+  return new Map(createMockGithubTools({ repositoryCount }).map((tool) => [tool.id, tool]));
 }
 
 describe("runtime — four-line end to end", () => {
@@ -83,7 +84,7 @@ describe("runtime — map concurrency", () => {
     const original = registry.get("github.get_repository");
     if (!original) throw new Error("mock registry missing get_repository");
     registry.set("github.get_repository", {
-      spec: original.spec,
+      ...original,
       execute: async (args) => {
         active += 1;
         peak = Math.max(peak, active);
@@ -113,7 +114,7 @@ describe("runtime — map concurrency", () => {
 
 describe("runtime — R3 map bindings 多字段与异名展开", () => {
   const domainRegistry = (): RuntimeRegistry =>
-    new Map(createMockDomainTools().map((tool) => [tool.spec.id, tool]));
+    new Map(createMockDomainTools().map((tool) => [tool.id, tool]));
 
   test("bindings 多字段：email/name → email.prepare(to, name)", async () => {
     const dsl = [
@@ -156,11 +157,11 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
 });
 
 describe("runtime — R4c compute filter/sort", () => {
-  const specOf = (id: string): RuntimeTool["spec"] => githubTools.find((tool) => tool.id === id)!;
+  const specOf = (id: string): ToolDefinition => githubTools.find((tool) => tool.id === id)!;
 
   function literalSourceRegistry(items: unknown[]): RuntimeRegistry {
     return new Map<string, RuntimeTool>([
-      ["github.search_repositories", { spec: specOf("github.search_repositories"), execute: async () => items }],
+      ["github.search_repositories", { ...specOf("github.search_repositories"), execute: async () => items }],
     ]);
   }
 
@@ -230,11 +231,11 @@ describe("runtime — R4c compute filter/sort", () => {
       { full_name: "owner/d", stars: 4, forks: 5, archived: false, language: "JavaScript" },
     ];
     const registry = new Map<string, RuntimeTool>([
-      ["github.search_repositories", { spec: specOf("github.search_repositories"), execute: async () => details }],
+      ["github.search_repositories", { ...specOf("github.search_repositories"), execute: async () => details }],
       [
         "github.get_repository",
         {
-          spec: specOf("github.get_repository"),
+          ...specOf("github.get_repository"),
           execute: async (args) => details.find((d) => d.full_name === (args as { full_name: string }).full_name),
         },
       ],
@@ -258,7 +259,7 @@ describe("runtime — R4c compute filter/sort", () => {
 });
 
 describe("runtime — R4e compute/select/join 执行", () => {
-  const registry = new Map(createAdversarialGithubTools().map((tool) => [tool.spec.id, tool]));
+  const registry = new Map(createAdversarialGithubTools().map((tool) => [tool.id, tool]));
 
   const DSL = [
     'repos = github.search_repositories(query="agent framework", limit=15)',

@@ -1,5 +1,5 @@
 import type { ExecutionGraph } from "../compiler/ir.js";
-import type { ToolSpec } from "../compiler/registry.js";
+import type { ToolDefinition } from "../tools/definition.js";
 import { nodeDependencies } from "./dependencies.js";
 import { executeNode, type ExecutionContext } from "./executor.js";
 import { type TraceEntry } from "./trace.js";
@@ -25,10 +25,8 @@ import { ValueStore } from "./valueStore.js";
  * ```
  */
 
-export interface RuntimeTool {
-  spec: ToolSpec;
-  execute(args: unknown): Promise<unknown>;
-}
+/** 运行时工具 = 工具定义（execute 可选；缺少时由 executor 守卫拒绝）。 */
+export type RuntimeTool = ToolDefinition;
 
 export type RuntimeRegistry = ReadonlyMap<string, RuntimeTool>;
 

@@ -1,5 +1,5 @@
 import { githubTools } from "../compiler/registry.js";
-import type { ToolSpec } from "../compiler/registry.js";
+import type { ToolDefinition } from "../tools/definition.js";
 import type { RuntimeTool } from "./runtime.js";
 
 /**
@@ -104,7 +104,7 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
   }
 
   const byId = new Map(githubTools.map((tool) => [tool.id, tool]));
-  const specOf = (id: string): ToolSpec => {
+  const specOf = (id: string): ToolDefinition => {
     const spec = byId.get(id);
     if (!spec) throw new Error(`adapter: 未注册的工具 ${id}`);
     return spec;
@@ -121,7 +121,7 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
 
   return [
     {
-      spec: specOf("github.search_repositories"),
+      ...specOf("github.search_repositories"),
       execute: async (args) => {
         const { query, limit } = args as { query?: string; limit?: number };
         const data = await getJson<{ items?: SearchItem[] }>(
@@ -137,7 +137,7 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
       },
     },
     {
-      spec: specOf("github.get_repository"),
+      ...specOf("github.get_repository"),
       execute: async (args) => {
         const { full_name } = args as { full_name?: string };
         const data = await getJson<RepoResult>(repoPath(full_name ?? ""));
@@ -151,14 +151,14 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
       },
     },
     {
-      spec: specOf("github.get_languages"),
+      ...specOf("github.get_languages"),
       execute: async (args) => {
         const { full_name } = args as { full_name?: string };
         return getJson<Record<string, number>>(repoPath(full_name ?? "") + "/languages");
       },
     },
     {
-      spec: specOf("github.list_contributors"),
+      ...specOf("github.list_contributors"),
       execute: async (args) => {
         const { full_name, per_page } = args as { full_name?: string; per_page?: number };
         const data = await getJson<Contributor[]>(
@@ -168,7 +168,7 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
       },
     },
     {
-      spec: specOf("github.get_contributor_stats"),
+      ...specOf("github.get_contributor_stats"),
       execute: async (args) => {
         const { full_name } = args as { full_name?: string };
         // 只读前 100 位贡献者的统计快照（确定性，够作排序依据）
@@ -181,7 +181,7 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
       },
     },
     {
-      spec: specOf("github.list_commits"),
+      ...specOf("github.list_commits"),
       execute: async (args) => {
         const { full_name, per_page } = args as { full_name?: string; per_page?: number };
         // per_page=1：只要最新一条；Link 头 rel="last" 的页号即总提交数（一次请求拿到总数）

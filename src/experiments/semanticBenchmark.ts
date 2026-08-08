@@ -32,7 +32,8 @@ import type { Tool } from "@earendil-works/pi-ai";
 
 import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compiler.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
-import { githubTools, type ToolSpec } from "../compiler/registry.js";
+import { githubTools } from "../compiler/registry.js";
+import type { ToolDefinition } from "../tools/definition.js";
 import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
 import { compareValues, mapLimit } from "../runtime/executor.js";
 import { createRealGithubTools } from "../runtime/githubAdapter.js";
@@ -86,7 +87,7 @@ export interface R4dTask {
   takeCounts?: readonly number[];
   dslPrompt: string;
   iterativePrompt: string;
-  tools: readonly ToolSpec[];
+  tools: readonly ToolDefinition[];
 }
 
 const ALL_GITHUB_TOOLS = githubTools.filter((tool) =>
@@ -99,7 +100,7 @@ const ALL_GITHUB_TOOLS = githubTools.filter((tool) =>
 );
 
 /** 各 depth 的工具集（阶段工具逐步增加，避免无关工具干扰模型）。 */
-function toolsForDepth(depth: R4dLevel): readonly ToolSpec[] {
+function toolsForDepth(depth: R4dLevel): readonly ToolDefinition[] {
   const ids =
     depth === "D1"
       ? ["github.search_repositories", "github.get_repository"]
@@ -278,10 +279,10 @@ export async function fetchR4dCellData(
   statsTools: Record<string, RuntimeTool>,
   task: R4dTask,
 ): Promise<R4dCellData> {
-  const result = await searchTool.execute({ query: GITHUB_QUERY, limit: task.n });
+  const result = await searchTool.execute!({ query: GITHUB_QUERY, limit: task.n });
   const items = Array.isArray(result) ? (result as Array<{ full_name: string }>) : [];
   const details = await mapLimit(items, 5, async (item) => {
-    const detail = await repoTool.execute({ full_name: item.full_name });
+    const detail = await repoTool.execute!({ full_name: item.full_name });
     return detail as RepoDetail;
   });
 
@@ -289,7 +290,7 @@ export async function fetchR4dCellData(
   if (task.depth !== "D1") {
     const statsTool = statsTools["github.get_contributor_stats"];
     const stats = await mapLimit(details, 5, async (detail) => {
-      const stat = await statsTool.execute({ full_name: detail.full_name });
+      const stat = await statsTool.execute!({ full_name: detail.full_name });
       return stat as ContributorStats;
     });
     for (const stat of stats) statsMap[stat.full_name] = stat;
@@ -305,7 +306,7 @@ export async function fetchR4dCellData(
     const topP = sortTake(stats, "total_contributions", task.sortDesc, task.midTake ?? MID_TAKE);
     const commitTool = statsTools["github.list_commits"];
     const commits = await mapLimit(topP, 5, async (name) => {
-      const commit = await commitTool.execute({ full_name: name });
+      const commit = await commitTool.execute!({ full_name: name });
       return commit as CommitStats;
     });
     for (const commit of commits) commitMap[commit.full_name] = commit;
@@ -404,9 +405,9 @@ async function runDslArm(
   // 记录 runtime 内部产生的工具结果字节（中间数据留在 runtime，不经模型）
   const runtimeInternal = { bytes: 0 };
   const recordingTools: RuntimeTool[] = tools.map((tool) => ({
-    spec: tool.spec,
+    ...tool,
     execute: async (args) => {
-      const result = await tool.execute(args);
+      const result = await tool.execute!(args);
       runtimeInternal.bytes += Buffer.byteLength(JSON.stringify(result), "utf8");
       return result;
     },
@@ -457,7 +458,7 @@ async function runDslArm(
         allowMapBinding: "call",
       });
       const correctness = checkTaskCorrectness(graph, taskSpec);
-      const registry = new Map(recordingTools.map((tool) => [tool.spec.id, tool]));
+      const registry = new Map(recordingTools.map((tool) => [tool.id, tool]));
       const t1 = performance.now();
       const execution = await execute(graph, registry);
       const runtimeMs = performance.now() - t1;
@@ -568,7 +569,7 @@ async function main(): Promise<number> {
   const tasks = buildR4dTasks();
 
   const findTool = (id: string): RuntimeTool => {
-    const tool = realTools.find((item) => item.spec.id === id);
+    const tool = realTools.find((item) => item.id === id);
     if (!tool) throw new Error(`[FAIL] 未找到工具 ${id}`);
     return tool;
   };
@@ -618,7 +619,7 @@ async function main(): Promise<number> {
   const combos = arms.flatMap((arm) => tasks.map((task) => ({ arm, task })));
   const results = await mapLimit(combos, parallel, async ({ arm, task }) => {
     const groundTruth = groundTruthByCell.get(`${task.depth}|${task.n}`)!;
-    const taskTools = realTools.filter((tool) => task.tools.some((spec) => spec.id === tool.spec.id));
+    const taskTools = realTools.filter((tool) => task.tools.some((spec) => spec.id === tool.id));
     const runs: ArmResult[] = [];
     for (let i = 0; i < samples; i += 1) {
       // pacing：样本间间隔，避免相同 query 高频命中 GitHub 搜索限流

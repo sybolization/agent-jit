@@ -32,7 +32,7 @@ describe("createRealGithubTools — 真实 GitHub adapter（mock fetch）", () =
       }),
     ]);
     const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
-    const result = await tools.find((tool) => tool.spec.id === "github.search_repositories")!.execute({ query: "agent framework", limit: 10 });
+    const result = await tools.find((tool) => tool.id === "github.search_repositories")!.execute!({ query: "agent framework", limit: 10 });
 
     expect(calls[0]!.url).toBe("https://api.test/search/repositories?q=agent%20framework&per_page=10&sort=stars");
     expect(calls[0]!.headers.authorization).toBe("Bearer test-token");
@@ -49,7 +49,7 @@ describe("createRealGithubTools — 真实 GitHub adapter（mock fetch）", () =
       jsonResponse({ full_name: "owner/repo", stargazers_count: 99, forks_count: 12, archived: false, language: "Python" }),
     ]);
     const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
-    const result = await tools.find((tool) => tool.spec.id === "github.get_repository")!.execute({ full_name: "owner/repo" });
+    const result = await tools.find((tool) => tool.id === "github.get_repository")!.execute!({ full_name: "owner/repo" });
 
     expect(calls[0]!.url).toBe("https://api.test/repos/owner/repo");
     expect(result).toEqual({ full_name: "owner/repo", stars: 99, forks: 12, archived: false, language: "Python" });
@@ -61,23 +61,23 @@ describe("createRealGithubTools — 真实 GitHub adapter（mock fetch）", () =
       jsonResponse({ items: [{ full_name: "owner/a", stargazers_count: 1, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" }] }),
     ]);
     const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
-    const detail = (await tools.find((tool) => tool.spec.id === "github.get_repository")!.execute({ full_name: "owner/repo" })) as Record<string, unknown>;
+    const detail = (await tools.find((tool) => tool.id === "github.get_repository")!.execute!({ full_name: "owner/repo" })) as Record<string, unknown>;
     expect(detail.forks).toBe(12);
-    const search = (await tools.find((tool) => tool.spec.id === "github.search_repositories")!.execute({ query: "x", limit: 5 })) as Array<Record<string, unknown>>;
+    const search = (await tools.find((tool) => tool.id === "github.search_repositories")!.execute!({ query: "x", limit: 5 })) as Array<Record<string, unknown>>;
     expect(search[0]).not.toHaveProperty("forks");
   });
 
   test("get_languages：原样返回语言对象", async () => {
     const { fn } = makeFetch([jsonResponse({ TypeScript: 1200, JavaScript: 300 })]);
     const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
-    const result = await tools.find((tool) => tool.spec.id === "github.get_languages")!.execute({ full_name: "owner/repo" });
+    const result = await tools.find((tool) => tool.id === "github.get_languages")!.execute!({ full_name: "owner/repo" });
     expect(result).toEqual({ TypeScript: 1200, JavaScript: 300 });
   });
 
   test("list_contributors：per_page 默认 30，映射 login/contributions", async () => {
     const { fn, calls } = makeFetch([jsonResponse([{ login: "alice", contributions: 50 }])]);
     const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
-    const result = await tools.find((tool) => tool.spec.id === "github.list_contributors")!.execute({ full_name: "owner/repo" });
+    const result = await tools.find((tool) => tool.id === "github.list_contributors")!.execute!({ full_name: "owner/repo" });
     expect(calls[0]!.url).toBe("https://api.test/repos/owner/repo/contributors?per_page=30");
     expect(result).toEqual([{ login: "alice", contributions: 50 }]);
   });
@@ -91,7 +91,7 @@ describe("createRealGithubTools — 真实 GitHub adapter（mock fetch）", () =
       ]),
     ]);
     const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
-    const result = await tools.find((tool) => tool.spec.id === "github.get_contributor_stats")!.execute({ full_name: "owner/repo" });
+    const result = await tools.find((tool) => tool.id === "github.get_contributor_stats")!.execute!({ full_name: "owner/repo" });
     expect(calls[0]!.url).toBe("https://api.test/repos/owner/repo/contributors?per_page=100");
     expect(result).toEqual({ full_name: "owner/repo", contributor_count: 3, total_contributions: 100 });
   });
@@ -103,7 +103,7 @@ describe("createRealGithubTools — 真实 GitHub adapter（mock fetch）", () =
       }),
     ]);
     const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
-    const result = await tools.find((tool) => tool.spec.id === "github.list_commits")!.execute({ full_name: "owner/repo" });
+    const result = await tools.find((tool) => tool.id === "github.list_commits")!.execute!({ full_name: "owner/repo" });
     expect(calls[0]!.url).toBe("https://api.test/repos/owner/repo/commits?per_page=1");
     expect(result).toEqual({
       full_name: "owner/repo",
@@ -115,7 +115,7 @@ describe("createRealGithubTools — 真实 GitHub adapter（mock fetch）", () =
   test("list_commits：无 Link 头 → total_commits 回退为返回条数", async () => {
     const { fn } = makeFetch([jsonResponse([{ sha: "abc", commit: { committer: { date: null } } }])]);
     const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
-    const result = await tools.find((tool) => tool.spec.id === "github.list_commits")!.execute({ full_name: "owner/repo" });
+    const result = await tools.find((tool) => tool.id === "github.list_commits")!.execute!({ full_name: "owner/repo" });
     expect(result).toMatchObject({ full_name: "owner/repo", total_commits: 1, latest_commit_at: null });
   });
 
@@ -128,7 +128,7 @@ describe("createRealGithubTools — 真实 GitHub adapter（mock fetch）", () =
       baseUrl: "https://api.test",
       sleep: async () => {}, // 测试不真实等待
     });
-    await expect(tools.find((tool) => tool.spec.id === "github.get_repository")!.execute({ full_name: "a/b" })).rejects.toThrow(/rate limit/);
+    await expect(tools.find((tool) => tool.id === "github.get_repository")!.execute!({ full_name: "a/b" })).rejects.toThrow(/rate limit/);
   });
 
   test("429 后重试成功：限流是瞬时的，重试拿到数据", async () => {
@@ -137,14 +137,14 @@ describe("createRealGithubTools — 真实 GitHub adapter（mock fetch）", () =
       jsonResponse({ full_name: "owner/repo", stargazers_count: 99, forks_count: 12, archived: false, language: "TypeScript" }),
     ]);
     const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test", sleep: async () => {} });
-    const result = await tools.find((tool) => tool.spec.id === "github.get_repository")!.execute({ full_name: "owner/repo" });
+    const result = await tools.find((tool) => tool.id === "github.get_repository")!.execute!({ full_name: "owner/repo" });
     expect(result).toMatchObject({ full_name: "owner/repo", forks: 12 });
   });
 
   test("404：抛资源不存在错误", async () => {
     const { fn } = makeFetch([jsonResponse({ message: "Not Found" }, { status: 404 })]);
     const tools = createRealGithubTools({ token: "test-token", fetch: fn, baseUrl: "https://api.test" });
-    await expect(tools.find((tool) => tool.spec.id === "github.get_repository")!.execute({ full_name: "ghost/repo" })).rejects.toThrow(/404/);
+    await expect(tools.find((tool) => tool.id === "github.get_repository")!.execute!({ full_name: "ghost/repo" })).rejects.toThrow(/404/);
   });
 
   test("缺 token：创建时报错", () => {
