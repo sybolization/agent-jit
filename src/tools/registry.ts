@@ -13,6 +13,9 @@ export class ToolRegistry<T extends ToolContract = ToolContract> implements Tool
     for (const definition of definitions) this.register(definition);
   }
   register(definition: T): void {
+    if (this.byId.has(definition.id)) {
+      throw new Error(`工具 id 重复注册：${definition.id}`);
+    }
     this.byId.set(definition.id, definition);
   }
   get(id: string): T | undefined {

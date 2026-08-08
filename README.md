@@ -11,7 +11,7 @@ decides a path is deterministic
       ↓
 execute_program(source)
       ↓
-Compiler → typed Execution IR → Runtime → Tools
+Compiler → schema-validated Execution IR → Runtime → Tools
       ↓
 compressed result
       ↓
@@ -32,7 +32,7 @@ Agent JIT 的目标不是让 Agent 更聪明，而是让 Agent **不再为那些
 
 这里的 **JIT = dynamic agent path compilation / offloading**：
 
-> Agent 在运行过程中识别出一段已经足够确定的未来执行路径，用受限 DSL 描述它；compiler 将其编译成 typed Execution IR；runtime 直接执行这段路径，而不再让每一步工具调用重新经过 LLM context。
+> Agent 在运行过程中识别出一段已经足够确定的未来执行路径，用受限 DSL 描述它；compiler 将其编译成 schema-validated Execution IR；runtime 直接执行这段路径，而不再让每一步工具调用重新经过 LLM context。
 
 类比传统 JIT：
 
@@ -100,7 +100,7 @@ LLM / Agent
 生成受限 DSL 程序
     ↓
 Compiler
-(static checking → typed IR)
+(static checking → schema-validated IR)
     ↓
 Execution IR
 (tool / map / compute / join / return)
@@ -301,7 +301,7 @@ details = map(
     github.get_repository(full_name=_.full_name)
 )
 
-active = filter(details, expr="archived == false")
+active = filter(details, archived=false)
 ranked = sort(active, key="stars", desc=true)
 
 return take(ranked, 3)
@@ -341,7 +341,7 @@ source
 → tokenizer / parser
 → AST
 → static validation
-→ typed Execution IR
+→ schema-validated Execution IR
 ```
 
 当前包括：
@@ -742,9 +742,6 @@ tests/
 
 experiment_result/
     markdown reports for experiment rounds
-
-docs/
-    design notes and project knowledge
 ```
 
 ---

@@ -63,7 +63,7 @@ export function createRealGithubTools(options: RealGithubAdapterOptions = {}): R
     authorization: `Bearer ${token}`,
     accept: "application/vnd.github+json",
     "x-github-api-version": "2022-11-28",
-    "user-agent": "agent-dsl-r4-experiment",
+    "user-agent": "agent-jit",
   };
 
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));

@@ -5,9 +5,8 @@ import { schemaViewOf, schemaViewText } from "../tools/schemaView.js";
 /**
  * 把 tool registry 渲染为 DSL 调用签名目录（给 LLM 的系统 prompt）。
  *
- * 与 canvas 的 `renderWorkflowDslCatalog` 同一思路：从 registry 自动
- * 渲染，模型看到的参数名/类型/必填与编译器校验完全一致，杜绝"自创参数"
- * （编译器用 unknown_parameter 拒绝幻觉参数名）。
+ * 从 registry 自动渲染，模型看到的参数名/类型/必填与编译器校验完全一致，
+ * 杜绝"自创参数"（编译器用 unknown_parameter 拒绝幻觉参数名）。
  *
  * 参数/输出均从 inputSchema / outputSchema 渲染（唯一事实源），不再有
  * 第二份手工描述。

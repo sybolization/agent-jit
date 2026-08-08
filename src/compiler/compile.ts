@@ -25,17 +25,17 @@ import { buildTakeNode } from "./builtins/take.js";
  * Agent Execution DSL 编译器（canonical 入口，REQ-7 冻结语法）。
  *
  * 语言前端复用 `src/language/`（tokenizer / parser），本文件实现语义层：
- * - tool callee（registry 中的工具）→ `ToolNode`，参数校验沿用 canvas 经验
+ * - tool callee（registry 中的工具）→ `ToolNode`，参数校验
  *   （unknown_parameter / config_type_mismatch，LLM 幻觉参数名在编译期拒绝）；
  * - `map` / `take` / `filter` / `sort` / `compute` / `select` / `join` / `return`
  *   → 语言级 construct（`MapNode` / `ComputeNode` / `JoinNode` / `ReturnNode`），
  *   `source` / `value` 必须是变量引用（引用即数据流边）；
  * - 未注册 callee → `unknown_tool`。
  *
- * canonical 语法冻结：map 必须是调用绑定形态（`map(xs, tool(field=_.field))`）、
- * 位置参数永远允许、tool 必须是双引号字符串字面量 id。R1–R3 变体
- * （key= 元数据 / lambda / callable-ref 裸标识符）见
- * `src/experiments/languageVariants/legacyCompile.ts`。
+ * canonical 语法冻结：map 的第二个参数必须是嵌套工具调用绑定形态
+ * （`map(xs, tool(field=_.field))`，字符串 id 会被拒绝）、
+ * 位置参数永远允许。R1–R3 变体（key= 元数据 / lambda /
+ * callable-ref 裸标识符）见 `src/experiments/languageVariants/legacyCompile.ts`。
  *
  * 输出确定性：同一段 DSL 永远编译出同一张图，并做 schema 自校验。
  */
@@ -90,9 +90,8 @@ function buildNode(
 /**
  * Compile Agent Execution DSL source into an `ExecutionGraph`.
  *
- * 与 `compileCanvasDsl` 同构：硬错误（语法 / 未知工具 / 未定义引用 /
- * 重名 / 参数幻觉）一次性抛出，soft 语义留待后续阶段。产物通过
- * `ExecutionGraphSchema` 自校验后返回。
+ * 硬错误（语法 / 未知工具 / 未定义引用 / 重名 / 参数幻觉）一次性抛出，
+ * soft 语义留待后续阶段。产物通过 `ExecutionGraphSchema` 自校验后返回。
  */
 export function compileExecutionDsl(
   source: string,

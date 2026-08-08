@@ -33,11 +33,13 @@ describe("ToolRegistry — register/get/has/all/ids", () => {
     expect(registry.has("github.get_repository")).toBe(true);
   });
 
-  test("register 同名 id 覆盖", () => {
+  test("register 同名 id 拒绝（重复注册尽早报错）", () => {
     const registry = new ToolRegistry();
     registry.register({ id: "demo.a", label: "A1", inputSchema: Type.Object({}), outputSchema: Type.Object({}) });
-    registry.register({ id: "demo.a", label: "A2", inputSchema: Type.Object({}), outputSchema: Type.Object({}) });
-    expect(registry.get("demo.a")?.label).toBe("A2");
+    expect(() =>
+      registry.register({ id: "demo.a", label: "A2", inputSchema: Type.Object({}), outputSchema: Type.Object({}) }),
+    ).toThrow(/重复注册/);
+    expect(registry.get("demo.a")?.label).toBe("A1");
     expect(registry.all()).toHaveLength(1);
   });
 });

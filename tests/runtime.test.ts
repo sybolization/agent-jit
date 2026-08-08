@@ -92,27 +92,27 @@ describe("runtime — map concurrency", () => {
   function probeRegistry(concurrency: number): { registry: RuntimeRegistry; peak: () => number } {
     let active = 0;
     let peak = 0;
-    const registry = mockRegistry();
-    const original = registry.get("github.get_repository");
-    if (!original) throw new Error("mock registry missing get_repository");
-    registry.register({
-      ...original,
-      execute: async (args) => {
-        active += 1;
-        peak = Math.max(peak, active);
-        await new Promise((resolve) => setTimeout(resolve, 30));
-        active -= 1;
-        // 输出必须匹配 get_repository 的 outputSchema（REQ-2 运行时校验）
-        return {
-          full_name: String((args as Record<string, unknown>).full_name ?? ""),
-          stars: 100,
-          forks: 200,
-          archived: false,
-          language: "TypeScript",
-        };
-      },
+    const tools = createMockGithubTools({ repositoryCount: 10 }).map((tool) => {
+      if (tool.id !== "github.get_repository") return tool;
+      return {
+        ...tool,
+        execute: async (args: unknown) => {
+          active += 1;
+          peak = Math.max(peak, active);
+          await new Promise((resolve) => setTimeout(resolve, 30));
+          active -= 1;
+          // 输出必须匹配 get_repository 的 outputSchema（REQ-2 运行时校验）
+          return {
+            full_name: String((args as Record<string, unknown>).full_name ?? ""),
+            stars: 100,
+            forks: 200,
+            archived: false,
+            language: "TypeScript",
+          };
+        },
+      };
     });
-    return { registry, peak: () => peak };
+    return { registry: new ToolRegistry<RegisteredTool>(tools), peak: () => peak };
   }
 
   test.each([1, 2, 5, 10])("DSL 描述逻辑并行度，runtime 实际限制并发（concurrency=%i）", async (concurrency) => {
