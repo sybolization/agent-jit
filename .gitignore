@@ -12,3 +12,6 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Trae IDE 本地配置与开发文档（spec/plan/documents），不纳入版本控制
+.trae/
