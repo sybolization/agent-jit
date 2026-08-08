@@ -1,5 +1,5 @@
 /**
- * R4e 受限表达式（compute 字段计算 / select 谓词）。
+ * R4e 受限表达式（compute 字段计算 / select 谓词）——语言前端 expression 域。
  *
  * 刻意**不是**完整表达式 VM：只支持
  * - 字面量：数字、字符串、true/false/null；
@@ -8,9 +8,9 @@
  * - 括号、一元负号。
  *
  * 拒绝函数调用、数组、字符串拼接、对象等——DSL 的 compute/select 是
- * 元素级纯函数。compiler 用 parseExpr 预校验（错误在编译期暴露，
- * repair 可修）；executor 与 benchmark oracle 共用 evalExpr，保证
- * "执行语义 == oracle 语义"。
+ * 元素级纯函数。compiler 在编译期 parseExpr 一次并把 AST 编入 IR 节点
+ * （错误在编译期暴露，repair 可修）；executor 与 benchmark oracle 共用
+ * evalExpr，保证"执行语义 == oracle 语义"。
  */
 
 export type BinaryOp = "+" | "-" | "*" | "/" | ">" | ">=" | "<" | "<=" | "==" | "!=";

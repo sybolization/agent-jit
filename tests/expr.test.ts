@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { evalExpr, parseExpr, isComparisonExpr } from "../src/runtime/expr.js";
+import { evalExpr, parseExpr, isComparisonExpr } from "../src/language/expression.js";
 
 describe("parseExpr / evalExpr — 受限表达式求值", () => {
   const evalSrc = (src: string, record: Record<string, unknown>) => {

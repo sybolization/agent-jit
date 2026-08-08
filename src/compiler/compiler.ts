@@ -4,7 +4,7 @@ import type { LiteralValue, ParsedStatement } from "../language/ast.js";
 import type { DslDiagnostic } from "../language/diagnostics.js";
 import { Parser } from "../language/parser.js";
 import { tokenize } from "../language/tokenizer.js";
-import { isComparisonExpr, parseExpr } from "../runtime/expr.js";
+import { isComparisonExpr, parseExpr, type ExprNode } from "../language/expression.js";
 import {
   ExecutionGraphSchema,
   type ExecutionGraph,
@@ -745,6 +745,7 @@ function buildComputeNode(
   const source = refArg(effective, "source", defined, diagnostics);
 
   const args: Record<string, LiteralValue> = {};
+  const exprs: Record<string, ExprNode> = {};
   for (const arg of effective.args) {
     if (arg.key === "source" || arg.key === undefined) continue;
     if (arg.value.kind !== "literal" || typeof arg.value.literal !== "string") {
@@ -767,6 +768,7 @@ function buildComputeNode(
       continue;
     }
     args[arg.key] = arg.value.literal;
+    exprs[arg.key] = parsed.node;
   }
 
   if (Object.keys(args).length === 0) {
@@ -778,7 +780,7 @@ function buildComputeNode(
     });
   }
   if (!source || Object.keys(args).length === 0) return undefined;
-  return { id: statement.name, kind: "compute", op: "compute", source, args };
+  return { id: statement.name, kind: "compute", op: "compute", source, args, expr: exprs };
 }
 
 /**
@@ -796,6 +798,7 @@ function buildSelectNode(
   if (!effective) return undefined;
   const source = refArg(effective, "source", defined, diagnostics);
   const pred = literalArg(effective, "pred", diagnostics, { required: true });
+  const exprs: Record<string, ExprNode> = {};
   if (typeof pred === "string") {
     const parsed = parseExpr(pred);
     if (!parsed.ok) {
@@ -812,6 +815,8 @@ function buildSelectNode(
         message: `select 谓词“${pred}”必须是比较表达式（结果应为布尔）`,
         suggestion: '如 "ratio > 0.15" 或 "score >= 100"',
       });
+    } else {
+      exprs.pred = parsed.node;
     }
   } else if (pred !== undefined) {
     diagnostics.push({
@@ -832,7 +837,7 @@ function buildSelectNode(
     }
   }
   if (!source || typeof pred !== "string") return undefined;
-  return { id: statement.name, kind: "compute", op: "select", source, args: { pred } };
+  return { id: statement.name, kind: "compute", op: "select", source, args: { pred }, expr: exprs };
 }
 
 /**

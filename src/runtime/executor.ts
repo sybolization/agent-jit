@@ -2,7 +2,7 @@ import type { ExecutionNode, ValueExpr } from "../compiler/ir.js";
 import type { RuntimeRegistry } from "./runtime.js";
 import { Value } from "typebox/value";
 import type { TSchema } from "typebox";
-import { evalExpr, parseExpr } from "./expr.js";
+import { evalExpr, type ExprNode } from "../language/expression.js";
 import { type TraceEntry, valueSize } from "./trace.js";
 import type { ValueStore } from "./valueStore.js";
 
@@ -160,24 +160,26 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
         return [...source].sort((left, right) => compare(left, right));
       }
       if (node.op === "compute") {
-        // 元素级字段计算：浅拷贝 + 按 <输出字段>=<表达式字符串> 计算新字段（按声明顺序）
+        // 元素级字段计算：浅拷贝 + 按 <输出字段>=<表达式> 计算新字段（按声明顺序）；
+        // AST 在编译期已解析好并随 IR 携带（node.expr），执行只 eval 不再 parse
+        const exprs = (node.expr ?? {}) as Record<string, ExprNode>;
         return source.map((item) => {
           const record =
             typeof item === "object" && item !== null ? { ...(item as Record<string, unknown>) } : {};
           for (const [out, exprSrc] of Object.entries(node.args)) {
-            const parsed = parseExpr(String(exprSrc));
-            if (!parsed.ok) throw new Error(`compute 表达式 "${exprSrc}" 解析失败：${parsed.error}`);
-            record[out] = evalExpr(parsed.node, record);
+            const ast = exprs[out];
+            if (!ast) throw new Error(`compute 节点缺少字段 "${out}" 的表达式 AST`);
+            record[out] = evalExpr(ast, record);
           }
           return record;
         });
       }
       if (node.op === "select") {
-        const parsed = parseExpr(String(node.args.pred ?? ""));
-        if (!parsed.ok) throw new Error(`select 谓词 "${node.args.pred}" 解析失败：${parsed.error}`);
+        const ast = (node.expr as Record<string, ExprNode> | undefined)?.["pred"];
+        if (!ast) throw new Error("select 节点缺少谓词 AST");
         return source.filter((item) => {
           if (typeof item !== "object" || item === null) return false;
-          return evalExpr(parsed.node, item as Record<string, unknown>) === true;
+          return evalExpr(ast, item as Record<string, unknown>) === true;
         });
       }
       throw new Error(`compute op “${node.op}” 尚未实现`);

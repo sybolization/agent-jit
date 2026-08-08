@@ -71,6 +71,8 @@ export const ComputeNodeSchema = Type.Object(
     ]),
     source: Type.String({ minLength: 1, maxLength: 200 }),
     args: Type.Record(Type.String(), ExecutionLiteralSchema, { additionalProperties: false }),
+    /** R4e：编译期解析好的表达式 AST（op==="compute" 时是 输出字段→AST；op==="select" 时是 { pred: AST }）；args 中保留源码字符串供诊断/图语义检查 */
+    expr: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
   },
   { additionalProperties: false },
 );
