@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { compileExecutionDsl, ExecutionDslCompileError } from "../src/compiler/compiler.js";
+import { compileExecutionDslLegacy } from "../src/experiments/languageVariants/legacyCompile.js";
+import { ExecutionDslCompileError } from "../src/compiler/compile.js";
 import type { ExecutionNode } from "../src/compiler/ir.js";
 import { githubTools } from "../src/compiler/registry.js";
 import { mockDomainToolSpecs } from "../src/runtime/mockTools.js";
@@ -73,19 +74,19 @@ describe("R3 compiler — 三臂同一语义产出相同 IR", () => {
   };
 
   test("A 臂 key= 编译成 bindings IR", () => {
-    const { graph, diagnostics } = compileExecutionDsl(DSL_A, { tools: githubTools, allowPositionalArgs: true });
+    const { graph, diagnostics } = compileExecutionDslLegacy(DSL_A, { tools: githubTools});
     expect(diagnostics).toEqual([]);
     expect(byId(graph.nodes).get("details")).toEqual(expectedMap);
   });
 
   test("B 臂 call 表达式编译成相同 bindings IR", () => {
-    const { graph, diagnostics } = compileExecutionDsl(DSL_B, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" });
+    const { graph, diagnostics } = compileExecutionDslLegacy(DSL_B, { tools: githubTools, allowMapBinding: "call" });
     expect(diagnostics).toEqual([]);
     expect(byId(graph.nodes).get("details")).toEqual(expectedMap);
   });
 
   test("C 臂 lambda 编译成相同 bindings IR", () => {
-    const { graph, diagnostics } = compileExecutionDsl(DSL_C, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "lambda" });
+    const { graph, diagnostics } = compileExecutionDslLegacy(DSL_C, { tools: githubTools, allowMapBinding: "lambda" });
     expect(diagnostics).toEqual([]);
     expect(byId(graph.nodes).get("details")).toEqual(expectedMap);
   });
@@ -94,20 +95,20 @@ describe("R3 compiler — 三臂同一语义产出相同 IR", () => {
 describe("R3 compiler — 形态探针与诊断码", () => {
   test("默认（key 臂）写 call 表达式 → MAP_BINDING_CALL_NOT_ALLOWED", () => {
     const dsl = [REPOS, "details = map(repos, github.get_repository(full_name=_.full_name))", "return details"].join("\n");
-    const codes = collectCodes(() => compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true }));
+    const codes = collectCodes(() => compileExecutionDslLegacy(dsl, { tools: githubTools}));
     expect(codes).toContain("MAP_BINDING_CALL_NOT_ALLOWED");
   });
 
   test("key 臂写 lambda → MAP_BINDING_LAMBDA_NOT_ALLOWED", () => {
     const dsl = [REPOS, "details = map(repos, lambda repo: github.get_repository(full_name=repo.full_name))", "return details"].join("\n");
-    const codes = collectCodes(() => compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true }));
+    const codes = collectCodes(() => compileExecutionDslLegacy(dsl, { tools: githubTools}));
     expect(codes).toContain("MAP_BINDING_LAMBDA_NOT_ALLOWED");
   });
 
   test("call 臂写 key= 元数据 → MAP_BINDING_EXPECTED_CALL", () => {
     const dsl = [REPOS, 'details = map(repos, "github.get_repository", key="full_name")', "return details"].join("\n");
     const codes = collectCodes(() =>
-      compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }),
+      compileExecutionDslLegacy(dsl, { tools: githubTools, allowMapBinding: "call" }),
     );
     expect(codes).toContain("MAP_BINDING_EXPECTED_CALL");
   });
@@ -115,7 +116,7 @@ describe("R3 compiler — 形态探针与诊断码", () => {
   test("call 臂写 lambda → MAP_BINDING_LAMBDA_NOT_ALLOWED", () => {
     const dsl = [REPOS, "details = map(repos, lambda repo: github.get_repository(full_name=repo.full_name))", "return details"].join("\n");
     const codes = collectCodes(() =>
-      compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }),
+      compileExecutionDslLegacy(dsl, { tools: githubTools, allowMapBinding: "call" }),
     );
     expect(codes).toContain("MAP_BINDING_LAMBDA_NOT_ALLOWED");
   });
@@ -123,7 +124,7 @@ describe("R3 compiler — 形态探针与诊断码", () => {
   test("call 臂混用 key= 命名参数 → MAP_BINDING_KEY_NOT_ALLOWED", () => {
     const dsl = [REPOS, 'details = map(repos, github.get_repository(full_name=_.full_name), key="full_name")', "return details"].join("\n");
     const codes = collectCodes(() =>
-      compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }),
+      compileExecutionDslLegacy(dsl, { tools: githubTools, allowMapBinding: "call" }),
     );
     expect(codes).toContain("MAP_BINDING_KEY_NOT_ALLOWED");
   });
@@ -136,7 +137,7 @@ describe("R3 compiler — 多字段 / 异名绑定", () => {
       "m = map(users, email.prepare(to=_.email, name=_.name))",
       "return m",
     ].join("\n");
-    const { graph, diagnostics } = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "call" });
+    const { graph, diagnostics } = compileExecutionDslLegacy(dsl, { tools: mockDomainToolSpecs, allowMapBinding: "call" });
     expect(diagnostics).toEqual([]);
     expect(byId(graph.nodes).get("m")).toMatchObject({
       kind: "map",
@@ -147,7 +148,7 @@ describe("R3 compiler — 多字段 / 异名绑定", () => {
 
   test("call 臂异名绑定（id → customer_id）", () => {
     const dsl = ["cs = crm.search_customers(limit=10)", "m = map(cs, crm.get_customer(customer_id=_.id))", "return m"].join("\n");
-    const { graph, diagnostics } = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "call" });
+    const { graph, diagnostics } = compileExecutionDslLegacy(dsl, { tools: mockDomainToolSpecs, allowMapBinding: "call" });
     expect(diagnostics).toEqual([]);
     expect(byId(graph.nodes).get("m")).toMatchObject({
       kind: "map",
@@ -158,7 +159,7 @@ describe("R3 compiler — 多字段 / 异名绑定", () => {
 
   test("lambda 臂多字段绑定", () => {
     const dsl = ["users = users.list_users()", "m = map(users, lambda u: email.prepare(to=u.email, name=u.name))", "return m"].join("\n");
-    const { graph, diagnostics } = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "lambda" });
+    const { graph, diagnostics } = compileExecutionDslLegacy(dsl, { tools: mockDomainToolSpecs, allowMapBinding: "lambda" });
     expect(diagnostics).toEqual([]);
     expect(byId(graph.nodes).get("m")).toMatchObject({ bindings: { to: "email", name: "name" } });
   });
@@ -168,7 +169,7 @@ describe("R3 compiler — binding 内部校验", () => {
   test("call 内引用未注册工具 → unknown_tool", () => {
     const dsl = [REPOS, "details = map(repos, github.nope(full_name=_.full_name))", "return details"].join("\n");
     const codes = collectCodes(() =>
-      compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }),
+      compileExecutionDslLegacy(dsl, { tools: githubTools, allowMapBinding: "call" }),
     );
     expect(codes).toContain("unknown_tool");
   });
@@ -176,7 +177,7 @@ describe("R3 compiler — binding 内部校验", () => {
   test("call 内参数幻觉 → unknown_parameter", () => {
     const dsl = [REPOS, "details = map(repos, github.get_repository(bogus=_.full_name))", "return details"].join("\n");
     const codes = collectCodes(() =>
-      compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }),
+      compileExecutionDslLegacy(dsl, { tools: githubTools, allowMapBinding: "call" }),
     );
     expect(codes).toContain("unknown_parameter");
   });
@@ -184,7 +185,7 @@ describe("R3 compiler — binding 内部校验", () => {
   test("call 内绑定引用不是 _. 前缀 → MAP_BINDING_REF_INVALID", () => {
     const dsl = [REPOS, "details = map(repos, github.get_repository(full_name=repo))", "return details"].join("\n");
     const codes = collectCodes(() =>
-      compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }),
+      compileExecutionDslLegacy(dsl, { tools: githubTools, allowMapBinding: "call" }),
     );
     expect(codes).toContain("MAP_BINDING_REF_INVALID");
   });
@@ -192,7 +193,7 @@ describe("R3 compiler — binding 内部校验", () => {
   test("lambda 体不是调用 → syntax", () => {
     const dsl = [REPOS, "details = map(repos, lambda repo: 42)", "return details"].join("\n");
     const codes = collectCodes(() =>
-      compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "lambda" }),
+      compileExecutionDslLegacy(dsl, { tools: githubTools, allowMapBinding: "lambda" }),
     );
     expect(codes).toContain("syntax");
   });

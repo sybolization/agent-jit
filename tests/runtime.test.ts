@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { Type } from "typebox";
 
-import { compileExecutionDsl } from "../src/compiler/compiler.js";
+import { compileExecutionDsl } from "../src/compiler/compile.js";
+import { compileExecutionDslLegacy } from "../src/experiments/languageVariants/legacyCompile.js";
 import type { ExecutionGraph } from "../src/compiler/ir.js";
 import { githubTools } from "../src/compiler/registry.js";
 import type { ToolDefinition } from "../src/tools/definition.js";
@@ -11,17 +12,17 @@ import { renderTraceText } from "../src/runtime/trace.js";
 
 const FOUR_LINE = [
   'repos = github.search_repositories(query="agent framework", limit=10)',
-  'details = map(source=repos, tool="github.get_repository", key="full_name", concurrency=5)',
-  "top = take(source=details, count=5)",
-  "return(value=top)",
+  "details = map(repos, github.get_repository(full_name=_.full_name))",
+  "top = take(details, 5)",
+  "return top",
 ].join("\n");
 
 function fourLineWithConcurrency(concurrency: number): string {
   return [
     'repos = github.search_repositories(query="agent framework", limit=10)',
-    `details = map(source=repos, tool="github.get_repository", key="full_name", concurrency=${concurrency})`,
-    "top = take(source=details, count=5)",
-    "return(value=top)",
+    `details = map(repos, github.get_repository(full_name=_.full_name), concurrency=${concurrency})`,
+    "top = take(details, 5)",
+    "return top",
   ].join("\n");
 }
 
@@ -135,7 +136,7 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
       "m = map(users, email.prepare(to=_.email, name=_.name))",
       "return m",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
     const result = await execute(graph, domainRegistry());
     expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
@@ -148,7 +149,7 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
       "m = map(cs, crm.get_customer(customer_id=_.id))",
       "return m",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
     const result = await execute(graph, domainRegistry());
     expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
@@ -161,7 +162,7 @@ describe("runtime — R3 map bindings 多字段与异名展开", () => {
       "m = map(users, lambda u: email.prepare(to=u.email, name=u.name))",
       "return m",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "lambda" }).graph;
+    const graph = compileExecutionDslLegacy(dsl, { tools: mockDomainToolSpecs, allowMapBinding: "lambda" }).graph;
     const result = await execute(graph, domainRegistry());
     expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
@@ -184,7 +185,7 @@ describe("runtime — R4c compute filter/sort", () => {
       'active = filter(src, archived=false, language="TypeScript")',
       "return active",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
     // 输出须匹配 search 的 outputSchema（full_name/stars/archived/pushed_at/language）——缺字段/非对象已被 schema 校验在上游拦截
     const result = await execute(graph, literalSourceRegistry([
       { full_name: "a", stars: 1, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
@@ -203,7 +204,7 @@ describe("runtime — R4c compute filter/sort", () => {
       'ranked = sort(src, key="stars", desc=true)',
       "return ranked",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
     const source = [
       { full_name: "a", stars: 5, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
       { full_name: "b", stars: 1, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
@@ -226,7 +227,7 @@ describe("runtime — R4c compute filter/sort", () => {
       'ranked = sort(src, key="full_name")',
       "return ranked",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
     const result = await execute(graph, literalSourceRegistry([
       { full_name: "b", stars: 1, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
       { full_name: "a", stars: 2, archived: false, pushed_at: "2026-01-01T00:00:00Z", language: "TypeScript" },
@@ -275,7 +276,7 @@ describe("runtime — R4c compute filter/sort", () => {
       "top = take(ranked, 3)",
       "return top",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
     const result = await execute(graph, registry);
     expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
@@ -304,7 +305,7 @@ describe("runtime — R4e compute/select/join 执行", () => {
   ].join("\n");
 
   test("端到端：compute→分支→两路 map→join→阈值→sort→take 与 oracle 一致", async () => {
-    const graph = compileExecutionDsl(DSL, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const graph = compileExecutionDsl(DSL, { tools: githubTools}).graph;
     const result = await execute(graph, registry);
     expect(result.status).toBe("success");
     const items = result.result as Array<Record<string, unknown>>;
@@ -319,7 +320,7 @@ describe("runtime — R4e compute/select/join 执行", () => {
       'ratio = compute(details, ratio="forks / stars")',
       "return ratio",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
     const result = await execute(graph, registry);
     const items = result.result as Array<Record<string, unknown>>;
     expect(items[0]).toMatchObject({ full_name: "adv/org-repo-0", ratio: 80 / 530 });
@@ -338,7 +339,7 @@ describe("runtime — R4e compute/select/join 执行", () => {
       'merged = join(ratio, contrib, commit, key="full_name")',
       "return merged",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
     const result = await execute(graph, registry);
     const items = result.result as Array<Record<string, unknown>>;
     const byName = new Map(items.map((item) => [item.full_name, item]));

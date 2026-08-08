@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import type { Tool } from "@earendil-works/pi-ai";
 
-import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compiler.js";
+import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compile.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
 import { githubTools } from "../compiler/registry.js";
 import type { ToolDefinition } from "../tools/definition.js";
@@ -187,9 +187,6 @@ async function runDslArm(
     try {
       const { graph } = compileExecutionDsl(source, {
         tools: task.tools,
-        allowCallableRef: false,
-        allowPositionalArgs: true,
-        allowMapBinding: "call",
       });
       const correctness = checkTaskCorrectness(graph, taskSpec);
       const registry = new Map(tools.map((tool) => [tool.id, tool]));

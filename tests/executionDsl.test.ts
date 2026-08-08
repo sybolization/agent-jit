@@ -1,15 +1,16 @@
 import { describe, expect, test } from "vitest";
 import { Value } from "typebox/value";
 
-import { compileExecutionDsl, ExecutionDslCompileError } from "../src/compiler/compiler.js";
+import { compileExecutionDsl, ExecutionDslCompileError } from "../src/compiler/compile.js";
+import { compileExecutionDslLegacy } from "../src/experiments/languageVariants/legacyCompile.js";
 import { ExecutionGraphSchema, type ExecutionNode } from "../src/compiler/ir.js";
 import { githubTools } from "../src/compiler/registry.js";
 
 const FOUR_LINE = [
   'repos = github.search_repositories(query="agent framework", limit=10)',
-  'details = map(source=repos, tool="github.get_repository", key="full_name", concurrency=5)',
-  "top = take(source=details, count=5)",
-  "return(value=top)",
+  "details = map(repos, github.get_repository(full_name=_.full_name))",
+  "top = take(details, 5)",
+  "return top",
 ].join("\n");
 
 const byId = (nodes: ExecutionNode[]): Map<string, ExecutionNode> => new Map(nodes.map((node) => [node.id, node]));
@@ -32,8 +33,7 @@ describe("compileExecutionDsl — R4c filter/sort closed operators", () => {
     "top = take(ranked, 3)",
     "return top",
   ].join("\n");
-  const compileR4c = (dsl: string) =>
-    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" });
+  const compileR4c = (dsl: string) => compileExecutionDsl(dsl, { tools: githubTools });
 
   test("filter/sort 编译为 compute 节点（等值条件 args + desc 恒写入）", () => {
     const { graph, diagnostics } = compileR4c(FILTER_SORT);
@@ -135,7 +135,7 @@ describe("compileExecutionDsl — four-line minimal closed loop", () => {
   });
 
   test("map concurrency defaults to 5 when omitted", () => {
-    const source = ['repos = github.search_repositories(query="x")', "details = map(source=repos, tool=\"github.get_repository\", key=\"full_name\")"].join("\n");
+    const source = ['repos = github.search_repositories(query="x")', "details = map(repos, github.get_repository(full_name=_.full_name))"].join("\n");
     const { graph } = compileExecutionDsl(source, { tools: githubTools });
     expect(graph.nodes.find((node) => node.kind === "map")).toMatchObject({ concurrency: 5 });
   });
@@ -151,7 +151,7 @@ describe("compileExecutionDsl — diagnostics", () => {
 
   test("rejects forward references with undefined_reference", () => {
     const codes = collectCodes(() =>
-      compileExecutionDsl('details = map(source=repos, tool="github.get_repository", key="full_name")', {
+      compileExecutionDsl("details = map(repos, github.get_repository(full_name=_.full_name))", {
         tools: githubTools,
       }),
     );
@@ -185,7 +185,7 @@ describe("compileExecutionDsl — diagnostics", () => {
   test("rejects map referencing an unregistered tool", () => {
     const codes = collectCodes(() =>
       compileExecutionDsl(
-        ['repos = github.search_repositories(query="x")', 'm = map(source=repos, tool="github.nope", key="id")'].join("\n"),
+        ['repos = github.search_repositories(query="x")', "m = map(repos, github.nope(id=_.id))"].join("\n"),
         { tools: githubTools },
       ),
     );
@@ -194,7 +194,7 @@ describe("compileExecutionDsl — diagnostics", () => {
 
   test("rejects map source given as a literal (must be a variable reference)", () => {
     const codes = collectCodes(() =>
-      compileExecutionDsl('m = map(source="repos", tool="github.get_repository", key="full_name")', {
+      compileExecutionDsl('m = map("repos", github.get_repository(full_name=_.full_name))', {
         tools: githubTools,
       }),
     );
@@ -202,23 +202,30 @@ describe("compileExecutionDsl — diagnostics", () => {
   });
 });
 
-describe("compileExecutionDsl — callable reference（语言实验开关）", () => {
+describe("compileExecutionDslLegacy — callable reference（R2 语言实验变体）", () => {
   const DSL = [
     'repos = github.search_repositories(query="agent framework", limit=10)',
     "details = map(source=repos, tool=github.get_repository, key=\"full_name\", concurrency=5)",
     "top = take(source=details, count=3)",
     "return(value=top)",
   ].join("\n");
+  // 字符串 tool + key= 写法（legacy key 臂），供"字符串写法不受影响"用例使用
+  const KEY_FOUR_LINE = [
+    'repos = github.search_repositories(query="agent framework", limit=10)',
+    'details = map(source=repos, tool="github.get_repository", key="full_name", concurrency=5)',
+    "top = take(source=details, count=3)",
+    "return(value=top)",
+  ].join("\n");
 
-  test("默认拒绝裸标识符，报专用诊断码 EXPECTED_STRING_GOT_CALLABLE_REF", () => {
-    const codes = collectCodes(() => compileExecutionDsl(DSL, { tools: githubTools }));
+  test("legacy 默认拒绝裸标识符，报专用诊断码 EXPECTED_STRING_GOT_CALLABLE_REF", () => {
+    const codes = collectCodes(() => compileExecutionDslLegacy(DSL, { tools: githubTools }));
     expect(codes).toContain("EXPECTED_STRING_GOT_CALLABLE_REF");
     // 不叠加误导性的 unknown_tool
     expect(codes).not.toContain("unknown_tool");
   });
 
   test("allowCallableRef=true 时裸标识符编译成与字符串相同的 IR", () => {
-    const { graph, diagnostics } = compileExecutionDsl(DSL, { tools: githubTools, allowCallableRef: true });
+    const { graph, diagnostics } = compileExecutionDslLegacy(DSL, { tools: githubTools, allowCallableRef: true });
     expect(diagnostics).toEqual([]);
     const mapNode = byId(graph.nodes).get("details");
     expect(mapNode).toEqual({
@@ -233,26 +240,28 @@ describe("compileExecutionDsl — callable reference（语言实验开关）", (
   });
 
   test("字符串写法在 allowCallableRef=true 下不受影响", () => {
-    const { diagnostics } = compileExecutionDsl(FOUR_LINE, { tools: githubTools, allowCallableRef: true });
+    const { diagnostics } = compileExecutionDslLegacy(KEY_FOUR_LINE, { tools: githubTools, allowCallableRef: true });
     expect(diagnostics).toEqual([]);
   });
 });
 
-describe("compileExecutionDsl — positional args（R2 语言实验开关）", () => {
+describe("compileExecutionDsl — positional args（canonical：位置参数永远允许）", () => {
   const POSITIONAL_DSL = [
     'repos = github.search_repositories(query="agent framework", limit=10)',
-    'details = map(repos, "github.get_repository", key="full_name", concurrency=5)',
+    "details = map(repos, github.get_repository(full_name=_.full_name), concurrency=5)",
     "top = take(details, 3)",
     "return top",
   ].join("\n");
+  // 命名参数写法（canonical：tool 用嵌套调用命名参数）
+  const NAMED_FOUR_LINE = [
+    'repos = github.search_repositories(query="agent framework", limit=10)',
+    "details = map(source=repos, tool=github.get_repository(full_name=_.full_name), concurrency=5)",
+    "top = take(source=details, count=5)",
+    "return(value=top)",
+  ].join("\n");
 
-  test("默认拒绝位置参数，报 POSITIONAL_ARG_NOT_ALLOWED", () => {
-    const codes = collectCodes(() => compileExecutionDsl(POSITIONAL_DSL, { tools: githubTools }));
-    expect(codes).toContain("POSITIONAL_ARG_NOT_ALLOWED");
-  });
-
-  test("allowPositionalArgs=true 时位置参数编译成与命名参数相同的 IR", () => {
-    const { graph, diagnostics } = compileExecutionDsl(POSITIONAL_DSL, { tools: githubTools, allowPositionalArgs: true });
+  test("位置参数编译成与命名参数相同的 IR", () => {
+    const { graph, diagnostics } = compileExecutionDsl(POSITIONAL_DSL, { tools: githubTools });
     expect(diagnostics).toEqual([]);
     expect(graph.nodes).toHaveLength(4);
 
@@ -270,16 +279,16 @@ describe("compileExecutionDsl — positional args（R2 语言实验开关）", (
     expect(Value.Check(ExecutionGraphSchema, graph)).toBe(true);
   });
 
-  test("命名写法在 allowPositionalArgs=true 下不受影响", () => {
-    const { diagnostics } = compileExecutionDsl(FOUR_LINE, { tools: githubTools, allowPositionalArgs: true });
+  test("命名写法不受影响", () => {
+    const { diagnostics } = compileExecutionDsl(NAMED_FOUR_LINE, { tools: githubTools });
     expect(diagnostics).toEqual([]);
   });
 
   test("位置参数与命名参数冲突报 duplicate_argument", () => {
     const codes = collectCodes(() =>
       compileExecutionDsl(
-        ['repos = github.search_repositories(query="x")', 'm = map(repos, "github.get_repository", source=repos, key="id")'].join("\n"),
-        { tools: githubTools, allowPositionalArgs: true },
+        ['repos = github.search_repositories(query="x")', "m = map(repos, github.get_repository(full_name=_.full_name), source=repos)"].join("\n"),
+        { tools: githubTools },
       ),
     );
     expect(codes).toContain("duplicate_argument");
@@ -289,7 +298,7 @@ describe("compileExecutionDsl — positional args（R2 语言实验开关）", (
     const codes = collectCodes(() =>
       compileExecutionDsl(
         ['repos = github.search_repositories(query="x")', 't = take(repos, 3, 4)'].join("\n"),
-        { tools: githubTools, allowPositionalArgs: true },
+        { tools: githubTools },
       ),
     );
     expect(codes).toContain("TOO_MANY_POSITIONAL_ARGS");
@@ -297,15 +306,14 @@ describe("compileExecutionDsl — positional args（R2 语言实验开关）", (
 
   test("tool 调用不支持位置参数（仅 construct 支持）", () => {
     const codes = collectCodes(() =>
-      compileExecutionDsl('r = github.search_repositories("agent framework", 10)', { tools: githubTools, allowPositionalArgs: true }),
+      compileExecutionDsl('r = github.search_repositories("agent framework", 10)', { tools: githubTools }),
     );
     expect(codes).toContain("unknown_parameter");
   });
 });
 
 describe("compileExecutionDsl — R4e compute/select/join", () => {
-  const compileR4e = (dsl: string) =>
-    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" });
+  const compileR4e = (dsl: string) => compileExecutionDsl(dsl, { tools: githubTools });
 
   const CORRECT = [
     'repos = github.search_repositories(query="agent framework", limit=30)',
@@ -391,8 +399,7 @@ describe("compileExecutionDsl — REQ-3 required 参数强制", () => {
 });
 
 describe("compileExecutionDsl — REQ-5 map 绑定字段校验（符号表）", () => {
-  const compileR5 = (dsl: string) =>
-    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" });
+  const compileR5 = (dsl: string) => compileExecutionDsl(dsl, { tools: githubTools });
 
   test("绑定 source 元素上不存在的字段 → UNKNOWN_FIELD，suggestion 列出可用字段，line 指向 map 语句", () => {
     const dsl = [
@@ -474,5 +481,16 @@ describe("compileExecutionDsl — REQ-5 map 绑定字段校验（符号表）", 
     ].join("\n");
     const codes = collectCodes(() => compileR5(dsl));
     expect(codes).toContain("UNKNOWN_FIELD");
+  });
+});
+
+describe("compileExecutionDsl — canonical 冻结（REQ-7）", () => {
+  test("旧 A 臂写法（字符串 tool + key= 元数据）在 canonical 下被拒绝 → MAP_BINDING_EXPECTED_CALL", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="x")',
+      'details = map(repos, "github.get_repository", key="full_name")',
+    ].join("\n");
+    const codes = collectCodes(() => compileExecutionDsl(dsl, { tools: githubTools }));
+    expect(codes).toContain("MAP_BINDING_EXPECTED_CALL");
   });
 });

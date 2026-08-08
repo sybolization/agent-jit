@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { compileExecutionDsl } from "../src/compiler/compiler.js";
+import { compileExecutionDsl } from "../src/compiler/compile.js";
 import { githubTools } from "../src/compiler/registry.js";
 import { mockDomainToolSpecs } from "../src/runtime/mockTools.js";
 import { checkTaskCorrectness, type TaskSpec } from "../src/experiments/taskSpec.js";
@@ -14,9 +14,9 @@ function compile(dsl: string) {
 
 const CORRECT = [
   'repos = github.search_repositories(query="agent framework language:typescript", limit=10)',
-  'details = map(source=repos, tool="github.get_repository", key="full_name", concurrency=5)',
-  "top = take(source=details, count=3)",
-  "return(value=top)",
+  "details = map(repos, github.get_repository(full_name=_.full_name))",
+  "top = take(details, 3)",
+  "return top",
 ].join("\n");
 
 describe("checkTaskCorrectness", () => {
@@ -41,13 +41,13 @@ describe("checkTaskCorrectness", () => {
 
   test("map key 不是 full_name → 失败", () => {
     // key 需是 repos 元素上真实存在的 string 字段（pushed_at），否则 REQ-5 编译期就报 UNKNOWN_FIELD
-    const dsl = CORRECT.replace('key="full_name"', 'key="pushed_at"');
+    const dsl = CORRECT.replace("_.full_name", "_.pushed_at");
     const result = checkTaskCorrectness(compile(dsl), SPEC);
     expect(result.failures.some((item) => item.includes("map 的 key"))).toBe(true);
   });
 
   test("take count 不是 3 → 失败", () => {
-    const dsl = CORRECT.replace("count=3", "count=5");
+    const dsl = CORRECT.replace("take(details, 3)", "take(details, 5)");
     const result = checkTaskCorrectness(compile(dsl), SPEC);
     expect(result.failures.some((item) => item.includes("take 的 count"))).toBe(true);
   });
@@ -61,10 +61,10 @@ describe("checkTaskCorrectness", () => {
   test("return 数据流中的冗余 take 不误判（count 只看最终 take）", () => {
     const dsl = [
       'repos = github.search_repositories(query="agent framework language:typescript", limit=10)',
-      "repos_taken = take(source=repos, count=10)",
-      'details = map(source=repos_taken, tool="github.get_repository", key="full_name", concurrency=5)',
-      "top = take(source=details, count=3)",
-      "return(value=top)",
+      "repos_taken = take(repos, 10)",
+      "details = map(repos_taken, github.get_repository(full_name=_.full_name))",
+      "top = take(details, 3)",
+      "return top",
     ].join("\n");
     const result = checkTaskCorrectness(compile(dsl), SPEC);
     expect(result.pass).toBe(true);
@@ -81,8 +81,8 @@ describe("checkTaskCorrectness", () => {
   test("return 直接引用 map 输出（数据流缺最终 take）→ 失败", () => {
     const dsl = [
       'repos = github.search_repositories(query="agent framework language:typescript", limit=10)',
-      'details = map(source=repos, tool="github.get_repository", key="full_name", concurrency=5)',
-      "return(value=details)",
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      "return details",
     ].join("\n");
     const result = checkTaskCorrectness(compile(dsl), SPEC);
     expect(result.pass).toBe(false);
@@ -99,7 +99,7 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
   ].join("\n");
 
   test("同名绑定正确 → bindingPass 且 pass", () => {
-    const graph = compileExecutionDsl(githubBindingDsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const graph = compileExecutionDsl(githubBindingDsl, { tools: githubTools}).graph;
     const result = checkTaskCorrectness(graph, { ...SPEC, bindings: { full_name: "full_name" } });
     expect(result.bindingPass).toBe(true);
     expect(result.pass).toBe(true);
@@ -108,7 +108,7 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
   test("绑定错字段（_.language 而非 _.full_name）→ bindingFailures 且 pass 失败", () => {
     // 用 repos 元素上真实存在的 string 字段 language（否则 REQ-5 编译期就报错，测不到 bindingFailures）
     const dsl = githubBindingDsl.replace("_.full_name", "_.language");
-    const graph = compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: githubTools}).graph;
     const result = checkTaskCorrectness(graph, { ...SPEC, bindings: { full_name: "full_name" } });
     expect(result.bindingPass).toBe(false);
     expect(result.pass).toBe(false);
@@ -122,7 +122,7 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
       "top = take(m, 3)",
       "return top",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
     const result = checkTaskCorrectness(graph, { sourceTool: "crm.search_customers", limit: 10, takeCount: 3, bindings: { customer_id: "id" } });
     expect(result.bindingPass).toBe(true);
     expect(result.pass).toBe(true);
@@ -135,7 +135,7 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
       "top = take(m, 3)",
       "return top",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
     const result = checkTaskCorrectness(graph, { sourceTool: "users.list_users", takeCount: 3, bindings: { to: "email", name: "name" } });
     expect(result.bindingPass).toBe(false);
     expect(result.bindingFailures?.some((item) => item.includes("name"))).toBe(true);
@@ -148,7 +148,7 @@ describe("checkTaskCorrectness — binding correctness（R3 核心指标）", ()
       "top = take(m, 3)",
       "return top",
     ].join("\n");
-    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    const graph = compileExecutionDsl(dsl, { tools: mockDomainToolSpecs}).graph;
     const result = checkTaskCorrectness(graph, { sourceTool: "users.list_users", takeCount: 3, bindings: { to: "email" } });
     expect(result.bindingPass).toBe(false);
     expect(result.bindingFailures?.some((item) => item.includes("多余绑定 name"))).toBe(true);
@@ -177,7 +177,7 @@ describe("checkTaskCorrectness — R4d filter/sort 语义检查（D2 风格）",
     stageTools: ["github.get_contributor_stats", "github.get_repository"],
   };
   const compileD2 = (dsl: string) =>
-    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    compileExecutionDsl(dsl, { tools: githubTools}).graph;
 
   test("D2 正确程序通过 filter/sort/stageTools 检查", () => {
     const result = checkTaskCorrectness(compileD2(CORRECT_D2), d2Spec);
@@ -285,7 +285,7 @@ describe("checkTaskCorrectness — R4d 多阶段图检查（D3：双 take / 阶�
     takeCounts: [3, 5],
   };
   const compileD3 = (dsl: string) =>
-    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    compileExecutionDsl(dsl, { tools: githubTools}).graph;
 
   test("D3 正确程序通过（双 take 序列 + 阶段工具按序）", () => {
     const result = checkTaskCorrectness(compileD3(CORRECT_D3), d3Spec);
@@ -343,7 +343,7 @@ describe("checkTaskCorrectness — R4e 分支重组图检查（compute/select/jo
     joinSpec: { key: "full_name", sourceCount: 3, extraTools: ["github.get_contributor_stats", "github.list_commits"] },
   };
   const compileR4e = (dsl: string) =>
-    compileExecutionDsl(dsl, { tools: githubTools, allowPositionalArgs: true, allowMapBinding: "call" }).graph;
+    compileExecutionDsl(dsl, { tools: githubTools}).graph;
 
   test("R4e 正确程序通过（compute/select×3/join 全检查）", () => {
     const result = checkTaskCorrectness(compileR4e(CORRECT_R4E), r4eSpec);

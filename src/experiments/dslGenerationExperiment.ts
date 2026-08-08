@@ -22,7 +22,8 @@ import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import type { Tool } from "@earendil-works/pi-ai";
 
-import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compiler.js";
+import { compileExecutionDslLegacy } from "../languageVariants/legacyCompile.js";
+import { ExecutionDslCompileError } from "../compiler/compile.js";
 import { renderExecutionToolCatalog } from "../compiler/catalog.js";
 import { mapLimit } from "../runtime/executor.js";
 import { createMockGithubTools, createMockDomainTools } from "../runtime/mockTools.js";
@@ -198,10 +199,9 @@ async function runOnce(
     }
 
     try {
-      const { graph, diagnostics } = compileExecutionDsl(dsl, {
+      const { graph, diagnostics } = compileExecutionDslLegacy(dsl, {
         tools: task.tools,
         allowCallableRef: false,
-        allowPositionalArgs: true,
         allowMapBinding: arm.binding,
       });
       if (graph.nodes.length === 0) {
