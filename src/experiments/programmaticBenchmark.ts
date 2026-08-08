@@ -3,17 +3,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compile.js";
-import { renderExecutionToolCatalog } from "../compiler/catalog.js";
+import { renderExecutionToolCatalog } from "./executionCatalog.js";
 import { buildDslSystemPrompt as buildDslPrompt } from "../prompt/systemPrompt.js";
 import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL, JIT_META_TOOLS, describeToolsResult } from "../tools/jitTools.js";
 import { githubTools } from "../tools/providers/github/contracts.js";
 import type { RegisteredTool, ToolContract } from "../tools/definition.js";
-import { ToolRegistry } from "../tools/registry.js";
+import { toolIdAlias, ToolRegistry } from "../tools/registry.js";
 import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
 import { mapLimit } from "../runtime/executor.js";
 import { createRealGithubTools } from "../tools/providers/github/real.js";
 import { execute } from "../runtime/runtime.js";
-import { matchAnswer, runIterativeToolCalling, toPiToolName } from "./iterativeToolCalling.js";
+import { matchAnswer, runIterativeToolCalling } from "./iterativeToolCalling.js";
 import { checkTaskCorrectness } from "./taskSpec.js";
 
 /**
@@ -292,7 +292,7 @@ async function main(): Promise<number> {
   const iterativeSystem = (task: BenchmarkTask): string =>
     [
       "你是一个 GitHub 数据分析助手。你可以调用以下工具获取数据：",
-      renderExecutionToolCatalog(new ToolRegistry(task.tools), toPiToolName),
+      renderExecutionToolCatalog(new ToolRegistry(task.tools), toolIdAlias),
       "",
       "请依次调用工具完成任务；任务完成后，在最后一条回复的文本中给出答案（每条一行）。",
     ].join("\n");

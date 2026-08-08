@@ -10,7 +10,7 @@ import {
   type ExecutionGraph,
   type ExecutionNode,
 } from "./ir.js";
-import { compareNodes, nodeElementSchema, type ElementSchema } from "./helpers.js";
+import { compareNodes, nodeElementSchema, suggestToolNames, type ElementSchema } from "./helpers.js";
 import { buildToolNode, validateMapBindings } from "./toolCall.js";
 import { buildComputeNode } from "./builtins/compute.js";
 import { buildFilterNode } from "./builtins/filter.js";
@@ -76,11 +76,12 @@ function buildNode(
 
   const tool = options.tools?.get(statement.callee);
   if (!tool) {
+    const suggestion = suggestToolNames(options.tools, statement.callee);
     diagnostics.push({
       line: statement.line,
       code: "unknown_tool",
       message: `未注册的工具或语言关键字：${statement.callee}`,
-      suggestion: "使用已注册工具 id，或语言关键字 map / take / filter / sort / compute / select / join / return",
+      suggestion: suggestion ?? "使用已注册工具 id，或语言关键字 map / take / filter / sort / compute / select / join / return",
     });
     return undefined;
   }

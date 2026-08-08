@@ -26,6 +26,14 @@ describe("buildDslSystemPrompt — 统一 DSL 系统提示词（契约按需获�
     expect(prompt).not.toContain("## 可用工具");
   });
 
+  test("工作方式说明 canonical / host alias 等价（不要求模型记忆换算）", () => {
+    const prompt = buildDslSystemPrompt({ constructs: ["map", "take", "return"] });
+    expect(prompt).toContain("input contract");
+    expect(prompt).toContain("canonical（github.get_repository）");
+    expect(prompt).toContain("host alias（github_get_repository）");
+    expect(prompt).toContain("无需记忆换算");
+  });
+
   test("关键字列表由 constructs 推导（map-lambda 不算关键字）", () => {
     const prompt = buildDslSystemPrompt({ constructs: ["take", "return", "map-lambda"] });
     expect(prompt).toContain("语言关键字 map / take / return");

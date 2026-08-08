@@ -33,6 +33,28 @@ function pascalCase(tokens: readonly string[]): string {
 }
 
 /**
+ * 输出对象类型名优先来自 schema metadata：`schema.title` → `schema.$id` → heuristic fallback。
+ * 数组取元素对象上的 metadata（RepositorySummary[] 的名字在元素 schema 上）；
+ * 外部工具只要声明 title/$id 就能得到稳定类型名，不依赖命名启发式。
+ */
+function schemaTypeName(schema: unknown): string | undefined {
+  if (schema === null || typeof schema !== "object" || Array.isArray(schema)) return undefined;
+  const node = schema as { type?: unknown; items?: unknown; title?: unknown; $id?: unknown };
+  if (node.type === "array") {
+    const items = node.items;
+    if (items !== null && typeof items === "object" && !Array.isArray(items)) {
+      const item = items as { title?: unknown; $id?: unknown };
+      if (typeof item.title === "string" && item.title.length > 0) return item.title;
+      if (typeof item.$id === "string" && item.$id.length > 0) return item.$id;
+    }
+    return undefined;
+  }
+  if (typeof node.title === "string" && node.title.length > 0) return node.title;
+  if (typeof node.$id === "string" && node.$id.length > 0) return node.$id;
+  return undefined;
+}
+
+/**
  * 从工具 id 推导输出类型名：`github.search_repositories` → `RepositorySummary`；
  * 纯动词段（如 `email.prepare`）回退为 `<域名>Result`。
  */
@@ -74,7 +96,7 @@ function outputRenderer(named: Map<string, NamedType>) {
     const key = shapeKey(view.properties);
     const existing = named.get(key);
     if (existing) return existing.name;
-    const base = typeNameFor(owner.id);
+    const base = schemaTypeName(owner.outputSchema) ?? typeNameFor(owner.id);
     const taken = new Set([...named.values()].map((item) => item.name));
     let name = base;
     let suffix = 2;

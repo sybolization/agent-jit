@@ -59,22 +59,59 @@ describe("describeToolContracts — 确定性 DSL 契约渲染（tool_names → 
     expect(text.match(/github\.get_repository\(/g) ?? []).toHaveLength(1);
   });
 
-  test("未注册 id 忽略并在结尾注明，可用 id 列出", () => {
-    const text = describeToolContracts(githubCatalog(), ["github.get_repository", "foo.bar"]);
+  test("host alias 可无感解析（github_get_repository → github.get_repository）", () => {
+    const text = describeToolContracts(githubCatalog(), ["github_get_repository"]);
     expect(text).toContain("github.get_repository(");
-    expect(text).toContain("foo.bar");
-    expect(text).toContain("以下工具未注册，已忽略");
+    expect(text).toContain("-> Repository");
   });
 
-  test("全部未知 → 错误文本（含可用 id）", () => {
+  test("canonical 与 host alias 同时请求去重为一次", () => {
+    const text = describeToolContracts(githubCatalog(), ["github.get_repository", "github_get_repository"]);
+    expect(text.match(/github\.get_repository\(/g) ?? []).toHaveLength(1);
+  });
+
+  test("禁止 partial success：[known, unknown] 整体失败，不返回任何契约", () => {
+    const text = describeToolContracts(githubCatalog(), ["github.get_repository", "foo.bar"]);
+    expect(text.startsWith("错误")).toBe(true);
+    expect(text).toContain("UNKNOWN_TOOL: foo.bar");
+    expect(text).not.toContain("github.get_repository(");
+    expect(text).not.toContain("Repository");
+  });
+
+  test("全部未知 → UNKNOWN_TOOL，不 dump 全部 registry", () => {
     const text = describeToolContracts(githubCatalog(), ["foo.bar"]);
     expect(text.startsWith("错误")).toBe(true);
-    expect(text).toContain("github.search_repositories");
+    expect(text).toContain("UNKNOWN_TOOL: foo.bar");
+    expect(text).not.toContain("可用工具");
+    expect(text).not.toContain("github.search_repositories");
+  });
+
+  test("多个未知一次性全部列出，并带确定性近似建议（alias + canonical）", () => {
+    const text = describeToolContracts(githubCatalog(), ["github_get_repositry", "foo.bar"]);
+    expect(text.startsWith("错误")).toBe(true);
+    expect(text).toContain("UNKNOWN_TOOL: github_get_repositry, foo.bar");
+    expect(text).toContain("github_get_repository");
+    expect(text).toContain("github.get_repository");
+  });
+
+  test("相似度太低的未知工具不硬推荐", () => {
+    const text = describeToolContracts(githubCatalog(), ["totally_unrelated"]);
+    expect(text.startsWith("错误")).toBe(true);
+    expect(text).toContain("UNKNOWN_TOOL: totally_unrelated");
+    expect(text).not.toContain("你是否指");
+  });
+
+  test("tool_names 超过上限（>20）→ 错误，提示分批查询", () => {
+    const names = Array.from({ length: 21 }, (_, i) => `github.tool_${i}`);
+    const text = describeToolContracts(githubCatalog(), names);
+    expect(text.startsWith("错误")).toBe(true);
+    expect(text).toContain("最多 20 个");
   });
 
   test("空列表 → 错误文本", () => {
     const text = describeToolContracts(githubCatalog(), []);
     expect(text.startsWith("错误")).toBe(true);
+    expect(text).toContain("tool_names 为空");
   });
 });
 

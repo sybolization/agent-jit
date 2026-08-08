@@ -18,6 +18,21 @@ export function compareNodes(left: { id: string }, right: { id: string }): numbe
   return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
 }
 
+/**
+ * unknown_tool 诊断的确定性近似建议文本：经 ToolIdResolver 的近似匹配，
+ * 同时展示 host alias 与 canonical（如 "github_get_repository"（github.get_repository））；
+ * 相似度太低 / 无工具目录时返回 undefined（诊断回退到通用提示）。
+ */
+export function suggestToolNames(tools: ToolCatalog | undefined, name: string): string | undefined {
+  if (!tools) return undefined;
+  const suggestions = tools.suggestIds(name);
+  if (suggestions.length === 0) return undefined;
+  const list = suggestions
+    .map(({ alias, canonical }) => (alias === canonical ? `“${canonical}”` : `“${alias}”（${canonical}）`))
+    .join(" / ");
+  return `你是否指 ${list}？`;
+}
+
 /** 编译器看到的工具参数（从 inputSchema 经 SchemaView 提取）。 */
 export interface ToolParamSpec {
   key: string;

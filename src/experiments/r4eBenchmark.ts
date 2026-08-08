@@ -30,16 +30,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compile.js";
-import { renderExecutionToolCatalog } from "../compiler/catalog.js";
+import { renderExecutionToolCatalog } from "./executionCatalog.js";
 import { buildDslSystemPrompt as buildDslPrompt } from "../prompt/systemPrompt.js";
 import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL, JIT_META_TOOLS, describeToolsResult } from "../tools/jitTools.js";
 import type { RegisteredTool, ToolContract } from "../tools/definition.js";
-import { ToolRegistry } from "../tools/registry.js";
+import { toolIdAlias, ToolRegistry } from "../tools/registry.js";
 import { createDeepSeekGateway, type LlmGateway, type LlmMessage, type LlmUsage } from "../llm/gateway.js";
 import { mapLimit } from "../runtime/executor.js";
 import { createAdversarialGithubTools, ADVERSARIAL_REPOS } from "../tools/providers/github/mock.js";
 import { execute } from "../runtime/runtime.js";
-import { exactAnswerMatch, runIterativeToolCalling, sumMessageBytes, toPiToolName, type IterativeToolResult } from "./iterativeToolCalling.js";
+import { exactAnswerMatch, runIterativeToolCalling, sumMessageBytes, type IterativeToolResult } from "./iterativeToolCalling.js";
 import { checkTaskCorrectness, type TaskSpec } from "./taskSpec.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -424,7 +424,7 @@ async function main(): Promise<number> {
   const iterativeSystem = (task: R4eTask): string =>
     [
       "你是一个 GitHub 数据分析助手。你可以调用以下工具获取数据：",
-      renderExecutionToolCatalog(new ToolRegistry(task.tools), toPiToolName),
+      renderExecutionToolCatalog(new ToolRegistry(task.tools), toolIdAlias),
       "",
       "请依次调用工具完成任务；任务完成后，必须调用 submit_answer 工具提交最终答案（repositories 参数：按排名从高到低排列的仓库完整名称列表）。不要只在文本中给出答案。",
     ].join("\n");

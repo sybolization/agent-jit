@@ -2,7 +2,7 @@ import type { ParsedStatement } from "../../language/ast.js";
 import type { DslDiagnostic } from "../../language/diagnostics.js";
 import type { ToolCatalog } from "../../tools/registry.js";
 import type { ExecutionNode } from "../ir.js";
-import { applyPositionalArgs, literalArg, literalKindError, refArg } from "../helpers.js";
+import { applyPositionalArgs, literalArg, literalKindError, refArg, suggestToolNames } from "../helpers.js";
 import { mapCallBindings } from "../toolCall.js";
 
 /**
@@ -83,18 +83,19 @@ export function buildMapNode(
     }
   }
 
-  const toolRegistered = typeof toolId === "string" && tools?.get(toolId) !== undefined;
-  if (!toolRegistered) {
+  const tool = typeof toolId === "string" && tools ? tools.get(toolId) : undefined;
+  if (!tool) {
     diagnostics.push({
       line: statement.line,
       code: "unknown_tool",
       message: `map 引用了未注册的工具：${String(toolId)}`,
-      suggestion: "使用 registry 中已注册的工具 id（如 github.get_repository）",
+      suggestion: suggestToolNames(tools, String(toolId)) ?? "使用 registry 中已注册的工具 id（如 github.get_repository）",
     });
     return undefined;
   }
   if (!bindings || Object.keys(bindings).length === 0) return undefined;
   if (!source) return undefined;
 
-  return { id: statement.name, kind: "map", source, tool: toolId, bindings, concurrency };
+  // IR 永远保存 canonical id（模型写 host alias 也无感，resolver 已解析）
+  return { id: statement.name, kind: "map", source, tool: tool.id, bindings, concurrency };
 }

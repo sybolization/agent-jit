@@ -28,7 +28,7 @@ export const githubTools: readonly ToolContract[] = [
           pushed_at: Type.String(),
           language: Type.String(),
         },
-        { additionalProperties: false },
+        { additionalProperties: false, title: "RepositorySummary" },
       ),
     ),
   }),
@@ -45,7 +45,7 @@ export const githubTools: readonly ToolContract[] = [
         archived: Type.Boolean(),
         language: Type.String(),
       },
-      { additionalProperties: false },
+      { additionalProperties: false, title: "Repository" },
     ),
   }),
   defineTool({
@@ -66,7 +66,7 @@ export const githubTools: readonly ToolContract[] = [
     outputSchema: Type.Array(
       Type.Object(
         { login: Type.String(), contributions: Type.Integer() },
-        { additionalProperties: false },
+        { additionalProperties: false, title: "Contributor" },
       ),
     ),
   }),
@@ -81,7 +81,7 @@ export const githubTools: readonly ToolContract[] = [
         contributor_count: Type.Integer(),
         total_contributions: Type.Integer(),
       },
-      { additionalProperties: false },
+      { additionalProperties: false, title: "ContributorStat" },
     ),
   }),
   defineTool({
@@ -98,7 +98,7 @@ export const githubTools: readonly ToolContract[] = [
         total_commits: Type.Integer(),
         latest_commit_at: Type.Union([Type.String(), Type.Null()]),
       },
-      { additionalProperties: false },
+      { additionalProperties: false, title: "Commit" },
     ),
   }),
 ];

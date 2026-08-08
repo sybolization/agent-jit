@@ -4,7 +4,7 @@ import { Type } from "typebox";
 import { githubTools } from "../src/tools/providers/github/contracts.js";
 import { mockDomainToolSpecs } from "../src/tools/providers/domain/mock.js";
 import { defineTool } from "../src/tools/definition.js";
-import { ToolRegistry } from "../src/tools/registry.js";
+import { ToolRegistry, toolIdAlias } from "../src/tools/registry.js";
 import { renderCompactToolCatalog, renderToolContracts } from "../src/tools/llmCatalog.js";
 
 const githubCatalog = (): string => renderCompactToolCatalog(new ToolRegistry(githubTools));
@@ -99,10 +99,66 @@ describe("renderCompactToolCatalog — 命名输出类型（output contract）",
 });
 
 describe("renderCompactToolCatalog — nameTransform", () => {
-  test("应用于工具名（pi-ai 下划线命名）", () => {
-    const catalog = renderCompactToolCatalog(new ToolRegistry(githubTools), (id) => id.replaceAll(".", "_"));
+  test("应用于工具名（统一走 toolIdAlias 的 host alias）", () => {
+    const catalog = renderCompactToolCatalog(new ToolRegistry(githubTools), toolIdAlias);
     expect(catalog).toContain("github_search_repositories(");
     expect(catalog).toContain("github_get_repository(");
+  });
+});
+
+describe("output type name — schema metadata 优先（title → $id → heuristic fallback）", () => {
+  test("github 契约 title 生效（与启发式命名一致，类型名稳定）", () => {
+    const catalog = githubCatalog();
+    expect(catalog).toContain("-> RepositorySummary[]");
+    expect(catalog).toMatch(/\) -> Repository(?:\s|$)/);
+    expect(catalog).toContain(") -> ContributorStat");
+    expect(catalog).toContain(") -> Commit");
+    expect(catalog).toContain(") -> Contributor");
+  });
+
+  test("title 优先于启发式：声明的类型名覆盖 id 推导", () => {
+    const registry = new ToolRegistry([
+      defineTool({
+        id: "demo.get_thing",
+        label: "Thing",
+        inputSchema: Type.Object({}, { additionalProperties: false }),
+        outputSchema: Type.Object({ a: Type.String() }, { additionalProperties: false, title: "CustomThing" }),
+      }),
+    ]);
+    const catalog = renderCompactToolCatalog(registry);
+    expect(catalog).toContain("demo.get_thing() -> CustomThing");
+    expect(catalog).not.toContain("-> Thing");
+  });
+
+  test("$id 作为 title 缺失时的回退", () => {
+    const registry = new ToolRegistry([
+      defineTool({
+        id: "demo.get_thing",
+        label: "Thing",
+        inputSchema: Type.Object({}, { additionalProperties: false }),
+        outputSchema: Type.Object({ a: Type.String() }, { additionalProperties: false, $id: "IdThing" }),
+      }),
+    ]);
+    const catalog = renderCompactToolCatalog(registry);
+    expect(catalog).toContain("-> IdThing");
+  });
+
+  test("数组元素对象：title 取 items 上的 metadata", () => {
+    const registry = new ToolRegistry([
+      defineTool({
+        id: "demo.list_things",
+        label: "List",
+        inputSchema: Type.Object({}, { additionalProperties: false }),
+        outputSchema: Type.Array(Type.Object({ b: Type.Integer() }, { additionalProperties: false, title: "ListItem" })),
+      }),
+    ]);
+    const catalog = renderCompactToolCatalog(registry);
+    expect(catalog).toContain("-> ListItem[]");
+  });
+
+  test("无 title/$id → heuristic fallback（email.prepare → EmailResult）", () => {
+    const catalog = renderCompactToolCatalog(new ToolRegistry(mockDomainToolSpecs));
+    expect(catalog).toContain(") -> EmailResult");
   });
 });
 

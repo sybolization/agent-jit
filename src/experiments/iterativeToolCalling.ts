@@ -2,6 +2,7 @@ import { Type, type TSchema } from "typebox";
 import type { Tool } from "@earendil-works/pi-ai";
 
 import type { ToolContract, RegisteredTool } from "../tools/definition.js";
+import { toolIdAlias } from "../tools/registry.js";
 import type { LlmGateway, LlmMessage, LlmUsage } from "../llm/gateway.js";
 import { mapLimit } from "../runtime/executor.js";
 
@@ -64,13 +65,10 @@ export interface IterativeToolResult {
 
 /**
  * pi-ai 的 OpenAI 兼容工具名不允许 "."（github.search_repositories 会被静默
- * 丢弃，导致 complete 空返回）。映射为下划线名，prompt/定义/执行三处同步。
+ * 丢弃，导致 complete 空返回）。统一走 ToolIdResolver 的 host alias
+ * （toolIdAlias，与 ToolRegistry 注册时生成的映射完全一致），不再单独维护一份。
  */
-export function toPiToolName(specId: string): string {
-  return specId.replace(/\./g, "_");
-}
-
-/** 把 ToolContract 转为 pi-ai 工具定义（typebox 参数 schema，名字经 toPiToolName 映射）。 */
+/** 把 ToolContract 转为 pi-ai 工具定义（typebox 参数 schema，名字经 host alias 映射）。 */
 export function toPiTools(specs: readonly ToolContract[]): Tool[] {
   return specs.map((spec) => {
     const input = spec.inputSchema as unknown as {
@@ -91,7 +89,7 @@ export function toPiTools(specs: readonly ToolContract[]): Tool[] {
     }
     const required = input.required ?? [];
     return {
-      name: toPiToolName(spec.id),
+      name: toolIdAlias(spec.id),
       description: spec.description ?? spec.label,
       parameters: Type.Object(properties, required.length > 0 ? { required } : undefined),
     };
@@ -172,8 +170,8 @@ export async function runIterativeToolCalling(options: IterativeOptions): Promis
   const strictAnswer = options.strictAnswer ?? false;
 
   const piTools = strictAnswer ? [...toPiTools(toolSpecs), SUBMIT_ANSWER_TOOL] : toPiTools(toolSpecs);
-  // toolCalls 返回的是映射名（github_search_repositories），按映射名建键反查
-  const toolById = new Map(tools.map((tool) => [toPiToolName(tool.id), tool]));
+  // toolCalls 返回的是 host alias 名（github_search_repositories），按 alias 建键反查
+  const toolById = new Map(tools.map((tool) => [toolIdAlias(tool.id), tool]));
 
   const messages: LlmMessage[] = [...initialMessages];
   const usage: LlmUsage = { input: 0, output: 0, cacheRead: 0, totalTokens: 0 };

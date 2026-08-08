@@ -193,6 +193,30 @@ describe("compileExecutionDsl — diagnostics", () => {
     expect(codes).toContain("unknown_tool");
   });
 
+  test("unknown_tool 诊断带 Did you mean（host alias + canonical）", () => {
+    try {
+      compileExecutionDsl('x = github_get_repositry(query="a")', { tools: new ToolRegistry(githubTools) });
+      throw new Error("expected ExecutionDslCompileError");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ExecutionDslCompileError);
+      const diagnostics = (error as ExecutionDslCompileError).diagnostics;
+      const diag = diagnostics.find((item) => item.code === "unknown_tool");
+      expect(diag?.message).toContain("github_get_repositry");
+      expect(diag?.suggestion).toContain("github_get_repository");
+      expect(diag?.suggestion).toContain("github.get_repository");
+    }
+  });
+
+  test("DSL callee 接受 host alias，IR 永远保存 canonical id", () => {
+    const source = [
+      'repos = github_search_repositories(query="x")',
+      "details = map(repos, github_get_repository(full_name=_.full_name))",
+    ].join("\n");
+    const { graph } = compileExecutionDsl(source, { tools: new ToolRegistry(githubTools) });
+    expect(graph.nodes.find((node) => node.kind === "tool")).toMatchObject({ tool: "github.search_repositories" });
+    expect(graph.nodes.find((node) => node.kind === "map")).toMatchObject({ tool: "github.get_repository" });
+  });
+
   test("rejects map source given as a literal (must be a variable reference)", () => {
     const codes = collectCodes(() =>
       compileExecutionDsl('m = map("repos", github.get_repository(full_name=_.full_name))', {

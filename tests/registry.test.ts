@@ -4,8 +4,8 @@ import { Type } from "typebox";
 import { githubTools } from "../src/tools/providers/github/contracts.js";
 import { createMockGithubTools } from "../src/tools/providers/github/mock.js";
 import { defineTool } from "../src/tools/definition.js";
-import { ToolRegistry, type ToolCatalog } from "../src/tools/registry.js";
-import { renderExecutionToolCatalog } from "../src/compiler/catalog.js";
+import { editDistance, ToolRegistry, toolIdAlias, type ToolCatalog } from "../src/tools/registry.js";
+import { renderExecutionToolCatalog } from "../src/experiments/executionCatalog.js";
 import { compileExecutionDsl } from "../src/compiler/compile.js";
 import { toolParams } from "../src/compiler/helpers.js";
 
@@ -106,6 +106,88 @@ describe("defineTool — 带 execute 的 RegisteredTool 可被 registry 存储",
     expect(stored).toMatchObject({ id: "demo.echo", label: "Echo" });
     expect(typeof stored.execute).toBe("function");
     expect(await stored.execute!({ text: "hi" })).toBe("hi");
+  });
+});
+
+describe("ToolIdResolver — canonical / host alias 无感解析", () => {
+  test("resolveId：canonical 与 host alias 都解析到 canonical id，未知返回 undefined", () => {
+    const registry = new ToolRegistry(githubTools);
+    expect(registry.resolveId("github.get_repository")).toBe("github.get_repository");
+    expect(registry.resolveId("github_get_repository")).toBe("github.get_repository");
+    expect(registry.resolveId("nope")).toBeUndefined();
+  });
+
+  test("get() 透明接受 alias，返回 canonical 工具", () => {
+    const registry = new ToolRegistry(githubTools);
+    expect(registry.get("github_get_repository")?.id).toBe("github.get_repository");
+    expect(registry.has("github_get_repository")).toBe(true);
+  });
+
+  test("hostName：canonical → host alias（与注册时生成一致）；无点号工具名映射为自身", () => {
+    const registry = new ToolRegistry(githubTools);
+    expect(registry.hostName("github.get_repository")).toBe("github_get_repository");
+    expect(toolIdAlias("github.search_repositories")).toBe("github_search_repositories");
+    expect(toolIdAlias("submit_answer")).toBe("submit_answer");
+  });
+
+  test("无点号的工具名不重复注册（alias === id，只占一个名字槽位）", () => {
+    const registry = new ToolRegistry();
+    registry.register({ id: "plain_tool", label: "P", inputSchema: Type.Object({}), outputSchema: Type.Object({}) });
+    expect(registry.ids()).toEqual(["plain_tool"]);
+    expect(registry.resolveId("plain_tool")).toBe("plain_tool");
+  });
+});
+
+describe("ToolRegistry — alias collision fail fast", () => {
+  const spec = (id: string) => ({ id, label: id, inputSchema: Type.Object({}), outputSchema: Type.Object({}) });
+
+  test("foo.bar_baz 与 foo_bar.baz flatten 冲突 → 注册时抛错，前一个保持可用", () => {
+    const registry = new ToolRegistry();
+    registry.register(spec("foo.bar_baz"));
+    expect(() => registry.register(spec("foo_bar.baz"))).toThrow(/注册冲突/);
+    expect(registry.ids()).toEqual(["foo.bar_baz"]);
+    expect(registry.resolveId("foo_bar_baz")).toBe("foo.bar_baz");
+  });
+
+  test("canonical id 与既有工具 alias 冲突也 fail fast", () => {
+    const registry = new ToolRegistry();
+    registry.register(spec("foo.bar"));
+    expect(() => registry.register(spec("foo_bar"))).toThrow(/注册冲突/);
+  });
+
+  test("构造器遇到冲突整体失败（不半注册）", () => {
+    expect(() => new ToolRegistry([spec("a.b_c"), spec("a_b.c")])).toThrow(/注册冲突/);
+  });
+});
+
+describe("suggestIds — 确定性近似匹配（Did you mean）", () => {
+  test("拼写错误 → 建议里同时含 host alias 与 canonical", () => {
+    const registry = new ToolRegistry(githubTools);
+    const suggestions = registry.suggestIds("github_get_repositry");
+    expect(suggestions[0]).toEqual({ alias: "github_get_repository", canonical: "github.get_repository" });
+  });
+
+  test("相似度太低 → 不硬推荐", () => {
+    const registry = new ToolRegistry(githubTools);
+    expect(registry.suggestIds("totally_unrelated")).toEqual([]);
+    expect(registry.suggestIds("agent")).toEqual([]);
+  });
+
+  test("默认最多 2 个，距离升序 + 字典序稳定排序", () => {
+    const registry = new ToolRegistry(githubTools);
+    const suggestions = registry.suggestIds("github_get_language");
+    expect(suggestions.length).toBeGreaterThanOrEqual(1);
+    expect(suggestions.length).toBeLessThanOrEqual(2);
+    // 距离相等时按 canonical id 字典序稳定
+    const ties = registry.suggestIds("github_get_repository");
+    expect(ties.length).toBeLessThanOrEqual(2);
+  });
+
+  test("editDistance 基础正确性", () => {
+    expect(editDistance("", "")).toBe(0);
+    expect(editDistance("abc", "abc")).toBe(0);
+    expect(editDistance("repositry", "repository")).toBe(1);
+    expect(editDistance("github_get_repositry", "github_get_repository")).toBe(1);
   });
 });
 

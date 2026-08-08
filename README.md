@@ -512,7 +512,24 @@ ToolContract        静态契约：id / label / description / inputSchema / outp
 RegisteredTool      在 ToolContract 之上绑定 execute（可运行工具）
 ```
 
-`ToolRegistry<T>` 实现薄接口 `ToolCatalog`（`get` / `all`）——Compiler、LLM Catalog、Runtime 三方只依赖该接口，数组必须先经 `new ToolRegistry(...)` 包装。
+`ToolRegistry<T>` 实现薄接口 `ToolCatalog`（`get` / `all` / `resolveId` / `suggestIds`）——Compiler、LLM Catalog、Runtime 三方只依赖该接口，数组必须先经 `new ToolRegistry(...)` 包装。
+
+**ToolIdResolver（内建于 ToolRegistry）**：注册时自动生成 host alias（`github.get_repository` → `github_get_repository`，点号 → 下划线），`get` / `resolveId` 对 canonical 与 host alias **无感解析**，IR 永远只写 canonical id——`.` 还是 `_` 是宿主框架与 DSL 的表示差异，不成为模型的认知负担：
+
+```text
+模型看到的名字           github_get_repository
+        ↓
+   ToolIdResolver（get / resolveId）
+        ↓
+   canonical Tool ID    github.get_repository
+      ↙            ↘
+  Compiler        Runtime
+      ↓
+    IR tool = "github.get_repository"
+```
+
+- **alias collision fail fast**：`foo.bar_baz` 与 `foo_bar.baz` flatten 同名 → 注册时抛错（配置错误，不运行时猜）；
+- **`suggestIds`**：未知名字的确定性近似匹配（编辑距离阈值内，最多 2 个），describe 错误与 `unknown_tool` 诊断共用，同时展示 host alias 与 canonical（如 `"github_get_repository"（github.get_repository）`）。
 
 ```text
 JSON / OpenAI / MCP / local tool
@@ -561,8 +578,13 @@ RepositorySummary {
 
 - 只渲染契约（input / output schema），**绝不渲染真实返回内容或示例 JSON**；
 - 输出对象提取为命名类型，**结构相同的类型只展示一次**（共享类型去重，如 crm 两个工具同为 `Customer`）；
+- **输出类型名优先来自 schema metadata**：`schema.title` → `schema.$id` → heuristic fallback（外部工具声明 title/$id 即得稳定类型名，如 github 契约的 `RepositorySummary` / `Repository` / `Commit`）；
 - 渲染走归一化的 SchemaView 层（`src/tools/schemaView.ts`）：`string | null`、嵌套、union、record 都能正确表达，无法识别的类型保留 `unknown`，不默认当成 string；
 - compiler 内部仍然使用完整 JSON Schema——目录只是给模型的紧凑投影。
+
+> **唯一正式 renderer**：`src/tools/llmCatalog.ts` 是唯一的 DSL contract renderer；旧格式
+> `renderExecutionToolCatalog` 已迁到 `src/experiments/executionCatalog.ts`（仅供旧 benchmark 的
+> iterative 臂提示词使用，新代码不要引用）。
 
 原则：
 
@@ -579,7 +601,7 @@ JIT 元工具：
   jit_execute_program(source)            提交 DSL 程序给 Harness 编译执行
 ```
 
-`jit_describe_tools` 是**确定性**的：`tool_names → ToolRegistry.get → SchemaView → compact DSL 契约文本`，没有概率过程。因此 DSL 臂的常驻 system prompt **不内嵌业务工具目录**——只包含 DSL 语法/原则 + 两个元工具的说明；模型只有在判断"接下来这几步可以程序化"时才调用 describe_tools 获取契约，再写程序、调用 execute_program。
+`jit_describe_tools` 是**确定性**的：`tool_names → ToolIdResolver → SchemaView → compact DSL 契约文本`，没有概率过程。**严格语义（不允许 partial success）**：请求里任一 id 未知就整体失败——`UNKNOWN_TOOL: unknown1, unknown2` 一次性列出全部未知 + 确定性近似建议（`Did you mean "github_get_repository"（github.get_repository）？`），绝不返回部分契约；`tool_names` 上限 20（防 lazy loading 变回 eager loading）。因此 DSL 臂的常驻 system prompt **不内嵌业务工具目录**——只包含 DSL 语法/原则 + 两个元工具的说明；模型只有在判断"接下来这几步可以程序化"时才调用 describe_tools 获取契约，再写程序、调用 execute_program。
 
 ### Runtime
 

@@ -3,13 +3,14 @@ import type { ToolCatalog } from "../tools/registry.js";
 import { schemaViewOf, schemaViewText } from "../tools/schemaView.js";
 
 /**
- * 把 tool registry 渲染为 DSL 调用签名目录（给 LLM 的系统 prompt）。
+ * 遗留全量目录渲染（旧格式）：把 tool registry 渲染为"DSL 调用签名"目录。
  *
- * 从 registry 自动渲染，模型看到的参数名/类型/必填与编译器校验完全一致，
- * 杜绝"自创参数"（编译器用 unknown_parameter 拒绝幻觉参数名）。
+ * #8 合并 renderer 后，正式 DSL contract renderer 只有 `src/tools/llmCatalog.ts`
+ * （renderCompactToolCatalog / renderToolContracts）。本文件是从 `src/compiler/catalog.ts`
+ * 迁移来的旧格式，仅供旧 benchmark（r4e / programmatic / semantic）的 iterative 臂
+ * 系统提示词使用；新代码请用 `src/tools/llmCatalog.ts`。
  *
- * 参数/输出均从 inputSchema / outputSchema 渲染（唯一事实源），不再有
- * 第二份手工描述。
+ * 参数/输出仍从 inputSchema / outputSchema 渲染（唯一事实源），与编译器校验一致。
  */
 
 function compareText(left: string, right: string): number {
@@ -34,7 +35,7 @@ function renderToolSignature(tool: ToolContract, nameTransform: (id: string) => 
 
 /**
  * 渲染工具目录。nameTransform 用于与 pi-ai 工具定义的命名保持一致
- * （如把 "github.search_repositories" 映射为 "github_search_repositories"）。
+ * （如把 "github.search_repositories" 映射为 host alias "github_search_repositories"）。
  */
 export function renderExecutionToolCatalog(catalog: ToolCatalog, nameTransform: (id: string) => string = (id) => id): string {
   const sorted = [...catalog.all()].sort((left, right) => compareText(left.id, right.id));
