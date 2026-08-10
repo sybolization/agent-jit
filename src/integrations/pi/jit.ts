@@ -38,6 +38,8 @@ export interface JitExecuteProgramDetails {
  * **第一次**调用时随契约文本一并返回（与"工具 contract 可以 lazy load"同一设计原则）。
  * 内容只覆盖语法骨架 + 每个 primitive 一句精确语义与最小示例，不内嵌任何业务工具契约。
  * R5 review：join 改名为 merge_by_key（明确 base+overlay 语义），新增 concat（真正的列表拼接）。
+ * 示例只到 primitive 级、互不串联成流水线——不提供完整 workflow 模板（防 topology leakage
+ * 污染"语义澄清解决了 DSL friction"的因果结论）。
  */
 export const MINIMAL_DSL_REFERENCE = [
   "## Agent Execution DSL 极简参考（仅随首次 describe 返回一次）",
@@ -53,25 +55,11 @@ export const MINIMAL_DSL_REFERENCE = [
   '- select(列表, "谓词")：按比较谓词（> >= < <= == !=）过滤。例：hot = select(r, "ratio > 0.3")',
   '- merge_by_key(基准列表, 附加列表..., key="字段")：把每条附加列表里 key 匹配的记录字段合并进基准记录（基准已有字段不覆盖）。',
   "  语义：给每条基准记录附加另一批数据的字段——不是对称合并，要真正拼接列表时用 concat。",
-  '  例：merged = merge_by_key(details, contrib_scores, commit_scores, key="full_name")',
+  '  例：enriched = merge_by_key(users, ratings, key="user_id")',
   "- concat(列表1, 列表2, ...)：按顺序把多个列表拼成一个大列表，元素原样保留（真正的列表拼接）。",
-  "  例：both = concat(high, low)",
+  "  例：both = concat(left, right)",
   "- 工具 id 两种写法等价：github.search_repositories 与 github_search_repositories",
-  "",
-  "示例（搜索 → 批量取详情 → compute 比值 → 互补分支 → 按 key 合并 → 过滤 → 排序 → 截取）：",
-  "注意：示例的查询词 / 截取数 / 阈值只是演示语法，**不代表任何任务的真实参数**。",
-  'repos = github.search_repositories(query="rss reader", limit=20)',
-  "details = map(repos, github.get_repository(full_name=_.full_name))",
-  'ratio = compute(details, ratio="forks / stars")',
-  'hot = select(ratio, "ratio > 0.3")',
-  'cold = select(ratio, "ratio <= 0.3")',
-  "hotScores = map(hot, github.get_contributor_stats(full_name=_.full_name))",
-  "coldScores = map(cold, github.list_commits(full_name=_.full_name))",
-  'merged = merge_by_key(details, hotScores, coldScores, key="full_name")',
-  'kept = select(merged, "score >= 50")',
-  'ranked = sort(kept, key="score", desc=true)',
-  "top = take(ranked, 4)",
-  "return top",
+  "注意：上面示例中的查询词 / 截取数 / 阈值只是演示语法，**不代表任何任务的真实参数**。",
 ].join("\n");
 
 /** jit_describe_tools 工具：tool_names → 确定性 DSL 契约文本。 */

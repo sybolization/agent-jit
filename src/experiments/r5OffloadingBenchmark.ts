@@ -17,11 +17,15 @@
  *
  * 新指标（在 task correctness / tokens / round trips / latency 之上）——R5 review 重定义，
  * 不再用单一 path（dsl / ordinary）概括：
- * - jitAttempted / jitExecutionSucceeded / jitSemanticCorrect / jitCompleted / fallbackUsed / maxedOut
+ * - jitAttempted / jitExecutionSucceeded / jitSemanticCorrect / jitFinishedWithoutFallback / fallbackUsed / maxedOut
  *   逐项记录（attempted = "想用"，executionSucceeded = "跑通"，semanticCorrect = "用对语义"，
- *   jitCompleted = "JIT 独立完成"（语义正确且无 fallback））；
+ *   jitFinishedWithoutFallback = "JIT 独立完成"（语义正确且无 fallback））；
  * - adoption rate = jitAttempted 比例；offload precision = semanticCorrect / attempted
  *   （真 precision，分母是尝试过的 run，不是总 run 数）——两个问题分开；
+ * - offload 时机（P0：jitCompleted 只反映"是否独立完成"，不反映"是否及时"）：
+ *   offloadDecisionRound（第一次 JIT 调用的轮数）+ preJit/postJitBusinessCalls（JIT 决定前后
+ *   已做/仍做的业务工作）；B 型再统计 preOffloadPipelineCalls（JIT 前已执行掉的、本可 offload
+ *   的流水线调用）并据此定义 timelyOffload（= 语义正确 且 preOffloadPipelineCalls === 0）；
  * - 最终答案走结构化 submit_answer（双 arm 同标准），**未提交即判错**，绝不从 finalText /
  *   错误程序的 result 做子串判定（P0：dslCorrect=false 的 run 必须 fail，除非模型用普通工具补救）；
  * - compressed path length：一次 jit_execute_program 实际替代了多少原子操作
@@ -49,7 +53,7 @@ import type { ExecutionGraph } from "../compiler/ir.js";
 import type { TraceEntry } from "../runtime/trace.js";
 import { defineTool, type RegisteredTool } from "../tools/definition.js";
 import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL } from "../tools/jitTools.js";
-import { ToolRegistry } from "../tools/registry.js";
+import { toolIdAlias, ToolRegistry } from "../tools/registry.js";
 import { checkTaskCorrectness } from "./taskSpec.js";
 import { runPiAgent } from "./agentRunner.js";
 import { createR5CTask, R5_TASKS, type R5Task, type R5TaskId } from "./r5Tasks.js";
@@ -201,6 +205,10 @@ export type R5Arm = "control" | "treatment";
 export interface R5ToolCallRecord {
   name: string;
   isError: boolean;
+  /** 该工具调用发生在第几轮（1-based） */
+  round: number;
+  /** 工具调用参数（实验阶段完整保留，供 offload 时机 / 重复工作分析） */
+  arguments: Record<string, unknown>;
 }
 
 export interface R5RunMetrics {
@@ -225,9 +233,23 @@ export interface R5RunMetrics {
   /** 最后一次成功程序的语义正确性（无成功执行 → undefined；A 型无 spec → undefined） */
   jitSemanticCorrect: boolean | undefined;
   /** JIT 独立完成：尝试过 JIT 且最后一次程序语义正确且未 fallback（"用对了"的完成级） */
-  jitCompleted: boolean;
+  jitFinishedWithoutFallback: boolean;
   /** 第一次 jit 调用之后仍调用了普通业务工具（JIT 失败/不合适后的补救） */
   fallbackUsed: boolean;
+  /** 第一次 JIT 调用（describe 或 execute）发生在第几轮；未尝试 JIT → undefined */
+  offloadDecisionRound?: number;
+  /** 第一次 JIT 调用之前调用的业务工具（按序；= 决定 offload 前已做的工作） */
+  preJitBusinessCalls: readonly string[];
+  preJitBusinessCallCount: number;
+  /** 第一次 JIT 调用之后调用的业务工具（按序；= offload 后仍需普通工具完成的部分） */
+  postJitBusinessCalls: readonly string[];
+  postJitBusinessCallCount: number;
+  /** B 型：JIT 前已执行掉的、本可 offload 的流水线调用数（preJit 业务调用 ∩ pipeline 工具）；
+   *  任务无 pipeline 定义（A/C）→ undefined */
+  preOffloadPipelineCalls?: number;
+  /** 及时 offload：决定 offload 时还没执行掉任何本可 offload 的流水线工作，且这次 offload 语义正确。
+   *  B 型 = jitSemanticCorrect === true 且 preOffloadPipelineCalls === 0；A/C 无统一 pipeline 定义 → undefined */
+  timelyOffload: boolean | undefined;
   /** submit_answer 的 answer 参数（未提交 → undefined） */
   submittedAnswer?: string;
   /** 最终答案匹配 oracle（P0：只认 submit_answer，绝不从 finalText / 程序 result 判定） */
@@ -263,6 +285,9 @@ export interface R5RunDerivationInput {
   executeCalls: number;
   jitSemanticCorrect: boolean | undefined;
   executeErrors: readonly string[];
+  /** 任务中可确定性 offload 的流水线工具 canonical id（B 型有定义；A/C 无 → undefined）。
+   *  用于统计 preOffloadPipelineCalls / timelyOffload。 */
+  pipelineToolIds?: readonly string[];
   submittedAnswer?: string;
   finalText: string;
   oracle: readonly (string | RegExp)[];
@@ -275,13 +300,36 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
   const isJitName = (name: string): boolean =>
     name === DESCRIBE_TOOLS_TOOL.name || name === EXECUTE_PROGRAM_TOOL.name;
   const isSubmit = (name: string): boolean => name === SUBMIT_ANSWER_ID;
+  const isBusiness = (name: string): boolean => !isJitName(name) && !isSubmit(name);
   const firstJitIndex = input.toolTimeline.findIndex((call) => isJitName(call.name));
   const fallbackUsed =
     firstJitIndex >= 0 &&
-    input.toolTimeline.slice(firstJitIndex + 1).some((call) => !isJitName(call.name) && !isSubmit(call.name));
+    input.toolTimeline.slice(firstJitIndex + 1).some((call) => isBusiness(call.name));
   const jitExecutionSucceeded = input.toolTimeline.some(
     (call) => call.name === EXECUTE_PROGRAM_TOOL.name && !call.isError,
   );
+
+  // offload 时机（P0 review）：第一次 JIT 调用之前/之后的业务工作分开统计。
+  // businessCalls 只按序记录业务工具名；JIT 前后的分界必须用完整 toolTimeline（含 jit_* 交错位置）。
+  const preJitBusinessCalls =
+    firstJitIndex < 0
+      ? []
+      : input.toolTimeline.slice(0, firstJitIndex).filter((call) => isBusiness(call.name)).map((call) => call.name);
+  const postJitBusinessCalls =
+    firstJitIndex < 0
+      ? []
+      : input.toolTimeline.slice(firstJitIndex + 1).filter((call) => isBusiness(call.name)).map((call) => call.name);
+  const offloadDecisionRound = firstJitIndex >= 0 ? input.toolTimeline[firstJitIndex]!.round : undefined;
+
+  // B 型：JIT 前已执行掉的、本可 offload 的流水线调用（preJit 业务调用 ∩ pipeline 工具）。
+  // pipelineToolIds 是 canonical id，toolTimeline 记录的是 host alias 名，需转换后比对。
+  const pipelineAliases = new Set((input.pipelineToolIds ?? []).map(toolIdAlias));
+  const preOffloadPipelineCalls =
+    firstJitIndex >= 0 && input.pipelineToolIds && input.pipelineToolIds.length > 0
+      ? input.toolTimeline
+          .slice(0, firstJitIndex)
+          .filter((call) => isBusiness(call.name) && pipelineAliases.has(call.name)).length
+      : undefined;
 
   // P0 严格输出协议：答案正确性**只认模型显式提交的 submit_answer**。
   // 未提交 → 不判正确（不再退回 finalText）；程序 result 永不参与答案判定。
@@ -296,7 +344,15 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
     answerCorrect && (!jitAttempted || input.jitSemanticCorrect === true || fallbackUsed);
 
   // JIT 独立完成：尝试 + 语义正确 + 无 fallback（"用对了"的完成级，区别于 adoption 的"想用"）
-  const jitCompleted = jitAttempted && input.jitSemanticCorrect === true && !fallbackUsed;
+  const jitFinishedWithoutFallback = jitAttempted && input.jitSemanticCorrect === true && !fallbackUsed;
+
+  // 及时 offload：不做全局固定阈值——B 的整个 pipeline 都可 offload，故要求决定时
+  // preOffloadPipelineCalls === 0（还没有执行掉任何本可 offload 的工作）且这次 offload 语义正确；
+  // A/C 的语义阶段必须执行，无统一 pipeline 定义 → undefined。
+  const timelyOffload =
+    input.taskId === "B" && preOffloadPipelineCalls !== undefined
+      ? jitAttempted && input.jitSemanticCorrect === true && preOffloadPipelineCalls === 0
+      : undefined;
 
   return {
     arm: input.arm,
@@ -312,8 +368,15 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
     jitAttempted,
     jitExecutionSucceeded,
     jitSemanticCorrect: input.jitSemanticCorrect,
-    jitCompleted,
+    jitFinishedWithoutFallback,
     fallbackUsed,
+    ...(offloadDecisionRound !== undefined ? { offloadDecisionRound } : {}),
+    preJitBusinessCalls,
+    preJitBusinessCallCount: preJitBusinessCalls.length,
+    postJitBusinessCalls,
+    postJitBusinessCallCount: postJitBusinessCalls.length,
+    ...(preOffloadPipelineCalls !== undefined ? { preOffloadPipelineCalls } : {}),
+    timelyOffload,
     ...(input.submittedAnswer !== undefined ? { submittedAnswer: input.submittedAnswer } : {}),
     answerCorrect,
     taskCompleted,
@@ -400,12 +463,18 @@ export async function runR5Run(
     maxedOut: run.maxedOut,
     tokens: run.tokens,
     latencyMs: run.latencyMs,
-    toolTimeline: run.toolCalls.map((call) => ({ name: call.name, isError: call.isError })),
+    toolTimeline: run.toolCalls.map((call) => ({
+      name: call.name,
+      isError: call.isError,
+      round: call.round,
+      arguments: call.arguments,
+    })),
     businessCalls,
     describeCalls,
     executeCalls,
     jitSemanticCorrect,
     executeErrors,
+    pipelineToolIds: task.pipelineToolIds,
     submittedAnswer,
     finalText: run.finalText,
     oracle: task.oracle,
@@ -432,9 +501,19 @@ export interface R5Aggregate {
   /** 最后一次成功程序语义正确的比例 */
   jitSemanticCorrectRate: number;
   /** JIT 独立完成（尝试 + 语义正确 + 无 fallback）比例 */
-  jitCompletedRate: number;
+  jitFinishedWithoutFallbackRate: number;
   /** 真 precision：语义正确 / 尝试过（attempted>0；B/C 有意义；A 上 attempt 已属多余） */
   offloadPrecision: number;
+  /** 第一次 JIT 调用的平均轮数（仅统计尝试过 JIT 的 run；无尝试 → 0） */
+  avgOffloadDecisionRound: number;
+  /** 平均 JIT 前业务调用数（决定 offload 前已做的工作量） */
+  avgPreJitBusinessCallCount: number;
+  /** 平均 JIT 后业务调用数（offload 后仍需普通工具完成的工作量） */
+  avgPostJitBusinessCallCount: number;
+  /** B 型：平均 JIT 前已执行掉的流水线调用数（无 pipeline 定义 → undefined） */
+  avgPreOffloadPipelineCalls: number | undefined;
+  /** 及时 offload 比例（timelyOffload === true / 总 run 数；B 型有定义，A/C → undefined） */
+  timelyOffloadRate: number | undefined;
   /** 不该 offload 却尝试：A 上 jitAttempted 比例（B/C 无意义 → undefined，不入 JSON） */
   unnecessaryOffloadRate: number | undefined;
   /** 第一次 jit 调用之后又用普通业务工具补救的比例 */
@@ -464,6 +543,12 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
     .map((run) => run.lastProgram?.correctlyCompressedOps)
     .filter((value): value is number => value !== undefined);
   const avg = (values: number[]): number => (values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0);
+  const decisionRounds = cell
+    .map((run) => run.offloadDecisionRound)
+    .filter((value): value is number => value !== undefined);
+  const preOffloadPipelineValues = cell
+    .map((run) => run.preOffloadPipelineCalls)
+    .filter((value): value is number => value !== undefined);
   return {
     arm,
     taskId,
@@ -471,9 +556,16 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
     adoptionRate: ratio(attempted),
     jitExecutionSucceededRate: ratio(cell.filter((run) => run.jitExecutionSucceeded).length),
     jitSemanticCorrectRate: ratio(cell.filter((run) => run.jitSemanticCorrect === true).length),
-    jitCompletedRate: ratio(cell.filter((run) => run.jitCompleted).length),
+    jitFinishedWithoutFallbackRate: ratio(cell.filter((run) => run.jitFinishedWithoutFallback).length),
     // P1 review：真 precision = 语义正确 / 尝试过（数学意义与名字一致）
     offloadPrecision: attempted > 0 ? attemptedCorrect / attempted : 0,
+    avgOffloadDecisionRound: avg(decisionRounds),
+    avgPreJitBusinessCallCount: avg(cell.map((run) => run.preJitBusinessCallCount)),
+    avgPostJitBusinessCallCount: avg(cell.map((run) => run.postJitBusinessCallCount)),
+    // 无 pipeline 定义（A/C）→ undefined，不入 JSON
+    avgPreOffloadPipelineCalls:
+      preOffloadPipelineValues.length > 0 ? avg(preOffloadPipelineValues) : undefined,
+    timelyOffloadRate: taskId === "B" ? ratio(cell.filter((run) => run.timelyOffload === true).length) : undefined,
     unnecessaryOffloadRate: taskId === "A" ? ratio(attempted) : undefined,
     fallbackRate: ratio(cell.filter((run) => run.fallbackUsed).length),
     maxedOutRate: ratio(cell.filter((run) => run.maxedOut).length),
@@ -622,9 +714,17 @@ async function main(): Promise<number> {
         console.log(
           `  jitAttempted=${run.jitAttempted} execSucceeded=${run.jitExecutionSucceeded} ` +
             `semantic=${run.jitSemanticCorrect === undefined ? "n/a" : run.jitSemanticCorrect} ` +
-            `jitCompleted=${run.jitCompleted} fallback=${run.fallbackUsed} ` +
+            `jitFinishedWithoutFallback=${run.jitFinishedWithoutFallback} fallback=${run.fallbackUsed} ` +
             `describe=${run.describeCalls} execute=${run.executeCalls} business=[${run.businessCalls.join(", ") || "无"}]`,
         );
+        if (run.offloadDecisionRound !== undefined) {
+          console.log(
+            `  offloadDecisionRound=${run.offloadDecisionRound} ` +
+              `preJitBusiness=${run.preJitBusinessCallCount} postJitBusiness=${run.postJitBusinessCallCount}` +
+              (run.preOffloadPipelineCalls !== undefined ? ` preOffloadPipeline=${run.preOffloadPipelineCalls}` : "") +
+              ` timely=${run.timelyOffload === undefined ? "n/a" : run.timelyOffload}`,
+          );
+        }
         if (run.submittedAnswer !== undefined) console.log(`  submit_answer：${run.submittedAnswer.slice(0, 300)}`);
         if (run.lastProgram) {
           console.log(`  DSL 正确：${run.lastProgram.dslCorrect === undefined ? "n/a" : run.lastProgram.dslCorrect}`);
@@ -656,12 +756,14 @@ async function main(): Promise<number> {
     for (const taskId of taskCells) {
       const agg = aggregates[currentArm][taskId];
       const unnecessary = agg.unnecessaryOffloadRate === undefined ? "n/a" : `${(agg.unnecessaryOffloadRate * 100).toFixed(0)}%`;
+      const timely = agg.timelyOffloadRate === undefined ? "n/a" : `${(agg.timelyOffloadRate * 100).toFixed(0)}%`;
+      const avgPipeline = agg.avgPreOffloadPipelineCalls === undefined ? "n/a" : agg.avgPreOffloadPipelineCalls.toFixed(1);
       console.log(
         `  [${taskId}] runs=${agg.runs} ` +
           `adoption=${(agg.adoptionRate * 100).toFixed(0)}% ` +
           `execSucceeded=${(agg.jitExecutionSucceededRate * 100).toFixed(0)}% ` +
           `semanticCorrect=${(agg.jitSemanticCorrectRate * 100).toFixed(0)}% ` +
-          `jitCompleted=${(agg.jitCompletedRate * 100).toFixed(0)}% ` +
+          `jitFinishedWithoutFallback=${(agg.jitFinishedWithoutFallbackRate * 100).toFixed(0)}% ` +
           `offloadPrecision=${(agg.offloadPrecision * 100).toFixed(0)}% ` +
           `unnecessary=${unnecessary} ` +
           `fallback=${(agg.fallbackRate * 100).toFixed(0)}% ` +
@@ -669,7 +771,10 @@ async function main(): Promise<number> {
           `taskCompleted=${(agg.taskCompletionRate * 100).toFixed(0)}% ` +
           `compressed=${agg.avgCompressedOps.toFixed(1)} ` +
           `correctCompressed=${agg.avgCorrectlyCompressedOps.toFixed(1)} ` +
-          `rounds=${agg.avgRounds.toFixed(1)} tokens=${Math.round(agg.avgTokens)}`,
+          `rounds=${agg.avgRounds.toFixed(1)} tokens=${Math.round(agg.avgTokens)} ` +
+          `offloadRound=${agg.avgOffloadDecisionRound.toFixed(1)} ` +
+          `preJit=${agg.avgPreJitBusinessCallCount.toFixed(1)} postJit=${agg.avgPostJitBusinessCallCount.toFixed(1)} ` +
+          `preOffloadPipeline=${avgPipeline} timely=${timely}`,
       );
     }
   }

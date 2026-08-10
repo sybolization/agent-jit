@@ -14,6 +14,10 @@ export interface AgentToolCallRecord {
   toolCallId: string;
   name: string;
   isError: boolean;
+  /** 该工具调用发生在第几轮（1-based；tool_execution_start 时当前 turn 尚未 +1，故用 turns+1） */
+  round: number;
+  /** 工具调用的参数（实验观测用，随 toolTimeline 落盘，供 offload 时机分析） */
+  arguments: Record<string, unknown>;
 }
 
 export interface PiAgentRunOptions {
@@ -73,7 +77,13 @@ export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRun
         break;
       case "tool_execution_start": {
         if (!toolCallById.has(event.toolCallId)) {
-          toolCallById.set(event.toolCallId, { toolCallId: event.toolCallId, name: event.toolName, isError: false });
+          toolCallById.set(event.toolCallId, {
+            toolCallId: event.toolCallId,
+            name: event.toolName,
+            isError: false,
+            round: turns + 1,
+            arguments: event.args as Record<string, unknown>,
+          });
           toolCallOrder.push(event.toolCallId);
         }
         onToolCall?.({ toolCallId: event.toolCallId, name: event.toolName, arguments: event.args as Record<string, unknown> });

@@ -249,7 +249,8 @@ R4 系列验证的是 forced-JIT 形态（模型被告知"请用 DSL 完成任�
 - **C 混合型**（先读 issue → Agent 语义判断候选 → 批量确定性取分/排序 → 总结）：理想是 reasoning → atomic tools → reasoning → JIT 段 → reasoning。C 型 candidate 数可用 `--candidates=N`（4/10/20/40）缩放做 C-scaling。
 
 **R5 review 后的指标**（在 task correctness / tokens / round trips / latency 之上，不再用单一 `path` 概括）：
-- **逐 run 拆分记录**：`jitAttempted`（想用）/ `jitExecutionSucceeded`（跑通）/ `jitSemanticCorrect`（最后一次成功程序过图语义检查 `dslCorrect`）/ `jitCompleted`（JIT 独立完成：尝试 + 语义正确 + 无 fallback）/ `fallbackUsed`（第一次 jit 调用之后又用普通业务工具补救）/ `maxedOut`（跑满轮数，独立字段）；
+- **逐 run 拆分记录**：`jitAttempted`（想用）/ `jitExecutionSucceeded`（跑通）/ `jitSemanticCorrect`（最后一次成功程序过图语义检查 `dslCorrect`）/ `jitFinishedWithoutFallback`（JIT 独立完成：尝试 + 语义正确 + 无 fallback）/ `fallbackUsed`（第一次 jit 调用之后又用普通业务工具补救）/ `maxedOut`（跑满轮数，独立字段）；
+- **offload 时机（P0）**：`jitFinishedWithoutFallback` 只回答"是否独立完成"，不回答"是否及时"——一个 JIT 前已把最贵的 iterative 部分做完的 run（如先 search + 30×get_repository 才想起来 JIT）在 correctness 上仍算完成，但 offload 价值很低。因此每个 run 记录 `offloadDecisionRound`（第一次 JIT 调用的轮数）、`preJit/postJitBusinessCalls`（决定 offload 前后已做/仍做的业务工作）；B 型（整个 pipeline 都可 offload）再统计 `preOffloadPipelineCalls`（JIT 前已执行掉的流水线调用）并据此定义 **`timelyOffload`**（= 语义正确 且 preOffloadPipelineCalls === 0）——A/C 的语义阶段必须执行，不做全局阈值，`timelyOffload` 为 undefined；
 - **JIT adoption rate = jitAttempted 比例**（"愿不愿意尝试"），**offload precision = semanticCorrect / attempted**（真 precision，分母是尝试过的 run 而不是总 run 数）——两个问题分开，避免旧 precision 只是 adoption 的别名；
 - **unnecessary offload rate**：A 上 jitAttempted 比例（不该 offload 却尝试）；
 - **compressed path length**：一次 `jit_execute_program` 实际替代了多少原子操作（tool nodes + map fanout + compute/merge/concat/filter，从执行 trace 统计）；另记 **correctlyCompressedOps**——只统计语义正确程序的压缩数，避免错误 DSL 夸大收益；
@@ -267,7 +268,7 @@ R4 系列验证的是 forced-JIT 形态（模型被告知"请用 DSL 完成任�
 
 **R5 正式结果（DeepSeek，60 runs：10 samples × 3 tasks × 2 arms，`logs/experiments/r5-offloading-2026-08-10T06-15-49-414Z/report.json`）**
 
-| 格 | adoption | execSucceeded | semanticCorrect | jitCompleted | offloadPrecision | unnecessary | fallback | taskCompleted | rounds | tokens |
+| 格 | adoption | execSucceeded | semanticCorrect | jitFinished | offloadPrecision | unnecessary | fallback | taskCompleted | rounds | tokens |
 |---|---|---|---|---|---|---|---|---|---|---|
 | control/A | 0% | — | — | — | — | 0% | 0% | **100%** | 3.0 | 1,814 |
 | control/B | 0% | — | — | — | — | n/a | 0% | **100%** | 5.0 | 24,151 |

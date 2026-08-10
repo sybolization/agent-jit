@@ -284,6 +284,9 @@ export interface R5Task {
   spec?: TaskSpec;
   /** 最终答案 oracle（最终文本 / 程序结果需全部命中）：字符串按子串匹配，RegExp 按 test */
   oracle: readonly (string | RegExp)[];
+  /** 可确定性 offload 的流水线工具 canonical id（整个 pipeline 都可 JIT 化的任务才有；
+   *  A/C 的语义阶段必须执行 → undefined）。用于统计 preOffloadPipelineCalls / timelyOffload。 */
+  pipelineToolIds?: readonly string[];
 }
 
 export const R5_TASKS: readonly R5Task[] = [
@@ -304,6 +307,13 @@ export const R5_TASKS: readonly R5Task[] = [
     tools: buildBTools(),
     spec: R5_B_SPEC,
     oracle: computeR5GroundTruthB(),
+    // B 的整个流水线都可确定性 offload → 用于 timelyOffload（JIT 前不应执行掉任何流水线调用）
+    pipelineToolIds: [
+      "github.search_repositories",
+      "github.get_repository",
+      "github.get_contributor_stats",
+      "github.list_commits",
+    ],
   },
   createR5CTask(), // 默认 candidate=8；--candidates=N 时用 createR5CTask(N) 替换（P2 C-scaling）
 ];

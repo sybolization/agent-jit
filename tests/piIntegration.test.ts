@@ -2,7 +2,12 @@ import { describe, expect, test } from "vitest";
 import { Type } from "typebox";
 
 import { adaptRegisteredTool, createPiTools } from "../src/integrations/pi/toolAdapter.js";
-import { createJitDescribeTool, createJitExecuteProgramTool, type JitExecuteProgramDetails } from "../src/integrations/pi/jit.js";
+import {
+  createJitDescribeTool,
+  createJitExecuteProgramTool,
+  MINIMAL_DSL_REFERENCE,
+  type JitExecuteProgramDetails,
+} from "../src/integrations/pi/jit.js";
 import { defineTool, type RegisteredTool } from "../src/tools/definition.js";
 import { ToolRegistry } from "../src/tools/registry.js";
 import { createMockGithubTools } from "../src/tools/providers/github/mock.js";
@@ -99,7 +104,7 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     expect(secondText).toContain("github.get_repository(");
   });
 
-  test("DSL manual 示例不泄露任何任务的 ground truth 参数（B 型：query/limit/阈值/take）", async () => {
+  test("DSL manual 不泄露任务常量（B 型：query/limit/阈值/take）", async () => {
     const lazyTool = createJitDescribeTool(makeRegistry());
     const result = await lazyTool.execute("c1", { tool_names: ["github.get_repository"] });
     const text = (result.content[0] as { type: "text"; text: string }).text;
@@ -109,6 +114,14 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     expect(text).not.toContain("ratio > 0.15");
     expect(text).not.toContain("score >= 100");
     expect(text).not.toContain("take(ranked, 3)");
+  });
+
+  test("DSL manual 只含 primitive 级示例（不再包含完整 workflow 拓扑模板）", () => {
+    const manual = MINIMAL_DSL_REFERENCE;
+    // 完整流水线示例的三个结构标志都不应出现（R5-B 与模板拓扑同构会让模型照抄控制流，无法归因于语义澄清）：
+    expect(manual).not.toMatch(/^\s*\w+\s*=\s*[a-z_]+\./m); // 以业务工具调用起步（如 repos = github.search_repositories(...)）
+    expect(manual).not.toMatch(/^\s*return\s+\w+/m); // 以 return 收尾的完整流水线
+    expect(manual).not.toMatch(/select\([^,]+, "\w+ <=/); // 同一字段的互补分支对（B 拓扑：> 与 <= 成对）
   });
 });
 

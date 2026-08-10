@@ -19,7 +19,16 @@ import {
   type R5Arm,
   type R5RunDerivationInput,
   type R5RunMetrics,
+  type R5ToolCallRecord,
 } from "../src/experiments/r5OffloadingBenchmark.js";
+
+/** toolTimeline 记录构造辅助（round 默认 1；arguments 默认空）。 */
+const call = (name: string, round = 1, isError = false): R5ToolCallRecord => ({
+  name,
+  isError,
+  round,
+  arguments: {},
+});
 
 describe("系统提示词：两个 arm 的唯一差异是 JIT 能力", () => {
   test("control：普通 Agent + submit_answer，完全不知道 JIT", () => {
@@ -97,6 +106,7 @@ const deriveInput = (
   executeCalls: 0,
   jitSemanticCorrect: undefined,
   executeErrors: [],
+  pipelineToolIds: R5_TASKS.find((task) => task.id === overrides.taskId)?.pipelineToolIds,
   finalText: "",
   oracle: [],
   ...overrides,
@@ -112,8 +122,8 @@ describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 r
         rounds: 8,
         maxedOut: true,
         toolTimeline: [
-          { name: "jit_describe_tools", isError: false },
-          { name: "jit_execute_program", isError: false }, // 执行成功
+          call("jit_describe_tools"),
+          call("jit_execute_program"), // 执行成功
         ],
         describeCalls: 1,
         executeCalls: 1,
@@ -138,9 +148,9 @@ describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 r
       deriveInput({
         taskId: "B",
         toolTimeline: [
-          { name: "jit_describe_tools", isError: false },
-          { name: "jit_execute_program", isError: false },
-          { name: "github_get_repository", isError: false }, // fallback 补救
+          call("jit_describe_tools"),
+          call("jit_execute_program"),
+          call("github_get_repository"), // fallback 补救
         ],
         businessCalls: ["github_get_repository"],
         describeCalls: 1,
@@ -160,8 +170,8 @@ describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 r
       deriveInput({
         taskId: "B",
         toolTimeline: [
-          { name: "jit_execute_program", isError: false },
-          { name: "submit_answer", isError: false },
+          call("jit_execute_program"),
+          call("submit_answer"),
         ],
         executeCalls: 1,
         jitSemanticCorrect: true,
@@ -177,7 +187,7 @@ describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 r
     const metrics = deriveR5Metrics(
       deriveInput({
         taskId: "B",
-        toolTimeline: [{ name: "jit_execute_program", isError: false }],
+        toolTimeline: [call("jit_execute_program")],
         executeCalls: 1,
         jitSemanticCorrect: true,
         submittedAnswer: "adv/org-repo-0 / adv/org-repo-1 / adv/org-repo-17",
@@ -213,7 +223,7 @@ describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 r
     const withoutFallback = deriveR5Metrics(
       deriveInput({
         taskId: "A",
-        toolTimeline: [{ name: "jit_execute_program", isError: true }],
+        toolTimeline: [call("jit_execute_program", 1, true)],
         executeCalls: 1,
         jitSemanticCorrect: undefined,
         submittedAnswer: "1600，TypeScript",
@@ -227,8 +237,8 @@ describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 r
       deriveInput({
         taskId: "A",
         toolTimeline: [
-          { name: "jit_execute_program", isError: true },
-          { name: "github_get_repository", isError: false },
+          call("jit_execute_program", 1, true),
+          call("github_get_repository"),
         ],
         businessCalls: ["github_get_repository"],
         executeCalls: 1,
@@ -241,25 +251,25 @@ describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 r
     expect(withFallback.taskCompleted).toBe(true);
   });
 
-  test("jitCompleted：尝试 + 语义正确 + 无 fallback = true；有 fallback / 语义错 = false", () => {
+  test("jitFinishedWithoutFallback：尝试 + 语义正确 + 无 fallback = true；有 fallback / 语义错 = false", () => {
     const good = deriveR5Metrics(
       deriveInput({
         taskId: "B",
-        toolTimeline: [{ name: "jit_execute_program", isError: false }],
+        toolTimeline: [call("jit_execute_program")],
         executeCalls: 1,
         jitSemanticCorrect: true,
         submittedAnswer: "adv/org-repo-0",
         oracle: ["adv/org-repo-0"],
       }),
     );
-    expect(good.jitCompleted).toBe(true);
+    expect(good.jitFinishedWithoutFallback).toBe(true);
 
     const withFallback = deriveR5Metrics(
       deriveInput({
         taskId: "B",
         toolTimeline: [
-          { name: "jit_execute_program", isError: false },
-          { name: "github_get_repository", isError: false },
+          call("jit_execute_program"),
+          call("github_get_repository"),
         ],
         businessCalls: ["github_get_repository"],
         executeCalls: 1,
@@ -268,20 +278,124 @@ describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 r
         oracle: ["adv/org-repo-0"],
       }),
     );
-    expect(withFallback.jitCompleted).toBe(false); // 用了 fallback，不算 JIT 独立完成
+    expect(withFallback.jitFinishedWithoutFallback).toBe(false); // 用了 fallback，不算 JIT 独立完成
 
     const wrong = deriveR5Metrics(
       deriveInput({
         taskId: "B",
-        toolTimeline: [{ name: "jit_execute_program", isError: false }],
+        toolTimeline: [call("jit_execute_program")],
         executeCalls: 1,
         jitSemanticCorrect: false,
         submittedAnswer: "adv/org-repo-0",
         oracle: ["adv/org-repo-0"],
       }),
     );
-    expect(wrong.jitCompleted).toBe(false);
+    expect(wrong.jitFinishedWithoutFallback).toBe(false);
     expect(wrong.taskCompleted).toBe(false);
+  });
+});
+
+describe("deriveR5Metrics — offload 时机（P0：jitFinishedWithoutFallback 不反映“是否及时”）", () => {
+  const B_ORACLE = ["adv/org-repo-0", "adv/org-repo-1", "adv/org-repo-17"];
+
+  test("B 型理想 run：第一轮就 JIT、之前零业务调用 → offloadDecisionRound=1、timelyOffload=true", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [call("jit_describe_tools", 1), call("jit_execute_program", 1), call("submit_answer", 2)],
+        describeCalls: 1,
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0 / adv/org-repo-1 / adv/org-repo-17",
+        oracle: B_ORACLE,
+      }),
+    );
+    expect(metrics.offloadDecisionRound).toBe(1);
+    expect(metrics.preJitBusinessCallCount).toBe(0);
+    expect(metrics.postJitBusinessCallCount).toBe(0);
+    expect(metrics.preOffloadPipelineCalls).toBe(0);
+    expect(metrics.timelyOffload).toBe(true);
+  });
+
+  test("B 型 28k 坏 run：JIT 前已执行 search+30×get_repository → preOffloadPipelineCalls=31、timelyOffload=false", () => {
+    const details = Array.from({ length: 30 }, () => call("github_get_repository", 1));
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [
+          call("github_search_repositories", 1),
+          ...details,
+          call("jit_describe_tools", 2),
+          call("jit_execute_program", 3),
+          call("submit_answer", 4),
+        ],
+        businessCalls: ["github_search_repositories", ...details.map(() => "github_get_repository")],
+        describeCalls: 1,
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0 / adv/org-repo-1 / adv/org-repo-17",
+        oracle: B_ORACLE,
+      }),
+    );
+    expect(metrics.jitFinishedWithoutFallback).toBe(true); // correctness 层面没错
+    expect(metrics.offloadDecisionRound).toBe(2);
+    expect(metrics.preJitBusinessCallCount).toBe(31);
+    expect(metrics.preOffloadPipelineCalls).toBe(31); // 最贵的 iterative 部分已被普通工具做完
+    expect(metrics.timelyOffload).toBe(false); // 但 offload boundary 太晚，不是及时 offload
+  });
+
+  test("JIT 后仍有业务调用 → preJit/postJit 分界正确，且这些不算 timely（语义错时）", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [
+          call("jit_describe_tools", 1),
+          call("jit_execute_program", 2),
+          call("github_get_repository", 3), // JIT 后补救
+        ],
+        businessCalls: ["github_get_repository"],
+        describeCalls: 1,
+        executeCalls: 1,
+        jitSemanticCorrect: false,
+        submittedAnswer: "adv/org-repo-0 / adv/org-repo-1 / adv/org-repo-17",
+        oracle: B_ORACLE,
+      }),
+    );
+    expect(metrics.preJitBusinessCallCount).toBe(0);
+    expect(metrics.postJitBusinessCallCount).toBe(1);
+    expect(metrics.postJitBusinessCalls).toEqual(["github_get_repository"]);
+    expect(metrics.fallbackUsed).toBe(true);
+    expect(metrics.timelyOffload).toBe(false);
+  });
+
+  test("A/C 型：无 pipeline 定义 → preOffloadPipelineCalls / timelyOffload 为 undefined（不做全局阈值）", () => {
+    const a = deriveR5Metrics(
+      deriveInput({
+        taskId: "A",
+        toolTimeline: [call("jit_execute_program", 1, true)],
+        executeCalls: 1,
+        jitSemanticCorrect: undefined,
+        submittedAnswer: "1600，TypeScript",
+        oracle: [/1[,，]?600/, "TypeScript"],
+      }),
+    );
+    expect(a.offloadDecisionRound).toBe(1);
+    expect(a.preJitBusinessCallCount).toBe(0);
+    expect(a.preOffloadPipelineCalls).toBeUndefined();
+    expect(a.timelyOffload).toBeUndefined();
+
+    const c = deriveR5Metrics(
+      deriveInput({
+        taskId: "C",
+        toolTimeline: [call("jit_execute_program", 2)],
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        submittedAnswer: "a, b",
+        oracle: ["a"],
+      }),
+    );
+    expect(c.preOffloadPipelineCalls).toBeUndefined();
+    expect(c.timelyOffload).toBeUndefined();
   });
 });
 
@@ -303,8 +417,13 @@ const baseMetrics = (
   jitAttempted: false,
   jitExecutionSucceeded: false,
   jitSemanticCorrect: undefined,
-  jitCompleted: false,
+  jitFinishedWithoutFallback: false,
   fallbackUsed: false,
+  preJitBusinessCalls: [],
+  preJitBusinessCallCount: 0,
+  postJitBusinessCalls: [],
+  postJitBusinessCallCount: 0,
+  timelyOffload: undefined,
   answerCorrect: true,
   taskCompleted: true,
   finalText: "",
@@ -319,7 +438,7 @@ describe("aggregateR5 — adoption 与 offloadPrecision 分开，按 arm×task �
       jitAttempted: true,
       jitExecutionSucceeded: true,
       jitSemanticCorrect: true,
-      jitCompleted: true,
+      jitFinishedWithoutFallback: true,
       taskCompleted: true,
       lastProgram: {
         source: "…",
@@ -343,7 +462,7 @@ describe("aggregateR5 — adoption 与 offloadPrecision 分开，按 arm×task �
     expect(agg.adoptionRate).toBe(1); // 都愿意尝试
     expect(agg.jitExecutionSucceededRate).toBe(1);
     expect(agg.jitSemanticCorrectRate).toBe(0.5);
-    expect(agg.jitCompletedRate).toBe(0.5);
+    expect(agg.jitFinishedWithoutFallbackRate).toBe(0.5);
     expect(agg.offloadPrecision).toBe(0.5); // 语义正确 1 / 尝试 2
     expect(agg.taskCompletionRate).toBe(0.5);
     expect(agg.maxedOutRate).toBe(0.5);
@@ -360,7 +479,7 @@ describe("aggregateR5 — adoption 与 offloadPrecision 分开，按 arm×task �
       jitAttempted: true,
       jitExecutionSucceeded: true,
       jitSemanticCorrect: true,
-      jitCompleted: true,
+      jitFinishedWithoutFallback: true,
       taskCompleted: true,
     });
     const bad = baseMetrics({
@@ -413,8 +532,8 @@ describe("writeR5Report — 结果记录到 log（report.json，含完整 tool t
         tokens: { input: 100, output: 50, cacheRead: 0, total: 150 },
         latencyMs: 2000,
         toolTimeline: [
-          { name: "github_get_repository", isError: false },
-          { name: "submit_answer", isError: false },
+          call("github_get_repository"),
+          call("submit_answer"),
         ],
         businessCalls: ["github_get_repository"],
         submittedAnswer: "1600, TypeScript",
@@ -427,8 +546,8 @@ describe("writeR5Report — 结果记录到 log（report.json，含完整 tool t
         tokens: { input: 1000, output: 500, cacheRead: 0, total: 1500 },
         latencyMs: 15000,
         toolTimeline: [
-          { name: "jit_describe_tools", isError: false },
-          { name: "jit_execute_program", isError: false },
+          call("jit_describe_tools"),
+          call("jit_execute_program"),
         ],
         businessCalls: [],
         describeCalls: 1,
@@ -480,8 +599,8 @@ describe("writeR5Report — 结果记录到 log（report.json，含完整 tool t
       expect(report.runs).toHaveLength(2);
       // run 级：完整 tool timeline + 拆分指标
       expect(report.runs[1].toolTimeline).toEqual([
-        { name: "jit_describe_tools", isError: false },
-        { name: "jit_execute_program", isError: false },
+        call("jit_describe_tools"),
+        call("jit_execute_program"),
       ]);
       expect(report.runs[1].jitAttempted).toBe(true);
       expect(report.runs[1].jitSemanticCorrect).toBe(false);
