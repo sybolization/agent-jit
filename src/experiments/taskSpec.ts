@@ -47,6 +47,19 @@ export interface TaskSpec {
     /** 期望 merge_by_key 附加（非基准）source 的工具 id 集合（分支工具，如 contributors/commits） */
     extraTools?: readonly string[];
   };
+  /** R5 review 三轮：分支-汇聚数据流语义检查——不绑定特定 IR shape（concat / merge / 串行 merge 都算数）。
+   *  每个分支 select 的输出必须被对应分支工具消费，且所有分支工具都必须真正贡献到汇聚 select。
+   *  旧 mergeSpec 保留兼容（R4e 历史实验仍依赖）；新任务用 branchFlowSpec。 */
+  branchFlowSpec?: {
+    branches: readonly {
+      /** 分支划分谓词（如 "ratio > 0.15"），空白规范化后匹配 select 节点 */
+      predicate: string;
+      /** 该分支应调用的工具 id（map 或 tool 节点） */
+      tool: string;
+    }[];
+    /** 汇聚谓词（如 "score >= 100"）：最终 select 必须同时依赖所有分支工具 */
+    convergePredicate: string;
+  };
 }
 
 export interface TaskCorrectness {
@@ -104,6 +117,35 @@ function returnReachableNodes(graph: ExecutionGraph): ExecutionNode[] {
     }
   }
   return out;
+}
+
+/** consumer 是否（通过依赖闭包 BFS）依赖 producer。 */
+function dependsOn(graph: ExecutionGraph, consumerId: string, producerId: string): boolean {
+  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const visited = new Set<string>();
+  const queue: string[] = [consumerId];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (id === producerId) return true;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    const node = nodesById.get(id);
+    if (!node) continue;
+    for (const dep of nodeDependencies(node)) {
+      if (!visited.has(dep)) queue.push(dep);
+    }
+  }
+  return false;
+}
+
+/** 在节点集合中按谓词（空白规范化）找 select 节点（normalization 与 selectPreds 检查一致）。 */
+function findSelectByPredicate(nodes: readonly ExecutionNode[], predicate: string): ComputeNode | undefined {
+  const normalize = (value: string): string => value.replace(/\s+/g, "");
+  return nodes.find(
+    (node): node is ComputeNode =>
+      node.kind === "compute" && node.op === "select" &&
+      normalize(String(node.args.pred ?? "")) === normalize(predicate),
+  );
 }
 
 export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): TaskCorrectness {
@@ -279,6 +321,46 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
         failures.push(
           `缺少满足条件的 merge_by_key 节点（key=${mergeSpec.key}，分支工具 ${(mergeSpec.extraTools ?? []).join("、")}）`,
         );
+      }
+    }
+  }
+
+  // R5 review 三轮：分支-汇聚数据流语义（不绑定 merge_by_key 的特定 IR shape——
+  // concat / merge / 串行 merge 都是合法的"两条分支都贡献到最终汇聚"的实现）。
+  // 必须基于 returnReachableNodes（nodeDependencies 闭包含 concat/merge 全部分支），
+  // 不能继续用 returnDataflowPath——它在 join/concat 只走 sources[0]，会丢掉其他分支。
+  if (spec.branchFlowSpec) {
+    const reachable = returnReachableNodes(graph);
+    const branchFlow = spec.branchFlowSpec;
+    const branchNodeCandidates = (tool: string) =>
+      reachable.filter((node) => (node.kind === "map" || node.kind === "tool") && node.tool === tool);
+    for (const branch of branchFlow.branches) {
+      const branchSelect = findSelectByPredicate(reachable, branch.predicate);
+      if (!branchSelect) {
+        failures.push(`分支缺少 select 谓词 "${branch.predicate}"`);
+        continue;
+      }
+      const candidates = branchNodeCandidates(branch.tool);
+      if (candidates.length === 0) {
+        failures.push(`分支缺少工具调用 ${branch.tool}`);
+        continue;
+      }
+      // 分支划分真实生效：至少一个该工具调用消费了分支 select 的输出
+      if (!candidates.some((node) => dependsOn(graph, node.id, branchSelect.id))) {
+        failures.push(`分支工具 ${branch.tool} 未消费 select "${branch.predicate}" 的输出`);
+      }
+    }
+    const convergeSelect = findSelectByPredicate(reachable, branchFlow.convergePredicate);
+    if (!convergeSelect) {
+      failures.push(`缺少汇聚 select 谓词 "${branchFlow.convergePredicate}"`);
+    } else {
+      // 每个分支都真正贡献到最终汇聚——只"图里出现过工具"不算数（case 6 防过度宽松）
+      for (const branch of branchFlow.branches) {
+        const candidates = branchNodeCandidates(branch.tool);
+        if (candidates.length === 0) continue; // 上面已报"缺少工具调用"
+        if (!candidates.some((node) => dependsOn(graph, convergeSelect.id, node.id))) {
+          failures.push(`分支工具 ${branch.tool} 未贡献到最终汇聚 "${branchFlow.convergePredicate}"`);
+        }
       }
     }
   }

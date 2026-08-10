@@ -175,7 +175,7 @@ describe("规范 DSL 程序通过各任务的图语义检查（spec 与 oracle �
     expect(check.pass).toBe(true);
   });
 
-  test("B：用 concat 代替 merge_by_key（语义错误）→ R5_B_SPEC 失败", () => {
+  test("B：用 concat 代替 merge_by_key（分支直接拼接，score 记录自带 full_name）→ 同样通过 R5_B_SPEC", () => {
     const task = R5_TASKS.find((item) => item.id === "B")!;
     const dsl = B_DSL.replace(
       'merged = merge_by_key(details, contribs, commits, key="full_name")',
@@ -183,8 +183,8 @@ describe("规范 DSL 程序通过各任务的图语义检查（spec 与 oracle �
     );
     const { graph } = compileExecutionDsl(dsl, { tools: new ToolRegistry(task.tools) });
     const check = checkTaskCorrectness(graph, task.spec!);
-    expect(check.pass).toBe(false);
-    expect(check.failures.some((item) => item.includes("merge_by_key"))).toBe(true);
+    // branchFlowSpec：两个分支都真正贡献到最终 score filter 即算语义正确（不绑定 merge IR shape）
+    expect(check.pass).toBe(true);
   });
 
   test("C：候选列表 + map 评分 + 排序 + 截取通过 R5_C_SPEC", () => {

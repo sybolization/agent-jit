@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 
 import { compileExecutionDsl } from "../src/compiler/compile.js";
 import { execute } from "../src/runtime/runtime.js";
+import { checkTaskCorrectness } from "../src/experiments/taskSpec.js";
 import type { RegisteredTool } from "../src/tools/definition.js";
 import { ToolRegistry } from "../src/tools/registry.js";
 import { R5_TASKS, type R5TaskId } from "../src/experiments/r5Tasks.js";
@@ -396,6 +397,153 @@ describe("deriveR5Metrics — offload 时机（P0：jitFinishedWithoutFallback �
     );
     expect(c.preOffloadPipelineCalls).toBeUndefined();
     expect(c.timelyOffload).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// branchFlowSpec —— 分支-汇聚数据流语义检查（R5 review 三轮：不绑定 merge IR shape）
+// ---------------------------------------------------------------------------
+
+describe("branchFlowSpec — 只检查“每个分支都真正贡献到最终汇聚”，不绑定 concat/merge 的具体写法", () => {
+  const task = R5_TASKS.find((item) => item.id === "B")!;
+  const registry = () => new ToolRegistry<RegisteredTool>(task.tools);
+  const check = (dsl: string) => {
+    const { graph } = compileExecutionDsl(dsl, { tools: registry() });
+    return checkTaskCorrectness(graph, task.spec!);
+  };
+  const HEAD = [
+    'repos = github.search_repositories(query="agent framework", limit=30)',
+    "details = map(repos, github.get_repository(full_name=_.full_name))",
+    'ratio = compute(details, ratio="forks / stars")',
+    'high = select(ratio, "ratio > 0.15")',
+    'low = select(ratio, "ratio <= 0.15")',
+    "high_scores = map(high, github.get_contributor_stats(full_name=_.full_name))",
+    "low_scores = map(low, github.list_commits(full_name=_.full_name))",
+  ].join("\n");
+  const TAIL = ['ranked = sort(good, key="score", desc=true)', "top = take(ranked, 3)", "return top"].join("\n");
+
+  test("PASS 1: concat(high_scores, low_scores) 直接重组（score 记录自带 full_name）", () => {
+    const dsl = [HEAD, 'all = concat(high_scores, low_scores)', 'good = select(all, "score >= 100")', TAIL].join("\n");
+    expect(check(dsl).pass).toBe(true);
+  });
+
+  test("PASS 2: merge_by_key(details, high_scores, low_scores, key=...) 标准实现", () => {
+    const dsl = [
+      HEAD,
+      'good_source = merge_by_key(details, high_scores, low_scores, key="full_name")',
+      'good = select(good_source, "score >= 100")',
+      TAIL,
+    ].join("\n");
+    expect(check(dsl).pass).toBe(true);
+  });
+
+  test("PASS 3: concat 先拼接再 merge_by_key（串行化等价）", () => {
+    const dsl = [
+      HEAD,
+      'all = concat(high_scores, low_scores)',
+      'good_source = merge_by_key(details, all, key="full_name")',
+      'good = select(good_source, "score >= 100")',
+      TAIL,
+    ].join("\n");
+    expect(check(dsl).pass).toBe(true);
+  });
+
+  test("PASS 4: 串行 merge——先 merge high 再 merge low", () => {
+    const dsl = [
+      HEAD,
+      'm1 = merge_by_key(details, high_scores, key="full_name")',
+      'm2 = merge_by_key(m1, low_scores, key="full_name")',
+      'good = select(m2, "score >= 100")',
+      TAIL,
+    ].join("\n");
+    expect(check(dsl).pass).toBe(true);
+  });
+
+  test("FAIL 5: 只使用 high 分支（low 分支不存在）", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="agent framework", limit=30)',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      'ratio = compute(details, ratio="forks / stars")',
+      'high = select(ratio, "ratio > 0.15")',
+      "high_scores = map(high, github.get_contributor_stats(full_name=_.full_name))",
+      'good = select(high_scores, "score >= 100")',
+      TAIL,
+    ].join("\n");
+    expect(check(dsl).pass).toBe(false);
+  });
+
+  test("FAIL 6（最关键）: 两个分支都执行，但最终结果只依赖 high → 不能因图里出现过两个工具就算通过", () => {
+    // low 分支经 merge 进入 return 闭包（确实"被用到了"），但 score>=100 的汇聚 select 只依赖 high——
+    // low 的分数没经过过滤就被并进结果，语义错误。
+    const dsl = [
+      HEAD,
+      'good = select(high_scores, "score >= 100")',
+      'merged = merge_by_key(good, low_scores, key="full_name")',
+      'ranked = sort(merged, key="score", desc=true)',
+      "top = take(ranked, 3)",
+      "return top",
+    ].join("\n");
+    const result = check(dsl);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("未贡献到最终汇聚"))).toBe(true);
+  });
+
+  test("FAIL 7: high 分支错调用 list_commits", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="agent framework", limit=30)',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      'ratio = compute(details, ratio="forks / stars")',
+      'high = select(ratio, "ratio > 0.15")',
+      'low = select(ratio, "ratio <= 0.15")',
+      "high_scores = map(high, github.list_commits(full_name=_.full_name))", // 错
+      "low_scores = map(low, github.list_commits(full_name=_.full_name))",
+      'all = concat(high_scores, low_scores)',
+      'good = select(all, "score >= 100")',
+      TAIL,
+    ].join("\n");
+    expect(check(dsl).pass).toBe(false);
+  });
+
+  test("FAIL 8: low 分支错调用 get_contributor_stats", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="agent framework", limit=30)',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      'ratio = compute(details, ratio="forks / stars")',
+      'high = select(ratio, "ratio > 0.15")',
+      'low = select(ratio, "ratio <= 0.15")',
+      "high_scores = map(high, github.get_contributor_stats(full_name=_.full_name))",
+      "low_scores = map(low, github.get_contributor_stats(full_name=_.full_name))", // 错
+      'all = concat(high_scores, low_scores)',
+      'good = select(all, "score >= 100")',
+      TAIL,
+    ].join("\n");
+    expect(check(dsl).pass).toBe(false);
+  });
+
+  test("FAIL 9: 分支谓词错（ratio > 0.20）", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="agent framework", limit=30)',
+      "details = map(repos, github.get_repository(full_name=_.full_name))",
+      'ratio = compute(details, ratio="forks / stars")',
+      'high = select(ratio, "ratio > 0.20")',
+      'low = select(ratio, "ratio <= 0.20")',
+      "high_scores = map(high, github.get_contributor_stats(full_name=_.full_name))",
+      "low_scores = map(low, github.list_commits(full_name=_.full_name))",
+      'all = concat(high_scores, low_scores)',
+      'good = select(all, "score >= 100")',
+      TAIL,
+    ].join("\n");
+    expect(check(dsl).pass).toBe(false);
+  });
+
+  test("FAIL 10: 汇聚谓词错（score >= 50）", () => {
+    const dsl = [
+      HEAD,
+      'all = concat(high_scores, low_scores)',
+      'good = select(all, "score >= 50")',
+      TAIL,
+    ].join("\n");
+    expect(check(dsl).pass).toBe(false);
   });
 });
 

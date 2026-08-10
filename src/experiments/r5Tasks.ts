@@ -65,10 +65,14 @@ export const R5_B_SPEC: TaskSpec = {
   stageTools: ["github.get_repository"],
   computeExprs: { ratio: "forks / stars" },
   selectPreds: [`ratio > ${RATIO_THRESHOLD}`, `ratio <= ${RATIO_THRESHOLD}`, `score >= ${SCORE_THRESHOLD}`],
-  mergeSpec: {
-    key: "full_name",
-    sourceCount: 3,
-    extraTools: ["github.get_contributor_stats", "github.list_commits"],
+  // R5 review 三轮：不再绑定 merge_by_key 的特定 IR shape——检查"每个分支都真实贡献到最终汇聚"的数据流语义，
+  // concat / merge / 串行 merge 都是合法实现（旧 mergeSpec 的结构化检查会误判模型的 concat 等价程序）。
+  branchFlowSpec: {
+    branches: [
+      { predicate: `ratio > ${RATIO_THRESHOLD}`, tool: "github.get_contributor_stats" },
+      { predicate: `ratio <= ${RATIO_THRESHOLD}`, tool: "github.list_commits" },
+    ],
+    convergePredicate: `score >= ${SCORE_THRESHOLD}`,
   },
 };
 
