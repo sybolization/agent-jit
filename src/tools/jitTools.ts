@@ -78,7 +78,11 @@ function suggestionLines(catalog: ToolCatalog, unknowns: readonly string[]): str
  * 严格语义：**不允许 partial success**——任一 id 未知即整体失败，一次性列出全部未知
  * （UNKNOWN_TOOL）+ 确定性近似建议，绝不返回部分契约。
  */
-export function describeToolContracts(catalog: ToolCatalog, toolNames: readonly string[]): string {
+export function describeToolContracts(
+  catalog: ToolCatalog,
+  toolNames: readonly string[],
+  options: { header?: string } = {},
+): string {
   const names = [...new Set(toolNames.map((name) => name.trim()).filter((name) => name.length > 0))];
   if (names.length === 0) {
     return "错误：tool_names 为空。请传入要获取 DSL 契约的工具 id 列表（canonical 或 host alias 均可）。";
@@ -102,7 +106,10 @@ export function describeToolContracts(catalog: ToolCatalog, toolNames: readonly 
     return `错误：UNKNOWN_TOOL: ${unknowns.join(", ")}${suggestionLines(catalog, unknowns)}`;
   }
 
-  return renderToolContracts(catalog, { ids: canonicalIds });
+  return renderToolContracts(catalog, {
+    ids: canonicalIds,
+    ...(options.header !== undefined ? { header: options.header } : {}),
+  });
 }
 
 /** 把一次 jit_describe_tools 工具调用转成 toolResult 消息（供 DSL 臂 dispatch）。 */

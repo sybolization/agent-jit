@@ -2,6 +2,7 @@ import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { RegisteredTool } from "../../tools/definition.js";
 import { type ToolRegistry } from "../../tools/registry.js";
 import { createJitDescribeTool, createJitExecuteProgramTool } from "./jit.js";
+import type { DslGuidanceMode } from "./dslReference.js";
 
 /**
  * ToolRegistry → Pi AgentTool 适配层。
@@ -43,10 +44,13 @@ export function adaptRegisteredTool(registry: ToolRegistry<RegisteredTool>, tool
  * 把整个 registry 变成 Pi Agent 的工具集：普通业务工具（host alias 名）+ JIT 元工具。
  * Agent/agent loop 负责工具调用循环——harness 不需要再对 jit_* 做特殊 dispatch。
  */
-export function createPiTools(registry: ToolRegistry<RegisteredTool>): AgentTool<any>[] {
+export function createPiTools(
+  registry: ToolRegistry<RegisteredTool>,
+  options: { guidance?: DslGuidanceMode } = {},
+): AgentTool<any>[] {
   return [
     ...registry.all().map((tool) => adaptRegisteredTool(registry, tool)),
-    createJitDescribeTool(registry),
+    createJitDescribeTool(registry, options),
     createJitExecuteProgramTool(registry),
   ];
 }

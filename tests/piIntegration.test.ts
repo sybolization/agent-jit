@@ -5,9 +5,9 @@ import { adaptRegisteredTool, createPiTools } from "../src/integrations/pi/toolA
 import {
   createJitDescribeTool,
   createJitExecuteProgramTool,
-  MINIMAL_DSL_REFERENCE,
   type JitExecuteProgramDetails,
 } from "../src/integrations/pi/jit.js";
+import { renderDslReference } from "../src/integrations/pi/dslReference.js";
 import { defineTool, type RegisteredTool } from "../src/tools/definition.js";
 import { ToolRegistry } from "../src/tools/registry.js";
 import { createMockGithubTools } from "../src/tools/providers/github/mock.js";
@@ -90,38 +90,115 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     await expect(tool.execute("c3", { tool_names: [] })).rejects.toThrow(/tool_names 为空/);
   });
 
-  test("DSL manual 按需加载：第一次 describe 附带极简语法参考，后续不再重复", async () => {
+  test("DSL manual 按需加载：第一次 describe 附带语法参考（默认 patterns），后续只返回契约 + bindings", async () => {
     const lazyTool = createJitDescribeTool(makeRegistry());
     const first = await lazyTool.execute("c1", { tool_names: ["github.get_repository"] });
     const firstText = (first.content[0] as { type: "text"; text: string }).text;
-    expect(firstText).toContain("Agent Execution DSL 极简参考");
+    expect(firstText).toContain("## 1. Tool calls"); // manual 只随首次 describe 返回
+    expect(firstText).toContain("Composition patterns"); // 默认 patterns：含组合模式
     expect(firstText).toContain("merge_by_key("); // R5 review：join → merge_by_key（base+overlay 语义）
     expect(firstText).toContain("concat("); // 真正的列表拼接
     expect(firstText).toContain("github.get_repository("); // 契约仍然返回
     const second = await lazyTool.execute("c2", { tool_names: ["github.get_repository"] });
     const secondText = (second.content[0] as { type: "text"; text: string }).text;
-    expect(secondText).not.toContain("Agent Execution DSL 极简参考");
+    expect(secondText).not.toContain("## 1. Tool calls"); // manual 不再重复
     expect(secondText).toContain("github.get_repository(");
   });
 
-  test("DSL manual 不泄露任务常量（B 型：query/limit/阈值/take）", async () => {
+  test("DSL manual 不泄露任务常量（B 型：query/limit/阈值/take，三种模式 + describe 输出全检查）", async () => {
+    const B_CONSTANTS = ['query="agent framework"', "limit=30", "ratio > 0.15", "score >= 100", "take(ranked, 3)"];
+    for (const mode of ["primitive", "patterns", "full-example"] as const) {
+      const manual = renderDslReference(mode);
+      for (const constant of B_CONSTANTS) {
+        expect(manual, `mode=${mode} 不应含 ${constant}`).not.toContain(constant);
+      }
+    }
+    // describe 首次返回（默认 patterns）同样不含
     const lazyTool = createJitDescribeTool(makeRegistry());
-    const result = await lazyTool.execute("c1", { tool_names: ["github.get_repository"] });
+    const result = await lazyTool.execute("c1", { tool_names: ["github.search_repositories", "github.get_repository"] });
     const text = (result.content[0] as { type: "text"; text: string }).text;
-    // B 型任务的设计常量（r5Tasks.ts R5_B_SPEC）绝不能出现在参考示例里——否则示例变成可复制模板
-    expect(text).not.toContain('query="agent framework"');
-    expect(text).not.toContain("limit=30");
-    expect(text).not.toContain("ratio > 0.15");
-    expect(text).not.toContain("score >= 100");
-    expect(text).not.toContain("take(ranked, 3)");
+    for (const constant of B_CONSTANTS) expect(text).not.toContain(constant);
   });
 
-  test("DSL manual 只含 primitive 级示例（不再包含完整 workflow 拓扑模板）", () => {
-    const manual = MINIMAL_DSL_REFERENCE;
-    // 完整流水线示例的三个结构标志都不应出现（R5-B 与模板拓扑同构会让模型照抄控制流，无法归因于语义澄清）：
-    expect(manual).not.toMatch(/^\s*\w+\s*=\s*[a-z_]+\./m); // 以业务工具调用起步（如 repos = github.search_repositories(...)）
-    expect(manual).not.toMatch(/^\s*return\s+\w+/m); // 以 return 收尾的完整流水线
-    expect(manual).not.toMatch(/select\([^,]+, "\w+ <=/); // 同一字段的互补分支对（B 拓扑：> 与 <= 成对）
+  test("renderDslReference 三模式：primitive 无组合模式；patterns 教局部 idiom；只有 full-example 含端到端链", () => {
+    // primitive：只有三层语言模型，无组合模式、无端到端链
+    const primitive = renderDslReference("primitive");
+    expect(primitive).toContain("## 1. Tool calls");
+    expect(primitive).toContain("## 2. Array dataflow operators");
+    expect(primitive).toContain("## 3. Return");
+    expect(primitive).not.toContain("Composition patterns");
+    expect(primitive).not.toContain("Full workflow example");
+
+    // patterns：核心 + 组合模式；允许局部拓扑（互补 select 对作为 idiom），禁止端到端 B 链
+    const patterns = renderDslReference("patterns");
+    expect(patterns).toContain("Composition patterns");
+    expect(patterns).toContain("Pattern A: Fan-out");
+    expect(patterns).toContain("Pattern B: Split + recombine");
+    expect(patterns).toContain("Pattern C: Enrichment");
+    expect(patterns).toContain('select(items, "value <= 0")'); // 互补 select 对 = 允许的局部 idiom
+    expect(patterns).toContain("merge_by_key(base, overlays..., key=...)");
+    expect(patterns).not.toContain("github.get_contributor_stats"); // 端到端 B 链分支工具禁止
+    expect(patterns).not.toContain("github.list_commits");
+    expect(patterns).not.toContain('"score >=');
+    expect(patterns).not.toContain('key="score"');
+    expect(patterns).not.toContain("Full workflow example");
+
+    // full-example：唯一允许端到端链的模式（B 常量由"不泄露任务常量"测试把关）
+    const full = renderDslReference("full-example");
+    expect(full).toContain("Full workflow example");
+    expect(full).toContain("github.get_contributor_stats");
+    expect(full).toContain("github.list_commits");
+    expect(full).toContain("return top");
+  });
+
+  test("四段式输出：manual + # Requested Tool Contracts + ## Compatible bindings（patterns 模式每次返回）", async () => {
+    const lazyTool = createJitDescribeTool(makeRegistry());
+    const first = await lazyTool.execute("c1", {
+      tool_names: ["github.search_repositories", "github.get_repository"],
+    });
+    const firstText = (first.content[0] as { type: "text"; text: string }).text;
+    // 段 1-3：语言模型 + 核心算子 + 组合模式（manual）
+    expect(firstText).toContain("## 1. Tool calls");
+    expect(firstText).toContain("## 2. Array dataflow operators");
+    expect(firstText).toContain("Composition patterns");
+    // 段 4：请求的工具契约
+    expect(firstText).toContain("# Requested Tool Contracts");
+    expect(firstText).toContain("github.search_repositories(");
+    // 段 5：Schema 推导的局部兼容连接
+    expect(firstText).toContain("## Compatible bindings");
+    expect(firstText).toContain("github.search_repositories[].full_name");
+    expect(firstText).toContain("→ github.get_repository(full_name)");
+    // 第二次 describe 不重复 manual，但 bindings 仍针对本次请求返回
+    const second = await lazyTool.execute("c2", {
+      tool_names: ["github.search_repositories", "github.get_repository"],
+    });
+    const secondText = (second.content[0] as { type: "text"; text: string }).text;
+    expect(secondText).not.toContain("## 1. Tool calls");
+    expect(secondText).toContain("# Requested Tool Contracts");
+    expect(secondText).toContain("## Compatible bindings");
+    expect(secondText).toContain("github.search_repositories[].full_name");
+  });
+
+  test("guidance 影响 describe 输出：primitive 无组合模式与 bindings；full-example 含端到端示例", async () => {
+    const primitiveTool = createJitDescribeTool(makeRegistry(), { guidance: "primitive" });
+    const primitiveText = (
+      (await primitiveTool.execute("c1", {
+        tool_names: ["github.search_repositories", "github.get_repository"],
+      })).content[0] as { type: "text"; text: string }
+    ).text;
+    expect(primitiveText).toContain("## 1. Tool calls");
+    expect(primitiveText).not.toContain("Composition patterns");
+    expect(primitiveText).not.toContain("## Compatible bindings"); // Z 下界：无组合模式、无 hints
+
+    const fullTool = createJitDescribeTool(makeRegistry(), { guidance: "full-example" });
+    const fullText = (
+      (await fullTool.execute("c1", {
+        tool_names: ["github.search_repositories", "github.get_repository"],
+      })).content[0] as { type: "text"; text: string }
+    ).text;
+    expect(fullText).toContain("Full workflow example");
+    expect(fullText).toContain("return top");
+    expect(fullText).not.toContain("## Compatible bindings"); // F 上界：只有完整示例，无 hints
   });
 });
 

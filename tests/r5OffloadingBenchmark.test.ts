@@ -10,6 +10,7 @@ import type { RegisteredTool } from "../src/tools/definition.js";
 import { ToolRegistry } from "../src/tools/registry.js";
 import { R5_TASKS, type R5TaskId } from "../src/experiments/r5Tasks.js";
 import {
+  parseFlags,
   aggregateR5,
   buildR5Aggregates,
   compressedPath,
@@ -715,12 +716,12 @@ describe("writeR5Report — 结果记录到 log（report.json，含完整 tool t
     const aggregates = buildR5Aggregates(runs);
 
     const outDir = path.join(os.tmpdir(), `r5-report-test-${Date.now()}`);
-    const reportPath = writeR5Report(outDir, { arm: "both", task: "all", samples: 1, rounds: 10 }, R5_TASKS, runs, aggregates);
+    const reportPath = writeR5Report(outDir, { arm: "both", task: "all", samples: 1, rounds: 10, dslGuidance: "patterns" }, R5_TASKS, runs, aggregates);
     try {
       expect(fs.existsSync(reportPath)).toBe(true);
       const report = JSON.parse(fs.readFileSync(reportPath, "utf8")) as {
         mode: string;
-        config: { arm: string; task: string; samples: number; rounds: number };
+        config: { arm: string; task: string; samples: number; rounds: number; dslGuidance?: string };
         tasks: Array<{ id: string; name: string; prompt: string; oracle: string[] }>;
         aggregates: Record<string, Record<string, { runs: number; adoptionRate: number }>>;
         runs: Array<{
@@ -733,7 +734,7 @@ describe("writeR5Report — 结果记录到 log（report.json，含完整 tool t
         }>;
       };
       expect(report.mode).toBe("r5-autonomous-offloading");
-      expect(report.config).toEqual({ arm: "both", task: "all", samples: 1, rounds: 10 });
+      expect(report.config).toEqual({ arm: "both", task: "all", samples: 1, rounds: 10, dslGuidance: "patterns" });
       expect(report.tasks.map((task) => task.id)).toEqual(["A", "B", "C"]);
       // 每个任务都记录了 prompt 与 oracle（RegExp 已序列化为字符串）
       for (const task of report.tasks) {
@@ -756,5 +757,26 @@ describe("writeR5Report — 结果记录到 log（report.json，含完整 tool t
     } finally {
       fs.rmSync(outDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("parseFlags — --dsl-guidance（Z/P/F ablation）", () => {
+  test("默认 patterns（产品候选）", () => {
+    expect(parseFlags([]).dslGuidance).toBe("patterns");
+  });
+
+  test("解析 primitive / patterns / full-example", () => {
+    expect(parseFlags(["--dsl-guidance=primitive"]).dslGuidance).toBe("primitive");
+    expect(parseFlags(["--dsl-guidance=patterns"]).dslGuidance).toBe("patterns");
+    expect(parseFlags(["--dsl-guidance=full-example"]).dslGuidance).toBe("full-example");
+  });
+
+  test("非法值报错", () => {
+    expect(() => parseFlags(["--dsl-guidance=foo"])).toThrow(/dsl-guidance/);
+  });
+
+  test("与其他 flag 共存解析", () => {
+    const flags = parseFlags(["--arm=treatment", "--task=B", "--samples=10", "--dsl-guidance=primitive"]);
+    expect(flags).toMatchObject({ arm: "treatment", task: "B", samples: 10, dslGuidance: "primitive" });
   });
 });

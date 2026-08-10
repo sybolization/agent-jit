@@ -4,6 +4,8 @@ import { compileExecutionDsl, ExecutionDslCompileError } from "../../compiler/co
 import { execute, type RuntimeRegistry } from "../../runtime/runtime.js";
 import type { TraceEntry } from "../../runtime/trace.js";
 import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL, describeToolContracts } from "../../tools/jitTools.js";
+import { DEFAULT_DSL_GUIDANCE, renderDslReference, type DslGuidanceMode } from "./dslReference.js";
+import { renderCompositionBindings } from "../../tools/compositionHints.js";
 
 /**
  * Agent JIT 元工具（AgentTool 形态）：把 JIT 变成 Pi Agent 的普通可执行工具。
@@ -34,48 +36,46 @@ export interface JitExecuteProgramDetails {
 }
 
 /**
- * 极简 DSL 参考：**按需加载**——不再常驻 system prompt，而是由 jit_describe_tools
- * **第一次**调用时随契约文本一并返回（与"工具 contract 可以 lazy load"同一设计原则）。
- * 内容只覆盖语法骨架 + 每个 primitive 一句精确语义与最小示例，不内嵌任何业务工具契约。
- * R5 review：join 改名为 merge_by_key（明确 base+overlay 语义），新增 concat（真正的列表拼接）。
- * 示例只到 primitive 级、互不串联成流水线——不提供完整 workflow 模板（防 topology leakage
- * 污染"语义澄清解决了 DSL friction"的因果结论）。
+ * DSL manual 按需加载：不常驻 system prompt，由 jit_describe_tools **第一次**调用时
+ * 随契约文本一并返回（与"工具 contract 可以 lazy load"同一设计原则）。
+ * 内容由 dslReference.ts 的 renderDslReference(guidance) 按 guidance 模式渲染：
+ * primitive → 核心三层参考（1. Tool calls / 2. Array dataflow operators / 3. Return）；
+ * patterns → 核心参考 + 组合模式；full-example → 核心参考 + 端到端示例。
+ * 组合模式只使用通用变量名与 service.* 通用服务名，不内嵌任何业务工具契约或任务常量。
  */
-export const MINIMAL_DSL_REFERENCE = [
-  "## Agent Execution DSL 极简参考（仅随首次 describe 返回一次）",
-  "程序是 newline 分隔的语句序列：<变量> = <调用>(...)，最后一行必须是 return <变量>。",
-  "每个 primitive 的输入都必须是先前定义的数组变量；每个 <变量> 输出一个数组。",
-  "",
-  "- map(列表, 工具(参数=_.字段))：对列表每个元素执行一次工具调用，返回结果数组。_.字段 引用当前元素字段。",
-  "  例：details = map(repos, github.get_repository(full_name=_.full_name))",
-  "- take(列表, N)：截取前 N 条。例：top = take(details, 5)",
-  '- sort(列表, key="字段", desc=true)：按字段排序（默认升序）。例：ranked = sort(scores, key="score", desc=true)',
-  '- filter(列表, 字段=值)：保留"字段 等于 值"的元素（等值过滤）。例：ts = filter(details, language="TypeScript")',
-  '- compute(列表, 新字段="表达式")：给每个元素计算新字段（表达式 = 字段引用 + 数字 + 四则运算 + 括号）。例：r = compute(details, ratio="forks / stars")',
-  '- select(列表, "谓词")：按比较谓词（> >= < <= == !=）过滤。例：hot = select(r, "ratio > 0.3")',
-  '- merge_by_key(基准列表, 附加列表..., key="字段")：把每条附加列表里 key 匹配的记录字段合并进基准记录（基准已有字段不覆盖）。',
-  "  语义：给每条基准记录附加另一批数据的字段——不是对称合并，要真正拼接列表时用 concat。",
-  '  例：enriched = merge_by_key(users, ratings, key="user_id")',
-  "- concat(列表1, 列表2, ...)：按顺序把多个列表拼成一个大列表，元素原样保留（真正的列表拼接）。",
-  "  例：both = concat(left, right)",
-  "- 工具 id 两种写法等价：github.search_repositories 与 github_search_repositories",
-  "注意：上面示例中的查询词 / 截取数 / 阈值只是演示语法，**不代表任何任务的真实参数**。",
-].join("\n");
 
-/** jit_describe_tools 工具：tool_names → 确定性 DSL 契约文本。 */
-export function createJitDescribeTool(registry: RuntimeRegistry): AgentTool<typeof DESCRIBE_TOOLS_TOOL.parameters> {
+/** 与 describeToolContracts 一致的解析：tool_names（canonical / host alias）→ 去重后的 canonical id 列表。 */
+function resolveCanonicalIds(catalog: RuntimeRegistry, toolNames: readonly string[]): string[] {
+  const ids: string[] = [];
+  for (const name of [...new Set(toolNames.map((name) => name.trim()).filter((name) => name.length > 0))]) {
+    const canonical = catalog.resolveId(name);
+    if (canonical !== undefined && !ids.includes(canonical)) ids.push(canonical);
+  }
+  return ids;
+}
+
+/** jit_describe_tools 工具：tool_names → 确定性 DSL 契约文本（四段式：DSL manual + 契约 + bindings）。 */
+export function createJitDescribeTool(
+  registry: RuntimeRegistry,
+  options: { guidance?: DslGuidanceMode } = {},
+): AgentTool<typeof DESCRIBE_TOOLS_TOOL.parameters> {
   let describeCalls = 0;
+  const guidance = options.guidance ?? DEFAULT_DSL_GUIDANCE;
   return {
     ...DESCRIBE_TOOLS_TOOL,
     label: "Describe DSL tool contracts",
     execute: async (_toolCallId, params) => {
       const toolNames = (params as { tool_names: string[] }).tool_names;
-      let text = describeToolContracts(registry, toolNames);
+      let text = describeToolContracts(registry, toolNames, { header: "# Requested Tool Contracts" });
       // 严格语义：任一 id 未知 → 整体失败（UNKNOWN_TOOL 全列 + 建议），抛给 Agent 转 toolResult
       if (text.startsWith("错误")) throw new Error(text);
       describeCalls += 1;
-      // DSL manual 按需加载：第一次 describe 顺带返回极简语法参考，之后不再重复
-      if (describeCalls === 1) text = `${MINIMAL_DSL_REFERENCE}\n\n${text}`;
+      // 本次请求工具集合的局部兼容连接（仅 patterns 模式；与 manual 的按需加载解耦，每次 describe 都返回）
+      const canonicalIds = resolveCanonicalIds(registry, toolNames);
+      const bindings = guidance === "patterns" ? renderCompositionBindings(registry, canonicalIds) : "";
+      // DSL manual 按需加载：第一次 describe 顺带返回语法参考（按 guidance 模式渲染），之后不再重复
+      if (describeCalls === 1) text = `${renderDslReference(guidance)}\n\n${text}`;
+      if (bindings.length > 0) text = `${text}\n\n${bindings}`;
       return {
         content: [{ type: "text", text }],
         details: { toolNames: (params as { tool_names: string[] }).tool_names },
@@ -151,6 +151,9 @@ export function compileErrorFeedback(error: ExecutionDslCompileError): string {
 }
 
 /** 创建 JIT 元工具集（jit_describe_tools / jit_execute_program）。 */
-export function createJitTools(registry: RuntimeRegistry): readonly AgentTool[] {
-  return [createJitDescribeTool(registry), createJitExecuteProgramTool(registry)];
+export function createJitTools(
+  registry: RuntimeRegistry,
+  options: { guidance?: DslGuidanceMode } = {},
+): readonly AgentTool[] {
+  return [createJitDescribeTool(registry, options), createJitExecuteProgramTool(registry)];
 }

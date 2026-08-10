@@ -36,7 +36,7 @@
  * 工具调用循环由 pi-agent-core `Agent` 负责（普通工具与 jit_* 都是 AgentTool）——
  * harness 只做观测，对任何工具都没有特殊 dispatch（createPiTools 见 src/integrations/pi）。
  *
- * 运行：npx tsx src/experiments/r5OffloadingBenchmark.ts [--arm=both|control|treatment] [--task=A|B|C|all] [--samples=2] [--rounds=10]
+ * 运行：npx tsx src/experiments/r5OffloadingBenchmark.ts [--arm=both|control|treatment] [--task=A|B|C|all] [--samples=2] [--rounds=10] [--dsl-guidance=primitive|patterns|full-example]
  * 环境：DEEPSEEK_API_KEY（.env，已被 gitignore）
  */
 
@@ -48,6 +48,7 @@ import { Type } from "typebox";
 
 import { createDeepSeekPiRuntime, type PiRuntime } from "../llm/gateway.js";
 import { adaptRegisteredTool, createPiTools } from "../integrations/pi/toolAdapter.js";
+import { type DslGuidanceMode } from "../integrations/pi/dslReference.js";
 import type { JitExecuteProgramDetails } from "../integrations/pi/jit.js";
 import type { ExecutionGraph } from "../compiler/ir.js";
 import type { TraceEntry } from "../runtime/trace.js";
@@ -114,8 +115,8 @@ export function r5ControlSystemPrompt(): string {
  *
  * 常驻 prompt **极简**（R5 review）：不内嵌 DSL 语法 / 示例 / 使用规则——DSL manual
  * 改为按需加载：jit_describe_tools 第一次调用会随契约返回极简语法参考（见
- * src/integrations/pi/jit.ts 的 MINIMAL_DSL_REFERENCE）。这样 A 型这种完全不用 JIT 的
- * 任务基本不承担 DSL context 成本（控制 context tax 的设计意图）。
+ * src/integrations/pi/dslReference.ts 的 renderDslReference(guidance)（--dsl-guidance 可选 primitive/patterns/full-example，默认 patterns））。
+ * 这样 A 型这种完全不用 JIT 的任务基本不承担 DSL context 成本（控制 context tax 的设计意图）。
  */
 export function r5TreatmentSystemPrompt(): string {
   return [
@@ -391,11 +392,15 @@ export async function runR5Run(
   arm: R5Arm,
   runtime: PiRuntime,
   maxRounds = 10,
+  options: { dslGuidance?: DslGuidanceMode } = {},
 ): Promise<R5RunMetrics> {
   const registry = new ToolRegistry<RegisteredTool>([...task.tools, submitAnswerTool]);
-  // 双 arm 唯一差异：control 只有 atomic tools（含 submit_answer）；treatment 再挂上 jit_* 元工具
+  // 双 arm 唯一差异：control 只有 atomic tools（含 submit_answer）；treatment 再挂上 jit_* 元工具。
+  // dslGuidance 只影响 treatment 臂（jit_describe_tools 的 manual/bindings 渲染），control 臂无 JIT 不受影响。
   const piTools =
-    arm === "control" ? registry.all().map((tool) => adaptRegisteredTool(registry, tool)) : createPiTools(registry);
+    arm === "control"
+      ? registry.all().map((tool) => adaptRegisteredTool(registry, tool))
+      : createPiTools(registry, { guidance: options.dslGuidance });
 
   let describeCalls = 0;
   let executeCalls = 0;
@@ -607,6 +612,8 @@ export interface R5ReportConfig {
   rounds: number;
   /** C 型 candidate 数（P2 C-scaling：4/10/20/40；undefined = 默认 8） */
   candidates?: number;
+  /** Z/P/F ablation：DSL 参考渲染模式（report 记录用；可选，缺省不写） */
+  dslGuidance?: DslGuidanceMode;
 }
 
 /**
@@ -651,25 +658,18 @@ export function writeR5Report(
 // CLI
 // ---------------------------------------------------------------------------
 
-function parseFlags(argv: readonly string[]): {
+export interface R5CliFlags {
   arm: R5Arm | "both";
   task: "A" | "B" | "C" | "all";
   samples: number;
   rounds: number;
   candidates?: number;
-} {
-  const flags: {
-    arm: R5Arm | "both";
-    task: "A" | "B" | "C" | "all";
-    samples: number;
-    rounds: number;
-    candidates?: number;
-  } = {
-    arm: "both",
-    task: "all",
-    samples: 1,
-    rounds: 10,
-  };
+  /** Z/P/F ablation：DSL 参考的渲染模式（默认 patterns = 产品候选） */
+  dslGuidance: DslGuidanceMode;
+}
+
+export function parseFlags(argv: readonly string[]): R5CliFlags {
+  const flags: R5CliFlags = { arm: "both", task: "all", samples: 1, rounds: 10, dslGuidance: "patterns" };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, "").split("=");
     if (key === "arm" && (value === "control" || value === "treatment" || value === "both")) flags.arm = value;
@@ -677,6 +677,10 @@ function parseFlags(argv: readonly string[]): {
     if (key === "samples") flags.samples = Math.max(1, Number(value) || 1);
     if (key === "rounds") flags.rounds = Math.max(2, Number(value) || 10);
     if (key === "candidates") flags.candidates = Math.max(2, Number(value) || 8);
+    if (key === "dsl-guidance") {
+      if (value === "primitive" || value === "patterns" || value === "full-example") flags.dslGuidance = value;
+      else throw new Error(`--dsl-guidance 必须是 primitive|patterns|full-example（当前：${value}）`);
+    }
   }
   return flags;
 }
@@ -693,7 +697,7 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const { arm, task, samples, rounds, candidates } = parseFlags(process.argv.slice(2));
+  const { arm, task, samples, rounds, candidates, dslGuidance } = parseFlags(process.argv.slice(2));
   const tasks = R5_TASKS.filter((item) => task === "all" || item.id === task).map((item) =>
     candidates !== undefined && item.id === "C" ? createR5CTask(candidates) : item,
   );
@@ -705,7 +709,7 @@ async function main(): Promise<number> {
     for (const currentTask of tasks) {
       for (let i = 1; i <= samples; i += 1) {
         console.log(`\n===== [${currentArm}/${currentTask.id}] ${currentTask.name}（sample ${i}/${samples}）=====`);
-        const run = await runR5Run(currentTask, currentArm, runtime, rounds);
+        const run = await runR5Run(currentTask, currentArm, runtime, rounds, { dslGuidance });
         runs.push(run);
         console.log(
           `→ rounds=${run.rounds} maxedOut=${run.maxedOut} tokens=${run.tokens.total} latency=${run.latencyMs}ms ` +
@@ -787,7 +791,7 @@ async function main(): Promise<number> {
   );
   const reportPath = writeR5Report(
     outDir,
-    { arm, task, samples, rounds, ...(candidates !== undefined ? { candidates } : {}) },
+    { arm, task, samples, rounds, dslGuidance, ...(candidates !== undefined ? { candidates } : {}) },
     tasks,
     runs,
     aggregates,

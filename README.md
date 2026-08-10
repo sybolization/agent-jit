@@ -260,7 +260,7 @@ R4 系列验证的是 forced-JIT 形态（模型被告知"请用 DSL 完成任�
 
 **DSL surface（P0 review）**：`join` 改名 **`merge_by_key`**（明确 base+overlay 语义——给每条基准记录附加另一批数据的字段，不是对称合并；`join` 保留为遗留别名，R1–R4 冻结产物兼容）；新增 **`concat`**（真正的列表拼接）——模型不再需要把"拼接两段列表"硬塞进 merge。图语义检查的 `TaskSpec.joinSpec` 同步改名 `mergeSpec`。
 
-**DSL manual 按需加载 + 每 primitive 精确语义**：treatment 常驻 prompt 只留一句"需要时使用 jit_describe_tools 获取编程契约"；DSL 语法极简参考改由 `jit_describe_tools` **第一次**调用时随工具契约一并返回（`MINIMAL_DSL_REFERENCE`，见 `src/integrations/pi/jit.ts`）——与"工具 contract 可以 lazy load"同一设计原则，A 型这种完全不用 JIT 的任务基本不承担 DSL context 成本（旧版常驻完整 DSL manual 让 treatment 的 A 型任务 token 从 861 涨到 2438）。每个 primitive 都带一句精确语义 + 最小示例（含 merge_by_key 的 base 语义与 concat 的分工）。**示例不泄露任何任务的 ground truth**：示例查询词/阈值/截取数使用与 A/B/C 全部错开的虚构常量（并有显式提示"不代表任何任务的真实参数"），否则 B 型任务会退化成"照抄模板"，offloadPrecision 变成假阳性（有回归测试把关）。
+**DSL manual 按需加载 + 每 primitive 精确语义**：treatment 常驻 prompt 只留一句"需要时使用 jit_describe_tools 获取编程契约"；DSL 语法参考改由 `jit_describe_tools` **第一次**调用时随工具契约一并返回（`renderDslReference(guidance)`，见 `src/integrations/pi/dslReference.ts`，支持 primitive / patterns / full-example 三种 guidance 模式）——与"工具 contract 可以 lazy load"同一设计原则，A 型这种完全不用 JIT 的任务基本不承担 DSL context 成本（旧版常驻完整 DSL manual 让 treatment 的 A 型任务 token 从 861 涨到 2438）。每个 primitive 都带一句精确语义 + 最小示例（含 merge_by_key 的 base 语义与 concat 的分工）。**示例不泄露任何任务的 ground truth**：示例查询词/阈值/截取数使用与 A/B/C 全部错开的虚构常量（并有显式提示"不代表任何任务的真实参数"），否则 B 型任务会退化成"照抄模板"，offloadPrecision 变成假阳性（有回归测试把关）。
 
 **编译错误诊断（P1）**：`jit_execute_program` 的编译失败反馈逐条附带"期望语义"提示（`FIX_HINTS`，如 UNKNOWN_FIELD → "绑定字段必须来自上游工具输出 schema"、expression_invalid → 支持的表达式语法），提高一次 repair 成功率。
 

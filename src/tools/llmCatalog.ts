@@ -123,6 +123,8 @@ export interface RenderToolContractsOptions {
   ids?: readonly string[];
   /** 与 pi-ai 工具定义的命名保持一致（如把 "github.search_repositories" 映射为 "github_search_repositories"） */
   nameTransform?: (id: string) => string;
+  /** 覆盖目录标题行（如 "# Requested Tool Contracts"）；缺省用默认标题 */
+  header?: string;
 }
 
 /** 渲染紧凑工具目录（可选子集）。nameTransform 用于与 pi-ai 工具定义的命名保持一致。 */
@@ -142,6 +144,7 @@ export function renderToolContracts(catalog: ToolCatalog, options: RenderToolCon
   }
   const named = new Map<string, NamedType>();
   const outputOf = outputRenderer(named);
+  const header = options.header ?? `# 工具目录（紧凑签名）— 共 ${tools.length} 个`;
 
   const signatures = tools.map((tool) => {
     const inputView = schemaViewOf(tool.inputSchema);
@@ -162,7 +165,7 @@ export function renderToolContracts(catalog: ToolCatalog, options: RenderToolCon
       : "";
 
   return [
-    `# 工具目录（紧凑签名）— 共 ${tools.length} 个`,
+    header,
     "# 参数格式：<名称>: <类型>（? = 可选）；输出为命名类型，定义见下方“类型定义”段",
     "",
     signatureBlock + typeBlock,
