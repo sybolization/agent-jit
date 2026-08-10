@@ -1,0 +1,274 @@
+{
+  "mode": "r5-autonomous-offloading",
+  "config": {
+    "arm": "both",
+    "task": "all",
+    "samples": 1,
+    "rounds": 8
+  },
+  "model": "deepseek-chat",
+  "timestamp": "2026-08-10T03:38:06.747Z",
+  "tasks": [
+    {
+      "id": "A",
+      "name": "single-repo-detail",
+      "prompt": "查询仓库 adv/org-repo-2 的详细情况，返回它的 star 数与主要编程语言。",
+      "oracle": [
+        "/1[,，]?600/",
+        "TypeScript"
+      ]
+    },
+    {
+      "id": "B",
+      "name": "repo-score-pipeline",
+      "prompt": "搜索 GitHub 上活跃的 agent 框架仓库（查询条件用 agent framework），取前 30 个。对每个仓库获取它的详细数据（star 数与 fork 数）。然后按 fork/star 比值（ratio = forks / stars）分支：比值 > 0.15 的仓库获取贡献者路径的分数，其余仓库获取提交路径的分数（两条路径返回的分数同一尺度，可直接比较）。把每条分数对应回它所属的仓库，只保留分数 >= 100 的仓库，按分数从高到低取前 3 个，返回它们的完整名称（owner/repo）。",
+      "oracle": [
+        "adv/org-repo-0",
+        "adv/org-repo-1",
+        "adv/org-repo-17"
+      ]
+    },
+    {
+      "id": "C",
+      "name": "issue-hybrid",
+      "prompt": "仓库 mock/org-repo-0 的 issue 列表里混着真实缺陷与普通请求。先获取 issue 列表，再阅读若干 issue 的标题与内容，判断哪些与 bug/故障相关（例如崩溃、报错、数据丢失、结果错误等），把这些作为候选。对每个候选 issue 获取它的严重性评分，按评分从高到低取前 2 个，返回它们的标题与评分，并附一句总结。",
+      "oracle": [
+        "Data loss when saving large files",
+        "Search returns wrong results"
+      ]
+    }
+  ],
+  "aggregates": {
+    "control": {
+      "arm": "control",
+      "runs": 3,
+      "adoptionRate": 0,
+      "offloadPrecision": 0,
+      "unnecessaryOffloadRate": 0,
+      "avgCompressedOps": 0,
+      "avgRounds": 3.3333333333333335,
+      "avgTokens": 7025.666666666667,
+      "correctRate": 1
+    },
+    "treatment": {
+      "arm": "treatment",
+      "runs": 3,
+      "adoptionRate": 0.6666666666666666,
+      "offloadPrecision": 1,
+      "unnecessaryOffloadRate": 0,
+      "avgCompressedOps": 66,
+      "avgRounds": 5.666666666666667,
+      "avgTokens": 28824,
+      "correctRate": 1
+    }
+  },
+  "runs": [
+    {
+      "arm": "control",
+      "taskId": "A",
+      "path": "ordinary",
+      "rounds": 2,
+      "tokens": {
+        "input": 131,
+        "output": 90,
+        "cacheRead": 640,
+        "total": 861
+      },
+      "latencyMs": 2098,
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "answerCorrect": true,
+      "finalText": "查询结果如下：\n\n- **仓库名称**：adv/org-repo-2\n- **Star 数**：1,600\n- **主要编程语言**：TypeScript"
+    },
+    {
+      "arm": "control",
+      "taskId": "B",
+      "path": "ordinary",
+      "rounds": 4,
+      "tokens": {
+        "input": 2525,
+        "output": 3985,
+        "cacheRead": 9088,
+        "total": 15598
+      },
+      "latencyMs": 19014,
+      "businessCalls": [
+        "github_search_repositories",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "answerCorrect": true,
+      "finalText": "现在整理所有仓库的分数，筛选出分数 >= 100 的仓库：\n\n**贡献者路径分数：**\n- repo-0: 801 ✅\n- repo-2: 90\n- repo-5: 60\n- repo-6: 36\n- repo-11: 84\n- repo-12: 75\n- repo-13: 45\n- repo-16: 24\n- repo-27: 24\n- repo-28: 45\n- repo-29: 30\n\n**提交路径分数：**\n- repo-1: 750 ✅\n- repo-3: 80\n- repo-4: 80\n- repo-7: 84\n- repo-8: 80\n- repo-9: 84\n- repo-10: 60\n- repo-14: 20\n- repo-15: 24\n- repo-17: 170 ✅\n- repo-18: 30\n- repo-19: 40\n- repo-20: 20\n- repo-21: 50\n- repo-22: 60\n- repo-23: 24\n- repo-24: 30\n- repo-25: 40\n- repo-26: 50\n\n**分数 >= 100 的仓库：**\n- repo-0: 801\n- repo-1: 750\n- repo-17: 170\n\n按分数从高到低排序，取前 3 个：\n1. repo-0 (801) → adv/org-repo-0\n2. repo-1 (750) → adv/org-repo-1\n3. repo-17 (170) → adv/org-repo-17\n\n## 最终结果\n\n按 fork/star 比值分支后，只保留分数 ≥ 100 的仓库，共 3 个仓库满足条件。按分数从高到低排列，前 3 个完整名称为：\n\n1. **adv/org-repo-0**（分数 801，贡献者路径）\n2. **adv/org-repo-1**（分数 750，提交路径）\n3. **adv/org-repo-17**（分数 170，提交路径）"
+    },
+    {
+      "arm": "control",
+      "taskId": "C",
+      "path": "ordinary",
+      "rounds": 4,
+      "tokens": {
+        "input": 1472,
+        "output": 586,
+        "cacheRead": 2560,
+        "total": 4618
+      },
+      "latencyMs": 6990,
+      "businessCalls": [
+        "github_list_issues",
+        "github_get_issue",
+        "github_get_issue",
+        "github_get_issue",
+        "github_get_issue",
+        "github_get_issue_score",
+        "github_get_issue_score",
+        "github_get_issue_score",
+        "github_get_issue_score"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "answerCorrect": true,
+      "finalText": "所有评分均已获取。让我整理结果。\n\n四个候选 issue 的严重性评分：\n- Issue #1 (Crash on startup): 49\n- Issue #3 (Intermittent API request failures): 52\n- Issue #5 (Data loss when saving large files): 61\n- Issue #7 (Search returns wrong results): 58\n\n按评分从高到低排序，前 2 个是 **#5 (61)** 和 **#7 (58)**。\n\n---\n\n**最终结果：**\n\n1. **Data loss when saving large files** — 评分 **61**\n2. **Search returns wrong results** — 评分 **58**\n\n**总结：** 这两个严重程度最高的缺陷分别是保存大文件时的静默数据丢失，以及升级后搜索功能返回错误结果，均会直接影响数据的完整性与用户获取结果的准确性。"
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "path": "ordinary",
+      "rounds": 2,
+      "tokens": {
+        "input": 147,
+        "output": 115,
+        "cacheRead": 2176,
+        "total": 2438
+      },
+      "latencyMs": 1785,
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "answerCorrect": true,
+      "finalText": "查询完成。仓库 **adv/org-repo-2** 的详细信息如下：\n\n- **Star 数**：1600 ⭐\n- **主要编程语言**：TypeScript\n\n（其余信息：forks 320）"
+    },
+    {
+      "arm": "treatment",
+      "taskId": "B",
+      "path": "dsl",
+      "rounds": 8,
+      "tokens": {
+        "input": 11736,
+        "output": 11791,
+        "cacheRead": 42880,
+        "total": 66407
+      },
+      "latencyMs": 101445,
+      "businessCalls": [],
+      "describeCalls": 1,
+      "executeCalls": 7,
+      "lastProgram": {
+        "source": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ndet = compute(details, ratio=\"forks/stars\")\nhigh = select(det, \"ratio > 0.15\")\nlow = select(det, \"ratio <= 0.15\")\nhighs = map(high, github.get_contributor_stats(full_name=_.full_name))\nlows = map(low, github.list_commits(full_name=_.full_name))\nmerged = join(det, highs, key=\"full_name\")\nreturn merged",
+        "dslCorrect": false,
+        "compressed": {
+          "toolNodes": 1,
+          "mapNodes": 3,
+          "fanoutSum": 60,
+          "computeNodes": 3,
+          "joinNodes": 1,
+          "returnNodes": 1,
+          "atomicOps": 66
+        }
+      },
+      "answerCorrect": true,
+      "finalText": ""
+    },
+    {
+      "arm": "treatment",
+      "taskId": "C",
+      "path": "dsl",
+      "rounds": 7,
+      "tokens": {
+        "input": 1384,
+        "output": 1779,
+        "cacheRead": 14464,
+        "total": 17627
+      },
+      "latencyMs": 14981,
+      "businessCalls": [
+        "github_list_issues",
+        "github_get_issue",
+        "github_get_issue",
+        "github_get_issue",
+        "github_get_issue",
+        "github_get_issue_score",
+        "github_get_issue_score",
+        "github_get_issue_score",
+        "github_get_issue_score"
+      ],
+      "describeCalls": 1,
+      "executeCalls": 2,
+      "answerCorrect": true,
+      "finalText": "The DSL is a flow-based language, not a scripting language with arbitrary array assignments. Looking at the DSL syntax examples more carefully, the list-building and transformations use built-in nodes like `map`, `take`, `sort`, `filter`, `compute`, `select`, `join`. Lists come from chaining tools with `map`. \n\nThe issue is my approach of manually assigning individual scores into an array variable isn't supported. Given the workflow structure, perhaps I should just determine the results directly since I already have all the scores. The programmatic approach is getting complicated, and I already have all the data needed.\n\nLet me reconsider. Since the answers are already known:\n- #1: 49\n- #3: 52\n- #5: 61\n- #7: 58\n\nTop 2: #5 (61) and #7 (58).\n\nI have all the data. Rather than fight the DSL, I'll present the results directly since the task is a single analysis that I've completed. But let me try one more approach with the proper DSL using `map` to build the list.\n\nActually, the DSL's list operations come from a tool's output. Since `github_get_issues` returns a list summary form and `github_get_issue_score` is per-issue, I could try to map scores over issue numbers. But the number list needs to come from somewhere.\n\nLet me just present the answer directly since I already have all the necessary data gathered. The task is essentially complete.\n\nThe 4 bug candidates: #1 (Crash, score 49), #3 (API failures, 52), #5 (Data loss, 61), #7 (Wrong results, 58).\n\nTop 2 by severity score descending: #5 (Data loss, 61) and #7 (Wrong search results, 58).\n\nI'll present the results directly. The programmatic DSL approach isn't suiting this particular data flow well, and I already gather the data needed for the answer.\n\n## 结果\n\n从 issue 列表中识别出 4 个与 bug/故障相关的候选 issue：\n\n| # | 标题 | 是否缺陷 |\n|---|------|---------|\n| 1 | Crash on startup with empty config（空配置启动崩溃） | ✅ 崩溃 |\n| 2 | Add dark mode support | 特性请求 |\n| 3 | Intermittent API request failures（API 随机失败） | ✅ 报错/故障 |\n| 4 | Improve documentation coverage | 文档请求 |\n| 5 | Data loss when saving large files（保存大文件数据丢失） | ✅ 数据丢失 |\n| 6 | Refactor database layer | 重构 |\n| 7 | Search returns wrong results（搜索返回错误结果） | ✅ 结果错误 |\n| 8 | Add CSV export | 特性请求 |\n\n候选 issue 的严重性评分：\n\n| # | 标题 | 评分 |\n|---|------|------|\n| 1 | Crash on startup with empty config | 49 |\n| 3 | Intermittent API request failures | 52 |\n| 5 | Data loss when saving large files | 61 |\n| 7 | Search returns wrong results | 58 |\n\n### 评分最高的前 2 个\n\n1. **#5 – Data loss when saving large files** — 评分 **61**\n2. **#7 – Search returns wrong results** — 评分 **58**\n\n**总结**：在 4 个缺陷类候选里,\"保存大文件时的静默数据丢失\"与\"升级后搜索返回错误结果\"是两个最严重的问题（评分 61 与 58）,均会造成用户数据的损坏或错误结果,优先修复。"
+    }
+  ]
+}

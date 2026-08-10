@@ -1,0 +1,88 @@
+{
+  "mode": "r5-autonomous-offloading",
+  "config": {
+    "arm": "treatment",
+    "task": "C",
+    "samples": 1,
+    "rounds": 8
+  },
+  "model": "deepseek-chat",
+  "timestamp": "2026-08-10T03:39:10.240Z",
+  "tasks": [
+    {
+      "id": "C",
+      "name": "issue-hybrid",
+      "prompt": "仓库 mock/org-repo-0 的 issue 列表里混着真实缺陷与普通请求。先获取 issue 列表，再阅读若干 issue 的标题与内容，判断哪些与 bug/故障相关（例如崩溃、报错、数据丢失、结果错误等），把这些作为候选。对每个候选 issue 获取它的严重性评分，按评分从高到低取前 2 个，返回它们的标题与评分，并附一句总结。",
+      "oracle": [
+        "Data loss when saving large files",
+        "Search returns wrong results"
+      ]
+    }
+  ],
+  "aggregates": {
+    "control": {
+      "arm": "control",
+      "runs": 0,
+      "adoptionRate": 0,
+      "offloadPrecision": 0,
+      "unnecessaryOffloadRate": 0,
+      "avgCompressedOps": 0,
+      "avgRounds": 0,
+      "avgTokens": 0,
+      "correctRate": 0
+    },
+    "treatment": {
+      "arm": "treatment",
+      "runs": 1,
+      "adoptionRate": 1,
+      "offloadPrecision": 1,
+      "unnecessaryOffloadRate": 0,
+      "avgCompressedOps": 8,
+      "avgRounds": 7,
+      "avgTokens": 16705,
+      "correctRate": 1
+    }
+  },
+  "runs": [
+    {
+      "arm": "treatment",
+      "taskId": "C",
+      "path": "dsl",
+      "rounds": 7,
+      "tokens": {
+        "input": 1258,
+        "output": 1111,
+        "cacheRead": 14336,
+        "total": 16705
+      },
+      "latencyMs": 11693,
+      "businessCalls": [
+        "github_list_issues",
+        "github_get_issue",
+        "github_get_issue",
+        "github_get_issue",
+        "github_get_issue"
+      ],
+      "describeCalls": 2,
+      "executeCalls": 2,
+      "lastProgram": {
+        "source": "cands = github.get_issues(numbers=[1,3,5,7])\nscored = map(cands, github.get_issue_score(number=_.number))\nsorted = sort(scored, key=\"score\", desc=true)\ntop = take(sorted, 2)\nreturn top",
+        "dslCorrect": true,
+        "compressed": {
+          "toolNodes": 1,
+          "mapNodes": 1,
+          "fanoutSum": 4,
+          "computeNodes": 2,
+          "joinNodes": 0,
+          "returnNodes": 1,
+          "atomicOps": 8
+        }
+      },
+      "executeErrors": [
+        "编译失败，请根据以下诊断修正 DSL 后再次调用 jit_execute_program 重新提交：\nL5: syntax: “all =”后缺少工作流或节点类型（使用已注册工作流 id 或内置节点（text、asset））\nL6: undefined_reference: sort 引用了未定义的变量“all”（“all”必须在 sort 之前定义）\nL7: undefined_reference: take 引用了未定义的变量“sorted”（“sorted”必须在 take 之前定义）\nL8: undefined_reference: return 引用了未定义的变量“top”（“top"
+      ],
+      "answerCorrect": true,
+      "finalText": "程序成功执行。评分最高的两个候选是 #5 和 #7。\n\n需要附上标题。让我引用之前获取的标题：\n- #5 \"Data loss when saving large files\"（评分 61）\n- #7 \"Search returns wrong results\"（评分 58）\n\n## 结果\n\n从 issue 列表中识别出 4 个与 bug/故障相关的候选：\n- #1 Crash on startup with empty config（启动崩溃）\n- #3 Intermittent API request failures（请求错误）\n- #5 Data loss when saving large files（数据丢失）\n- #7 Search returns wrong results（结果错误）\n\n按严重性评分从高到低排名，**前 2 名**：\n\n| 排名 | Issue 标题 | 严重性评分 |\n|------|-----------|-----------|\n| 1 | Data loss when saving large files | 61 |\n| 2 | Search returns wrong results | 58 |\n\n**总结**：在所有涉及 bug/故障的 issue 中，「Data loss when saving large files」（数据丢失，评分 61）与「Search returns wrong results」（搜索结果错误，评分 58）严重性最高，应优先处理这两个问题。"
+    }
+  ]
+}

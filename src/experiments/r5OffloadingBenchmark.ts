@@ -192,6 +192,8 @@ export interface R5RunMetrics {
     dslCorrect: boolean | undefined;
     compressed?: CompressedPath;
   };
+  /** 失败的 jit_execute_program 尝试（编译失败 / 执行失败的错误文本，截断，最多 5 条） */
+  executeErrors?: readonly string[];
   answerCorrect: boolean;
   finalText: string;
   error?: string;
@@ -210,6 +212,7 @@ export async function runR5Run(
   let describeCalls = 0;
   let executeCalls = 0;
   const businessCalls: string[] = [];
+  const executeErrors: string[] = [];
   let lastProgramDetails: JitExecuteProgramDetails | undefined;
 
   const run = await runPiAgent({
@@ -230,9 +233,15 @@ export async function runR5Run(
       businessCalls.push(name);
     },
     onToolEnd: ({ name, isError, result }) => {
-      if (name === EXECUTE_PROGRAM_TOOL.name && !isError) {
-        const details = (result as { details?: JitExecuteProgramDetails } | null)?.details;
-        if (details && details.status === "success") lastProgramDetails = details;
+      if (name !== EXECUTE_PROGRAM_TOOL.name) return;
+      const details = (result as { details?: JitExecuteProgramDetails } | null)?.details;
+      if (details && details.status === "success") {
+        lastProgramDetails = details;
+        return;
+      }
+      if (isError) {
+        const text = (result as { content?: Array<{ text?: string }> } | null)?.content?.map((c) => c.text ?? "").join("") ?? "";
+        if (text.trim() && executeErrors.length < 5) executeErrors.push(text.trim().slice(0, 300));
       }
     },
   });
@@ -270,6 +279,7 @@ export async function runR5Run(
     describeCalls,
     executeCalls,
     ...(lastProgram ? { lastProgram } : {}),
+    ...(executeErrors.length > 0 ? { executeErrors } : {}),
     answerCorrect,
     finalText: run.finalText,
     ...(run.error !== undefined ? { error: run.error } : {}),
@@ -319,6 +329,56 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm): R5Aggreg
     avgTokens: avg(armRuns.map((run) => run.tokens.total)),
     correctRate: avg(armRuns.map((run) => (run.answerCorrect ? 1 : 0))),
   };
+}
+
+// ---------------------------------------------------------------------------
+// 结果落盘：logs/experiments/r5-offloading-<ts>/report.json（与 r4e 等实验约定一致，
+// logs/ 纳入版本控制——实验可复现性要求保留原始 report.json）
+// ---------------------------------------------------------------------------
+
+export interface R5ReportConfig {
+  arm: R5Arm | "both";
+  task: "A" | "B" | "C" | "all";
+  samples: number;
+  rounds: number;
+}
+
+/**
+ * 把一次 R5 实验的结果完整写入 report.json：
+ * 配置 + 任务元数据（prompt / oracle）+ 每个 run 的全部指标 + 双 arm 汇总。
+ * 返回 report.json 的绝对路径。
+ */
+export function writeR5Report(
+  outDir: string,
+  config: R5ReportConfig,
+  tasks: readonly R5Task[],
+  runs: readonly R5RunMetrics[],
+  aggregates: Record<R5Arm, R5Aggregate>,
+): string {
+  fs.mkdirSync(outDir, { recursive: true });
+  const reportPath = path.join(outDir, "report.json");
+  fs.writeFileSync(
+    reportPath,
+    `${JSON.stringify(
+      {
+        mode: "r5-autonomous-offloading",
+        config,
+        model: "deepseek-chat",
+        timestamp: new Date().toISOString(),
+        tasks: tasks.map((task) => ({
+          id: task.id,
+          name: task.name,
+          prompt: task.prompt,
+          oracle: task.oracle.map(String),
+        })),
+        aggregates,
+        runs,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  return reportPath;
 }
 
 // ---------------------------------------------------------------------------
@@ -376,14 +436,21 @@ async function main(): Promise<number> {
             console.log(`  压缩路径：atomicOps=${c.atomicOps}（tool=${c.toolNodes} map=${c.mapNodes} fanout=${c.fanoutSum} compute=${c.computeNodes} join=${c.joinNodes} return=${c.returnNodes}）`);
           }
         }
+        for (const errorText of run.executeErrors ?? []) {
+          console.log(`  [execute 失败] ${errorText.replace(/\n/g, " ").slice(0, 200)}`);
+        }
         if (run.finalText.trim()) console.log(`  最终文本：${run.finalText.slice(0, 300)}`);
       }
     }
   }
 
   console.log("\n\n===== R5 汇总 =====");
+  const aggregates: Record<R5Arm, R5Aggregate> = {
+    control: aggregateR5(runs, "control"),
+    treatment: aggregateR5(runs, "treatment"),
+  };
   for (const currentArm of arms) {
-    const agg = aggregateR5(runs, currentArm);
+    const agg = aggregates[currentArm];
     console.log(`\n${ARM_LABEL[currentArm]}（${agg.runs} runs）`);
     console.log(`  JIT adoption rate：${(agg.adoptionRate * 100).toFixed(0)}%`);
     console.log(`  offload precision（B/C 中用了 JIT）：${(agg.offloadPrecision * 100).toFixed(0)}%`);
@@ -392,6 +459,15 @@ async function main(): Promise<number> {
     console.log(`  correct rate：${(agg.correctRate * 100).toFixed(0)}%`);
     console.log(`  avg rounds：${agg.avgRounds.toFixed(1)}；avg tokens：${Math.round(agg.avgTokens)}`);
   }
+
+  const outDir = path.join(
+    REPO_ROOT,
+    "logs",
+    "experiments",
+    `r5-offloading-${new Date().toISOString().replace(/[:.]/g, "-")}`,
+  );
+  const reportPath = writeR5Report(outDir, { arm, task, samples, rounds }, tasks, runs, aggregates);
+  console.log(`\n报告已写入: ${reportPath}`);
   return 0;
 }
 

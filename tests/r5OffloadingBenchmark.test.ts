@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { compileExecutionDsl } from "../src/compiler/compile.js";
@@ -10,6 +13,7 @@ import {
   compressedPath,
   r5ControlSystemPrompt,
   r5TreatmentSystemPrompt,
+  writeR5Report,
   type R5RunMetrics,
 } from "../src/experiments/r5OffloadingBenchmark.js";
 
@@ -118,5 +122,74 @@ describe("aggregateR5 — 新指标汇总", () => {
     const control = { ...base, arm: "control" as const, taskId: "B" as const, path: "ordinary" as const };
     const agg = aggregateR5([control, base], "treatment");
     expect(agg.runs).toBe(1);
+  });
+});
+
+describe("writeR5Report — 结果记录到 log（report.json）", () => {
+  test("写入配置 + 任务元数据 + 全部 runs + 双 arm 汇总，JSON 可读回", () => {
+    const runs: R5RunMetrics[] = [
+      {
+        arm: "control",
+        taskId: "A",
+        path: "ordinary",
+        rounds: 2,
+        tokens: { input: 100, output: 50, cacheRead: 0, total: 150 },
+        latencyMs: 2000,
+        businessCalls: ["github_get_repository"],
+        describeCalls: 0,
+        executeCalls: 0,
+        answerCorrect: true,
+        finalText: "1600, TypeScript",
+      },
+      {
+        arm: "treatment",
+        taskId: "B",
+        path: "dsl",
+        rounds: 4,
+        tokens: { input: 1000, output: 500, cacheRead: 0, total: 1500 },
+        latencyMs: 15000,
+        businessCalls: [],
+        describeCalls: 1,
+        executeCalls: 2,
+        answerCorrect: false,
+        finalText: "…",
+        lastProgram: {
+          source: "repos = github.search_repositories(query=\"agent framework\", limit=30)",
+          dslCorrect: false,
+          compressed: { toolNodes: 2, mapNodes: 2, fanoutSum: 34, computeNodes: 5, joinNodes: 1, returnNodes: 1, atomicOps: 43 },
+        },
+      },
+    ];
+    const aggregates = {
+      control: aggregateR5(runs, "control"),
+      treatment: aggregateR5(runs, "treatment"),
+    };
+
+    const outDir = path.join(os.tmpdir(), `r5-report-test-${Date.now()}`);
+    const reportPath = writeR5Report(outDir, { arm: "both", task: "all", samples: 1, rounds: 10 }, R5_TASKS, runs, aggregates);
+    try {
+      expect(fs.existsSync(reportPath)).toBe(true);
+      const report = JSON.parse(fs.readFileSync(reportPath, "utf8")) as {
+        mode: string;
+        config: { arm: string; task: string; samples: number; rounds: number };
+        tasks: Array<{ id: string; name: string; prompt: string; oracle: string[] }>;
+        aggregates: Record<string, { runs: number; adoptionRate: number }>;
+        runs: Array<{ arm: string; taskId: string; path: string }>;
+      };
+      expect(report.mode).toBe("r5-autonomous-offloading");
+      expect(report.config).toEqual({ arm: "both", task: "all", samples: 1, rounds: 10 });
+      expect(report.tasks.map((task) => task.id)).toEqual(["A", "B", "C"]);
+      // 每个任务都记录了 prompt 与 oracle（RegExp 已序列化为字符串）
+      for (const task of report.tasks) {
+        expect(task.prompt.length).toBeGreaterThan(0);
+        expect(task.oracle.length).toBeGreaterThan(0);
+      }
+      expect(report.aggregates.control.runs).toBe(1);
+      expect(report.aggregates.treatment.runs).toBe(1);
+      expect(report.runs).toHaveLength(2);
+      expect(report.runs[1]!.path).toBe("dsl");
+    } finally {
+      fs.rmSync(outDir, { recursive: true, force: true });
+    }
   });
 });

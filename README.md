@@ -253,6 +253,8 @@ R4 系列验证的是 forced-JIT 形态（模型被告知"请用 DSL 完成任�
 - **unnecessary offload rate**：一个工具就能解决的任务（A）是否反而 describe → execute 把事情搞复杂；
 - **compressed path length**：一次 `jit_execute_program` 实际替代了多少原子操作（tool nodes + map fanout + compute/join/filter，从执行 trace 统计）。
 
+**结果记录到 log**：每次实验运行结束把完整结果写入 `logs/experiments/r5-offloading-<ts>/report.json`（与 r4e 等实验约定一致，`logs/` 纳入版本控制以保证可复现性）——包含实验配置、任务元数据（prompt / oracle）、**每个 run 的全部指标**（路径 / 轮数 / tokens / latency / 业务调用序列 / describe+execute 次数 / 最后一次成功程序的源码与 `dslCorrect` / 压缩路径统计 / **失败的 execute 尝试的错误文本** `executeErrors` / 最终文本）以及双 arm 汇总。运行入口：`npm run experiment:r5`（等价 `npx tsx src/experiments/r5OffloadingBenchmark.ts`）。
+
 单样本 smoke（DeepSeek，真模型）已验证 harness 行为符合设计：A 在 treatment 下仍走普通工具（不 unnecessary offload）；C 出现理想混合行为（先原子读 8 个 issue 做语义判断，再 describe → 写 `get_issues(numbers=[1,3,5,7]) → map score → sort → take 2`，DSL 正确、压缩 8 个原子操作）；B 主动选择 JIT（一次程序压缩 69 个原子操作），但该样本的程序把 join 基准写成两个分支源而非 details——`dslCorrect=false` 正确捕获结构性错误，模型随后用原子调用补救。
 
 ---
