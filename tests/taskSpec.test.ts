@@ -341,7 +341,7 @@ describe("checkTaskCorrectness — R4e 分支重组图检查（compute/select/jo
     sortDesc: true,
     computeExprs: { ratio: "forks / stars" },
     selectPreds: ["ratio > 0.15", "ratio <= 0.15", "score >= 100"],
-    joinSpec: { key: "full_name", sourceCount: 3, extraTools: ["github.get_contributor_stats", "github.list_commits"] },
+    mergeSpec: { key: "full_name", sourceCount: 3, extraTools: ["github.get_contributor_stats", "github.list_commits"] },
   };
   const compileR4e = (dsl: string) =>
     compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools)}).graph;
@@ -377,17 +377,27 @@ describe("checkTaskCorrectness — R4e 分支重组图检查（compute/select/jo
     expect(result.failures.some((item) => item.includes("score >= 100"))).toBe(true);
   });
 
-  test("join 缺一个分支 source（只 join contrib）→ joinSpec.extraTools 失败", () => {
+  test("merge_by_key 缺一个分支 source（只 merge contrib）→ mergeSpec.extraTools 失败", () => {
     const dsl2 = CORRECT_R4E.replace("merged = join(ratio, contrib, commit, key=\"full_name\")", "merged = join(ratio, contrib, key=\"full_name\")");
     const result = checkTaskCorrectness(compileR4e(dsl2), r4eSpec);
     expect(result.pass).toBe(false);
     expect(result.failures.some((item) => item.includes("分支工具") && item.includes("github.list_commits"))).toBe(true);
   });
 
-  test("join 的 key 不是 full_name → 失败", () => {
+  test("merge_by_key 的 key 不是 full_name → 失败", () => {
     const dsl = CORRECT_R4E.replace('key="full_name"', 'key="name"');
     const result = checkTaskCorrectness(compileR4e(dsl), r4eSpec);
     expect(result.pass).toBe(false);
-    expect(result.failures.some((item) => item.includes("join") && item.includes("key"))).toBe(true);
+    expect(result.failures.some((item) => item.includes("merge_by_key") && item.includes("key"))).toBe(true);
+  });
+
+  test("用 concat 拼接分支列表（语义错误地代替 merge_by_key）→ mergeSpec 失败", () => {
+    const dsl = CORRECT_R4E.replace(
+      'merged = join(ratio, contrib, commit, key="full_name")',
+      "merged = concat(contrib, commit)",
+    );
+    const result = checkTaskCorrectness(compileR4e(dsl), r4eSpec);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("merge_by_key"))).toBe(true);
   });
 });

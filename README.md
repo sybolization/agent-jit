@@ -103,7 +103,7 @@ Compiler
 (static checking → schema-validated IR)
     ↓
 Execution IR
-(tool / map / compute / join / return)
+(tool / map / compute / merge_by_key / concat / return)
     ↓
 Runtime / Scheduler
 (dependency graph / concurrency / value store / trace)
@@ -245,22 +245,43 @@ R4 系列验证的是 forced-JIT 形态（模型被告知"请用 DSL 完成任�
 
 三类任务（`src/experiments/r5Tasks.ts`）：
 - **A 不值得 JIT**（单个 get_repository）：理想是直接调用业务工具；
-- **B 明显值得 JIT**（search 30 → details × 30 → 分支两路 score → join → filter → rank）：理想是 describe → execute 一次程序化；
-- **C 混合型**（先读 issue → Agent 语义判断候选 → 批量确定性取分/排序 → 总结）：理想是 reasoning → atomic tools → reasoning → JIT 段 → reasoning。
+- **B 明显值得 JIT**（search 30 → details × 30 → 分支两路 score → merge_by_key → filter → rank）：理想是 describe → execute 一次程序化；
+- **C 混合型**（先读 issue → Agent 语义判断候选 → 批量确定性取分/排序 → 总结）：理想是 reasoning → atomic tools → reasoning → JIT 段 → reasoning。C 型 candidate 数可用 `--candidates=N`（4/10/20/40）缩放做 C-scaling。
 
 **R5 review 后的指标**（在 task correctness / tokens / round trips / latency 之上，不再用单一 `path` 概括）：
-- **逐 run 拆分记录**：`jitAttempted`（愿不愿意尝试）/ `jitExecutionSucceeded`（至少一次执行成功）/ `jitSemanticCorrect`（最后一次成功程序过图语义检查 `dslCorrect`）/ `fallbackUsed`（第一次 jit 调用之后又用普通业务工具补救）/ `maxedOut`（跑满轮数，独立字段）；
-- **JIT adoption rate = jitAttempted 比例**（"愿不愿意尝试"），**offload precision = (attempted && semanticCorrect) 比例**（"是否正确选择并成功完成 offload"）——两个问题分开，避免旧 precision 只是 adoption 的别名；
+- **逐 run 拆分记录**：`jitAttempted`（想用）/ `jitExecutionSucceeded`（跑通）/ `jitSemanticCorrect`（最后一次成功程序过图语义检查 `dslCorrect`）/ `jitCompleted`（JIT 独立完成：尝试 + 语义正确 + 无 fallback）/ `fallbackUsed`（第一次 jit 调用之后又用普通业务工具补救）/ `maxedOut`（跑满轮数，独立字段）；
+- **JIT adoption rate = jitAttempted 比例**（"愿不愿意尝试"），**offload precision = semanticCorrect / attempted**（真 precision，分母是尝试过的 run 而不是总 run 数）——两个问题分开，避免旧 precision 只是 adoption 的别名；
 - **unnecessary offload rate**：A 上 jitAttempted 比例（不该 offload 却尝试）；
-- **compressed path length**：一次 `jit_execute_program` 实际替代了多少原子操作（tool nodes + map fanout + compute/join/filter，从执行 trace 统计）；
-- **taskCompleted 严格语义（P0 修复）**：`answerCorrect && (!jitAttempted || jitSemanticCorrect !== false || fallbackUsed)`——`dslCorrect=false` 的 JIT run 必须 fail，错误程序的 result 即使包含目标 repo 名也不作数（除非模型用普通工具补救）。旧实现把"错误程序的整个 result JSON + finalText"拼成 haystack 做子串判定，导致 B 型 `dslCorrect=false` 仍被记成 `answerCorrect=true`，`correctRate=100%` 无意义——已废弃。
+- **compressed path length**：一次 `jit_execute_program` 实际替代了多少原子操作（tool nodes + map fanout + compute/merge/concat/filter，从执行 trace 统计）；另记 **correctlyCompressedOps**——只统计语义正确程序的压缩数，避免错误 DSL 夸大收益；
+- **taskCompleted 严格语义（P0 修复，两版）**：`answerCorrect && (!jitAttempted || jitSemanticCorrect === true || fallbackUsed)`——① `dslCorrect=false` 的 JIT run 必须 fail（错误程序的 result 即使包含目标 repo 名也不作数）；② `jitSemanticCorrect === undefined`（执行失败 / A 型上的尝试）同样不视为完成，必须成功 fallback 补救。旧实现把"错误程序的整个 result JSON + finalText"拼成 haystack 做子串判定，导致 B 型 `dslCorrect=false` 仍被记成 `answerCorrect=true`，`correctRate=100%` 无意义——已废弃。
+- **最终答案强制 `submit_answer`（P0）**：`answerCorrect` 只认模型显式提交的 `submit_answer(answer=...)`，**未提交即判错**，不再从 finalText 退回判定；两个 arm 同一严格输出协议。
 - **完整 tool timeline**：每个 run 记录按序的 `toolTimeline`（业务 / describe / execute / submit_answer + isError），可验证 atomic → reasoning → JIT → reasoning 的真实序列。
 
-**DSL manual 按需加载**：treatment 常驻 prompt 只留一句"需要时使用 jit_describe_tools 获取编程契约"；DSL 语法极简参考改由 `jit_describe_tools` **第一次**调用时随工具契约一并返回（`MINIMAL_DSL_REFERENCE`，见 `src/integrations/pi/jit.ts`）——与"工具 contract 可以 lazy load"同一设计原则，A 型这种完全不用 JIT 的任务基本不承担 DSL context 成本（旧版常驻完整 DSL manual 让 treatment 的 A 型任务 token 从 861 涨到 2438）。
+**DSL surface（P0 review）**：`join` 改名 **`merge_by_key`**（明确 base+overlay 语义——给每条基准记录附加另一批数据的字段，不是对称合并；`join` 保留为遗留别名，R1–R4 冻结产物兼容）；新增 **`concat`**（真正的列表拼接）——模型不再需要把"拼接两段列表"硬塞进 merge。图语义检查的 `TaskSpec.joinSpec` 同步改名 `mergeSpec`。
+
+**DSL manual 按需加载 + 每 primitive 精确语义**：treatment 常驻 prompt 只留一句"需要时使用 jit_describe_tools 获取编程契约"；DSL 语法极简参考改由 `jit_describe_tools` **第一次**调用时随工具契约一并返回（`MINIMAL_DSL_REFERENCE`，见 `src/integrations/pi/jit.ts`）——与"工具 contract 可以 lazy load"同一设计原则，A 型这种完全不用 JIT 的任务基本不承担 DSL context 成本（旧版常驻完整 DSL manual 让 treatment 的 A 型任务 token 从 861 涨到 2438）。每个 primitive 都带一句精确语义 + 最小示例（含 merge_by_key 的 base 语义与 concat 的分工）。**示例不泄露任何任务的 ground truth**：示例查询词/阈值/截取数使用与 A/B/C 全部错开的虚构常量（并有显式提示"不代表任何任务的真实参数"），否则 B 型任务会退化成"照抄模板"，offloadPrecision 变成假阳性（有回归测试把关）。
+
+**编译错误诊断（P1）**：`jit_execute_program` 的编译失败反馈逐条附带"期望语义"提示（`FIX_HINTS`，如 UNKNOWN_FIELD → "绑定字段必须来自上游工具输出 schema"、expression_invalid → 支持的表达式语法），提高一次 repair 成功率。
 
 **结果记录到 log**：每次实验运行结束把完整结果写入 `logs/experiments/r5-offloading-<ts>/report.json`（与 r4e 等实验约定一致，`logs/` 纳入版本控制以保证可复现性）——包含实验配置、任务元数据（prompt / oracle）、**每个 run 的全部指标**（`toolTimeline` / 拆分后的 JIT 指标 / `submittedAnswer` / `answerCorrect` / `taskCompleted` / 轮数 / tokens / latency / 业务调用序列 / describe+execute 次数 / 最后一次成功程序的源码与 `dslCorrect` / 压缩路径统计 / 失败的 execute 尝试的错误文本 `executeErrors` / 最终文本）以及 **arm × task(A/B/C) 分格汇总**（不再只看三任务平均 token）。运行入口：`npm run experiment:r5 -- --arm=both --task=all --samples=10`。
 
-单样本 smoke（DeepSeek，真模型）已验证 harness 行为符合设计：A 在 treatment 下仍走普通工具（不 unnecessary offload）；C 出现理想混合行为（先原子读 issue 做语义判断，再 describe → 写 `get_issues(numbers=[1,3,5,7]) → map score → sort → take 2`，DSL 正确、压缩 8 个原子操作）；B 主动选择 JIT 但程序把 join 基准写错（`dslCorrect=false`）——新语义下该样本 `taskCompleted=false`（跑满轮数、无 fallback），adoption 与 offload precision 由此分开。
+**R5 正式结果（DeepSeek，60 runs：10 samples × 3 tasks × 2 arms，`logs/experiments/r5-offloading-2026-08-10T06-15-49-414Z/report.json`）**
+
+| 格 | adoption | execSucceeded | semanticCorrect | jitCompleted | offloadPrecision | unnecessary | fallback | taskCompleted | rounds | tokens |
+|---|---|---|---|---|---|---|---|---|---|---|
+| control/A | 0% | — | — | — | — | 0% | 0% | **100%** | 3.0 | 1,814 |
+| control/B | 0% | — | — | — | — | n/a | 0% | **100%** | 5.0 | 24,151 |
+| control/C | 0% | — | — | — | — | n/a | 0% | **100%** | 5.1 | 7,903 |
+| treatment/A | **0%** | 0% | 0% | 0% | 0% | **0%** | 0% | **100%** | 3.1 | 2,962 |
+| treatment/B | **90%** | 90% | **90%** | **90%** | **100%** | n/a | 0% | **100%** | 4.5 | 14,976 |
+| treatment/C | 0% | 0% | 0% | 0% | 0% | n/a | 0% | **100%** | 5.1 | 9,641 |
+
+三个关键读数：
+- **B 是 JIT 的正收益格**：模型自主选择 offload 9/10（adoption=90%），且尝试的 9 个全部语义正确（offloadPrecision=100%），tokens 24,151 → 14,976（**-38%**）、轮次 5.0 → 4.5。对比修复前（`join` 时代）treatment/B 的 semanticCorrect=0%——**B 的失败确实来自 DSL 语义摩擦**，改名 `merge_by_key` + 明确 base 语义 + `concat` + 带示例的按需参考后翻转。
+- **A 零 unnecessary offload**：10/10 都不尝试 JIT，任务仍 100% 完成；treatment 相对 control 的额外 token 只有 ~1.1k（固定 jit 工具定义），DSL manual 按需加载把"不使用 JIT"的成本压到接近零（旧版常驻 DSL manual 是 +1.6k 且 token 861→2438）。
+- **C 意外地 0 adoption**：C 型任务太短，模型不愿 JIT——这是 P2 C-scaling（`--candidates=4/10/20/40`）要研究的 autonomous offload threshold。
+
+（此前 B 未稳定时的 single-sample smoke：B 主动选择 JIT 但把 join 基准写错 `dslCorrect=false`，新语义下 `taskCompleted=false`——adoption 与 offload precision 由此分开。）
 
 ---
 
@@ -314,9 +335,12 @@ filter
 sort
 compute
 select
-join
+merge_by_key
+concat
 return
 ```
+
+> `merge_by_key` 是"按 key 给基准记录附加另一批数据的字段"（base+overlay）；`join` 是它的遗留别名（R1–R4 兼容，编译产物同一节点）。`concat` 是真正的列表拼接——两段列表接在一起时用它，不要用 merge_by_key。
 
 例如：
 
@@ -430,10 +454,13 @@ tool
 map
 compute
 join
+concat
 return
 ```
 
-其中 `compute` 覆盖一组确定性数据操作，例如：
+其中 `join` 对应 DSL 关键字的 `merge_by_key`（及遗留别名 `join`），`concat` 对应列表拼接。
+
+`compute` 覆盖一组确定性数据操作，例如：
 
 ```text
 take
@@ -470,9 +497,13 @@ source × item
 
 运行确定性的数据变换。
 
-### Join
+### Merge (merge_by_key / join)
 
-把不同执行分支产生的数据按 key 重新组合。
+把不同执行分支产生的数据按 key 附加到基准记录（base+overlay，基准字段优先）。
+
+### Concat
+
+把多个列表按顺序拼接成一个大列表（元素原样保留，不做字段合并）。
 
 ### Return
 
@@ -516,7 +547,7 @@ bounded parallel execution
 search results
 details
 filtered candidates
-joined records
+merged records
 scores
 ```
 

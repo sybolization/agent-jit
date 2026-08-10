@@ -39,12 +39,15 @@ describe("buildDslSystemPrompt — 统一 DSL 系统提示词（契约按需获�
     expect(prompt).toContain("语言关键字 map / take / return");
   });
 
-  test("constructs 条目按启用子集渲染（r4e 全量含 compute/select/join）", () => {
+  test("constructs 条目按启用子集渲染（r4e 全量含 compute/select/merge_by_key/concat）", () => {
     const prompt = buildDslSystemPrompt({
-      constructs: ["map", "take", "filter", "sort", "compute", "select", "join", "return"],
+      constructs: ["map", "take", "filter", "sort", "compute", "select", "merge_by_key", "concat", "return"],
     });
     expect(prompt).toContain('ratio = compute(details, ratio="forks / stars")');
-    expect(prompt).toContain('merged = join(ratio, contrib, commit, key="full_name")');
+    expect(prompt).toContain('merged = merge_by_key(details, contrib, commit, key="full_name")');
+    expect(prompt).toContain("both = concat(high, low)");
+    // join 是 merge_by_key 的遗留别名，不再向模型公开
+    expect(prompt).not.toContain("join(");
   });
 
   test("默认硬约束自动编号，额外约束追加", () => {
@@ -66,7 +69,7 @@ describe("buildDslSystemPrompt — 统一 DSL 系统提示词（契约按需获�
 
 describe("DSL_CONSTRUCTS — 语言构造条目注册表", () => {
   test("覆盖 canonical 全部构造 + map 三种绑定形态", () => {
-    for (const key of ["map", "take", "filter", "sort", "compute", "select", "join", "return", "map-key", "map-lambda"]) {
+    for (const key of ["map", "take", "filter", "sort", "compute", "select", "merge_by_key", "concat", "return", "map-key", "map-lambda"]) {
       expect(DSL_CONSTRUCTS[key]?.length, key).toBeGreaterThan(0);
     }
   });

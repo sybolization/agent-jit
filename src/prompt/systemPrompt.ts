@@ -16,7 +16,7 @@ import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL } from "../tools/jitTools.js"
 
 /** 语言构造条目注册表（单一事实源；各实验按需启用子集，语法说明不再各写一份）。 */
 export const DSL_CONSTRUCTS: Record<string, readonly string[]> = {
-  take: ["- take：第一个位置参数是源数组，第二个位置参数是截取条数"],
+  take: ["- take：第一个位置参数是源数组，第二个位置参数是截取条数", "  示例：top = take(details, 3)"],
   filter: [
     "- filter：第一个位置参数是源数组，其余参数是等值条件（<字段>=<字面量>），保留满足全部条件的元素",
     '  示例：active = filter(details, language="TypeScript")',
@@ -33,9 +33,15 @@ export const DSL_CONSTRUCTS: Record<string, readonly string[]> = {
     "- select：第一个位置参数是源数组，第二个位置参数是比较谓词字符串（> >= < <= == !=），保留满足谓词的元素",
     '  示例：high = select(ratio, "ratio > 0.15")；kept = select(merged, "score >= 100")',
   ],
-  join: [
-    "- join：位置参数全部是源数组（至少 2 个，第一个是基准），key=<字段名> 必填，按 key 把其余数组的字段合并进基准元素",
-    '  示例：merged = join(ratio, contrib, commit, key="full_name")',
+  merge_by_key: [
+    "- merge_by_key：位置参数全部是源数组（至少 2 个，第一个是基准 base），key=<字段名> 必填，按 key 把其余数组的字段合并进基准元素",
+    "  语义：给每条基准记录附加另一批数据的字段（基准已有字段不覆盖），**不是**对称合并——需要真正把两段列表接在一起时用 concat",
+    '  示例：merged = merge_by_key(details, contrib, commit, key="full_name")',
+  ],
+  concat: [
+    "- concat：位置参数全部是源数组（至少 2 个），按顺序拼接成一个大数组，元素原样保留，不做任何字段合并",
+    "  语义：真正的列表拼接——需要把两段列表接在一起时用它，不要用 merge_by_key",
+    "  示例：both = concat(high, low)",
   ],
   return: ["- return：直接写要返回的变量名（如 return top）"],
   map: [
@@ -52,8 +58,8 @@ export const DSL_CONSTRUCTS: Record<string, readonly string[]> = {
   ],
 };
 
-/** 语言关键字（出现在 <callee> 说明中；顺序即展示顺序）。 */
-export const LANGUAGE_KEYWORDS = ["map", "take", "filter", "sort", "compute", "select", "join", "return"];
+/** 语言关键字（出现在 <callee> 说明中；顺序即展示顺序）。join 是 merge_by_key 的遗留别名，不再向模型公开。 */
+export const LANGUAGE_KEYWORDS = ["map", "take", "filter", "sort", "compute", "select", "merge_by_key", "concat", "return"];
 
 export interface DslSystemPromptOptions {
   /** 启用的语言构造（DSL_CONSTRUCTS 的键）；关键字列表由其与 LANGUAGE_KEYWORDS 求交得出 */

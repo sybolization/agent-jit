@@ -240,7 +240,7 @@ async function runDslArm(
     stageTools: ["github.get_repository"],
     computeExprs: { ratio: "forks / stars" },
     selectPreds: [`ratio > ${task.ratioThreshold}`, `ratio <= ${task.ratioThreshold}`, `score >= ${task.scoreThreshold}`],
-    joinSpec: {
+    mergeSpec: {
       key: "full_name",
       sourceCount: 3,
       extraTools: ["github.get_contributor_stats", "github.list_commits"],

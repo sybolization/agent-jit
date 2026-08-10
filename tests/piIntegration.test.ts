@@ -90,11 +90,25 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     const first = await lazyTool.execute("c1", { tool_names: ["github.get_repository"] });
     const firstText = (first.content[0] as { type: "text"; text: string }).text;
     expect(firstText).toContain("Agent Execution DSL 极简参考");
+    expect(firstText).toContain("merge_by_key("); // R5 review：join → merge_by_key（base+overlay 语义）
+    expect(firstText).toContain("concat("); // 真正的列表拼接
     expect(firstText).toContain("github.get_repository("); // 契约仍然返回
     const second = await lazyTool.execute("c2", { tool_names: ["github.get_repository"] });
     const secondText = (second.content[0] as { type: "text"; text: string }).text;
     expect(secondText).not.toContain("Agent Execution DSL 极简参考");
     expect(secondText).toContain("github.get_repository(");
+  });
+
+  test("DSL manual 示例不泄露任何任务的 ground truth 参数（B 型：query/limit/阈值/take）", async () => {
+    const lazyTool = createJitDescribeTool(makeRegistry());
+    const result = await lazyTool.execute("c1", { tool_names: ["github.get_repository"] });
+    const text = (result.content[0] as { type: "text"; text: string }).text;
+    // B 型任务的设计常量（r5Tasks.ts R5_B_SPEC）绝不能出现在参考示例里——否则示例变成可复制模板
+    expect(text).not.toContain('query="agent framework"');
+    expect(text).not.toContain("limit=30");
+    expect(text).not.toContain("ratio > 0.15");
+    expect(text).not.toContain("score >= 100");
+    expect(text).not.toContain("take(ranked, 3)");
   });
 });
 
@@ -125,9 +139,10 @@ describe("jit_execute_program（AgentTool）— 编译 + 同一 registry 执行"
     expect(details.trace.some((entry) => entry.kind === "map" && entry.fanout === 10)).toBe(true);
   });
 
-  test("编译失败 → throw（含诊断反馈，模型据此修正重提）", async () => {
+  test("编译失败 → throw（含诊断反馈 + 期望语义提示，模型据此一次修复）", async () => {
     await expect(tool.execute("c2", { source: 'x = github.nope(query="a")' })).rejects.toThrow(/编译失败/);
     await expect(tool.execute("c2", { source: 'x = github.nope(query="a")' })).rejects.toThrow(/unknown_tool/);
+    await expect(tool.execute("c2", { source: 'x = github.nope(query="a")' })).rejects.toThrow(/期望/);
   });
 
   test("执行失败（运行时错误）→ throw", async () => {

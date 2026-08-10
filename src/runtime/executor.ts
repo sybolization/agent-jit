@@ -35,6 +35,8 @@ function nodeKindLabel(node: ExecutionNode): string {
       return "return";
     case "join":
       return "join";
+    case "concat":
+      return "concat";
   }
 }
 
@@ -234,6 +236,20 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
         }
         return record;
       });
+    }
+    case "concat": {
+      const arrays: unknown[][] = [];
+      let total = 0;
+      for (const sourceName of node.sources) {
+        const array = ctx.store.get(sourceName);
+        if (!Array.isArray(array)) {
+          throw new Error(`concat 的 source “${sourceName}” 不是数组（得到 ${typeof array}）`);
+        }
+        arrays.push(array);
+        total += array.length;
+      }
+      trace.inputSize = total;
+      return arrays.flat();
     }
     case "return": {
       return ctx.store.get(node.value);

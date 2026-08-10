@@ -10,6 +10,7 @@ import { ExecutionGraphSchema, type ExecutionGraph, type ExecutionNode } from ".
 import { compareNodes, literalArg, literalKindError, pushMissing, refArg } from "../../compiler/helpers.js";
 import { buildToolNode, mapCallBindings } from "../../compiler/toolCall.js";
 import { buildComputeNode } from "../../compiler/builtins/compute.js";
+import { buildConcatNode } from "../../compiler/builtins/concat.js";
 import { buildFilterNode } from "../../compiler/builtins/filter.js";
 import { buildJoinNode } from "../../compiler/builtins/join.js";
 import { buildReturnNode } from "../../compiler/builtins/return.js";
@@ -296,7 +297,10 @@ function legacyBuildNode(
   if (statement.callee === "sort") return buildSortNode(statement, { tools: catalog }, defined, diagnostics);
   if (statement.callee === "compute") return buildComputeNode(statement, { tools: catalog }, defined, diagnostics);
   if (statement.callee === "select") return buildSelectNode(statement, { tools: catalog }, defined, diagnostics);
-  if (statement.callee === "join") return buildJoinNode(statement, { tools: catalog }, defined, diagnostics);
+  if (statement.callee === "merge_by_key" || statement.callee === "join") {
+    return buildJoinNode(statement, { tools: catalog }, defined, diagnostics);
+  }
+  if (statement.callee === "concat") return buildConcatNode(statement, { tools: catalog }, defined, diagnostics);
   if (statement.callee === "return") return buildReturnNode(statement, { tools: catalog }, defined, diagnostics);
 
   const tool = catalog.get(statement.callee);
@@ -305,7 +309,7 @@ function legacyBuildNode(
       line: statement.line,
       code: "unknown_tool",
       message: `未注册的工具或语言关键字：${statement.callee}`,
-      suggestion: "使用已注册工具 id，或语言关键字 map / take / filter / sort / compute / select / join / return",
+      suggestion: "使用已注册工具 id，或语言关键字 map / take / filter / sort / compute / select / merge_by_key / concat / return",
     });
     return undefined;
   }

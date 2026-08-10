@@ -15,15 +15,19 @@
  * 三类任务（见 src/experiments/r5Tasks.ts）：
  * - A 不值得 JIT（单次调用）；B 明显值得 JIT（批量流水线）；C 混合型（语义判断 + 确定性段）。
  *
- * 新指标（在 task correctness / tokens / round trips / latency 之上）——R5 review 后重定义，
+ * 新指标（在 task correctness / tokens / round trips / latency 之上）——R5 review 重定义，
  * 不再用单一 path（dsl / ordinary）概括：
- * - jitAttempted / jitExecutionSucceeded / jitSemanticCorrect / fallbackUsed / maxedOut 逐项记录；
- * - adoption rate = jitAttempted 比例（“愿不愿意尝试”），offload precision =
- *   (attempted && semanticCorrect) 比例（“正确选择并成功完成 offload”）——两个问题分开；
- * - 最终答案走结构化 submit_answer（双 arm 同标准），绝不拿错误程序的 result 做子串判定
- *   （P0：dslCorrect=false 的 run 必须 fail，除非模型用普通工具补救）；
+ * - jitAttempted / jitExecutionSucceeded / jitSemanticCorrect / jitCompleted / fallbackUsed / maxedOut
+ *   逐项记录（attempted = "想用"，executionSucceeded = "跑通"，semanticCorrect = "用对语义"，
+ *   jitCompleted = "JIT 独立完成"（语义正确且无 fallback））；
+ * - adoption rate = jitAttempted 比例；offload precision = semanticCorrect / attempted
+ *   （真 precision，分母是尝试过的 run，不是总 run 数）——两个问题分开；
+ * - 最终答案走结构化 submit_answer（双 arm 同标准），**未提交即判错**，绝不从 finalText /
+ *   错误程序的 result 做子串判定（P0：dslCorrect=false 的 run 必须 fail，除非模型用普通工具补救）；
  * - compressed path length：一次 jit_execute_program 实际替代了多少原子操作
- *   （tool nodes + map fanout + compute/join/filter）。
+ *   （tool nodes + map fanout + compute/merge/concat/filter），并另记 correctlyCompressedOps
+ *   ——只统计语义正确程序的压缩数，避免错误 DSL 夸大收益。
+ * - C 型支持 --candidates=N（4/10/20/40）做 C-scaling（P2）。
  *
  * 工具调用循环由 pi-agent-core `Agent` 负责（普通工具与 jit_* 都是 AgentTool）——
  * harness 只做观测，对任何工具都没有特殊 dispatch（createPiTools 见 src/integrations/pi）。
@@ -48,7 +52,7 @@ import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL } from "../tools/jitTools.js"
 import { ToolRegistry } from "../tools/registry.js";
 import { checkTaskCorrectness } from "./taskSpec.js";
 import { runPiAgent } from "./agentRunner.js";
-import { R5_TASKS, type R5Task, type R5TaskId } from "./r5Tasks.js";
+import { createR5CTask, R5_TASKS, type R5Task, type R5TaskId } from "./r5Tasks.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
@@ -130,9 +134,12 @@ export interface CompressedPath {
   /** map 的实际展开数（每个元素一次工具调用），来自执行 trace */
   fanoutSum: number;
   computeNodes: number;
-  joinNodes: number;
+  /** merge_by_key（join 节点）数量 */
+  mergeNodes: number;
+  /** concat 节点数量 */
+  concatNodes: number;
   returnNodes: number;
-  /** 原子操作总数：tool 节点 + map 展开执行数 + compute/join/return 各一 */
+  /** 原子操作总数：tool 节点 + map 展开执行数 + compute/merge/concat/return 各一 */
   atomicOps: number;
 }
 
@@ -140,7 +147,8 @@ export function compressedPath(graph: ExecutionGraph, trace: readonly TraceEntry
   let toolNodes = 0;
   let mapNodes = 0;
   let computeNodes = 0;
-  let joinNodes = 0;
+  let mergeNodes = 0;
+  let concatNodes = 0;
   let returnNodes = 0;
   for (const node of graph.nodes) {
     switch (node.kind) {
@@ -154,7 +162,10 @@ export function compressedPath(graph: ExecutionGraph, trace: readonly TraceEntry
         computeNodes += 1;
         break;
       case "join":
-        joinNodes += 1;
+        mergeNodes += 1;
+        break;
+      case "concat":
+        concatNodes += 1;
         break;
       case "return":
         returnNodes += 1;
@@ -167,9 +178,10 @@ export function compressedPath(graph: ExecutionGraph, trace: readonly TraceEntry
     mapNodes,
     fanoutSum,
     computeNodes,
-    joinNodes,
+    mergeNodes,
+    concatNodes,
     returnNodes,
-    atomicOps: toolNodes + fanoutSum + computeNodes + joinNodes + returnNodes,
+    atomicOps: toolNodes + fanoutSum + computeNodes + mergeNodes + concatNodes + returnNodes,
   };
 }
 
@@ -212,20 +224,25 @@ export interface R5RunMetrics {
   jitExecutionSucceeded: boolean;
   /** 最后一次成功程序的语义正确性（无成功执行 → undefined；A 型无 spec → undefined） */
   jitSemanticCorrect: boolean | undefined;
+  /** JIT 独立完成：尝试过 JIT 且最后一次程序语义正确且未 fallback（"用对了"的完成级） */
+  jitCompleted: boolean;
   /** 第一次 jit 调用之后仍调用了普通业务工具（JIT 失败/不合适后的补救） */
   fallbackUsed: boolean;
   /** submit_answer 的 answer 参数（未提交 → undefined） */
   submittedAnswer?: string;
-  /** 最终答案匹配 oracle（只来自 submit_answer 或 finalText，绝不拼程序 result） */
+  /** 最终答案匹配 oracle（P0：只认 submit_answer，绝不从 finalText / 程序 result 判定） */
   answerCorrect: boolean;
   /** 严格任务完成：answerCorrect 且（未尝试 JIT 或 JIT 语义正确或有 fallback 补救）。
-   *  P0：dslCorrect=false 的 run 必须 fail——错误程序 result 即使包含目标 repo 名也不作数。 */
+   *  P0：dslCorrect=false 的 run 必须 fail——错误程序 result 即使包含目标 repo 名也不作数；
+   *  且 jitSemanticCorrect === undefined（如 A 型上的尝试）不视为完成，必须 fallback 补救。 */
   taskCompleted: boolean;
   /** 最后一次成功执行 jit_execute_program 的程序记录 */
   lastProgram?: {
     source: string;
     dslCorrect: boolean | undefined;
     compressed?: CompressedPath;
+    /** 只统计语义正确程序的压缩操作数（错误 DSL 不计入收益） */
+    correctlyCompressedOps?: number;
   };
   /** 失败的 jit_execute_program 尝试（编译失败 / 执行失败的错误文本，截断，最多 5 条） */
   executeErrors?: readonly string[];
@@ -266,14 +283,20 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
     (call) => call.name === EXECUTE_PROGRAM_TOOL.name && !call.isError,
   );
 
-  // 答案正确性：只认模型显式提交的 answer（未提交时退回 finalText）；程序 result 永不参与
+  // P0 严格输出协议：答案正确性**只认模型显式提交的 submit_answer**。
+  // 未提交 → 不判正确（不再退回 finalText）；程序 result 永不参与答案判定。
   const answerCorrect =
-    input.submittedAnswer !== undefined
-      ? matchesOracle(input.submittedAnswer, input.oracle)
-      : matchesOracle(input.finalText, input.oracle);
-  // P0 严格语义：JIT 程序语义错误（dslCorrect=false）必须 fail——除非模型用普通工具补救（fallbackUsed）
+    input.submittedAnswer !== undefined && matchesOracle(input.submittedAnswer, input.oracle);
+
+  // P0 严格语义（review 第二版）：
+  // - jitSemanticCorrect === undefined（未执行成功 / A 型无 spec 可判）**不视为完成**，
+  //   必须 jitSemanticCorrect === true（程序语义正确）或成功 fallback（改用普通工具补救）才算过；
+  // - dslCorrect=false 的 run 必须 fail（错误程序 result 即使包含目标 repo 名也不作数）。
   const taskCompleted =
-    answerCorrect && (!jitAttempted || input.jitSemanticCorrect !== false || fallbackUsed);
+    answerCorrect && (!jitAttempted || input.jitSemanticCorrect === true || fallbackUsed);
+
+  // JIT 独立完成：尝试 + 语义正确 + 无 fallback（"用对了"的完成级，区别于 adoption 的"想用"）
+  const jitCompleted = jitAttempted && input.jitSemanticCorrect === true && !fallbackUsed;
 
   return {
     arm: input.arm,
@@ -289,6 +312,7 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
     jitAttempted,
     jitExecutionSucceeded,
     jitSemanticCorrect: input.jitSemanticCorrect,
+    jitCompleted,
     fallbackUsed,
     ...(input.submittedAnswer !== undefined ? { submittedAnswer: input.submittedAnswer } : {}),
     answerCorrect,
@@ -359,10 +383,13 @@ export async function runR5Run(
     jitSemanticCorrect = task.spec
       ? checkTaskCorrectness(lastProgramDetails.graph, task.spec).pass
       : undefined;
+    const compressed = compressedPath(lastProgramDetails.graph, lastProgramDetails.trace);
     lastProgram = {
       source: lastProgramDetails.source,
       dslCorrect: jitSemanticCorrect,
-      compressed: compressedPath(lastProgramDetails.graph, lastProgramDetails.trace),
+      compressed,
+      // P0 review：correctlyCompressedOps 只统计语义正确程序（错误 DSL 不计入收益）
+      ...(jitSemanticCorrect === true ? { correctlyCompressedOps: compressed.atomicOps } : {}),
     };
   }
 
@@ -398,13 +425,15 @@ export interface R5Aggregate {
   arm: R5Arm;
   taskId: R5TaskId;
   runs: number;
-  /** 愿意尝试：jitAttempted 比例（原 adoption rate 的准确含义） */
+  /** 愿意尝试：jitAttempted 比例（adoption = "想用"） */
   adoptionRate: number;
   /** 尝试后至少一次执行成功的比例 */
   jitExecutionSucceededRate: number;
   /** 最后一次成功程序语义正确的比例 */
   jitSemanticCorrectRate: number;
-  /** 正确选择并完成 offload：(attempted && semanticCorrect===true) 比例（B/C 有意义；A 上 attempt 已属多余） */
+  /** JIT 独立完成（尝试 + 语义正确 + 无 fallback）比例 */
+  jitCompletedRate: number;
+  /** 真 precision：语义正确 / 尝试过（attempted>0；B/C 有意义；A 上 attempt 已属多余） */
   offloadPrecision: number;
   /** 不该 offload 却尝试：A 上 jitAttempted 比例（B/C 无意义 → undefined，不入 JSON） */
   unnecessaryOffloadRate: number | undefined;
@@ -412,10 +441,12 @@ export interface R5Aggregate {
   fallbackRate: number;
   /** 跑满轮数比例（独立报告，不再混进路径） */
   maxedOutRate: number;
-  /** 严格任务完成率（dslCorrect=false 的 JIT run 除非 fallback 补救否则不计完成） */
+  /** 严格任务完成率（dslCorrect=false / 无法判定的 JIT run 除非 fallback 补救否则不计完成） */
   taskCompletionRate: number;
-  /** 成功 JIT 执行的原子操作压缩数均值 */
+  /** 全部成功 JIT 执行的原子操作压缩数均值（含语义错误程序） */
   avgCompressedOps: number;
+  /** 只统计语义正确程序的压缩操作数均值（P0：避免错误 DSL 夸大收益） */
+  avgCorrectlyCompressedOps: number;
   avgRounds: number;
   avgTokens: number;
 }
@@ -425,9 +456,13 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
   const total = cell.length;
   const ratio = (n: number): number => (total > 0 ? n / total : 0);
   const attempted = cell.filter((run) => run.jitAttempted).length;
+  const attemptedCorrect = cell.filter((run) => run.jitAttempted && run.jitSemanticCorrect === true).length;
   const compressedOps = cell
     .filter((run) => run.lastProgram?.compressed)
     .map((run) => run.lastProgram!.compressed!.atomicOps);
+  const correctlyCompressedOps = cell
+    .map((run) => run.lastProgram?.correctlyCompressedOps)
+    .filter((value): value is number => value !== undefined);
   const avg = (values: number[]): number => (values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0);
   return {
     arm,
@@ -436,12 +471,15 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
     adoptionRate: ratio(attempted),
     jitExecutionSucceededRate: ratio(cell.filter((run) => run.jitExecutionSucceeded).length),
     jitSemanticCorrectRate: ratio(cell.filter((run) => run.jitSemanticCorrect === true).length),
-    offloadPrecision: ratio(cell.filter((run) => run.jitAttempted && run.jitSemanticCorrect === true).length),
+    jitCompletedRate: ratio(cell.filter((run) => run.jitCompleted).length),
+    // P1 review：真 precision = 语义正确 / 尝试过（数学意义与名字一致）
+    offloadPrecision: attempted > 0 ? attemptedCorrect / attempted : 0,
     unnecessaryOffloadRate: taskId === "A" ? ratio(attempted) : undefined,
     fallbackRate: ratio(cell.filter((run) => run.fallbackUsed).length),
     maxedOutRate: ratio(cell.filter((run) => run.maxedOut).length),
     taskCompletionRate: ratio(cell.filter((run) => run.taskCompleted).length),
     avgCompressedOps: avg(compressedOps),
+    avgCorrectlyCompressedOps: avg(correctlyCompressedOps),
     avgRounds: avg(cell.map((run) => run.rounds)),
     avgTokens: avg(cell.map((run) => run.tokens.total)),
   };
@@ -475,6 +513,8 @@ export interface R5ReportConfig {
   task: "A" | "B" | "C" | "all";
   samples: number;
   rounds: number;
+  /** C 型 candidate 数（P2 C-scaling：4/10/20/40；undefined = 默认 8） */
+  candidates?: number;
 }
 
 /**
@@ -519,8 +559,20 @@ export function writeR5Report(
 // CLI
 // ---------------------------------------------------------------------------
 
-function parseFlags(argv: readonly string[]): { arm: R5Arm | "both"; task: "A" | "B" | "C" | "all"; samples: number; rounds: number } {
-  const flags: { arm: R5Arm | "both"; task: "A" | "B" | "C" | "all"; samples: number; rounds: number } = {
+function parseFlags(argv: readonly string[]): {
+  arm: R5Arm | "both";
+  task: "A" | "B" | "C" | "all";
+  samples: number;
+  rounds: number;
+  candidates?: number;
+} {
+  const flags: {
+    arm: R5Arm | "both";
+    task: "A" | "B" | "C" | "all";
+    samples: number;
+    rounds: number;
+    candidates?: number;
+  } = {
     arm: "both",
     task: "all",
     samples: 1,
@@ -532,6 +584,7 @@ function parseFlags(argv: readonly string[]): { arm: R5Arm | "both"; task: "A" |
     if (key === "task" && (value === "A" || value === "B" || value === "C" || value === "all")) flags.task = value;
     if (key === "samples") flags.samples = Math.max(1, Number(value) || 1);
     if (key === "rounds") flags.rounds = Math.max(2, Number(value) || 10);
+    if (key === "candidates") flags.candidates = Math.max(2, Number(value) || 8);
   }
   return flags;
 }
@@ -548,8 +601,10 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const { arm, task, samples, rounds } = parseFlags(process.argv.slice(2));
-  const tasks = R5_TASKS.filter((item) => task === "all" || item.id === task);
+  const { arm, task, samples, rounds, candidates } = parseFlags(process.argv.slice(2));
+  const tasks = R5_TASKS.filter((item) => task === "all" || item.id === task).map((item) =>
+    candidates !== undefined && item.id === "C" ? createR5CTask(candidates) : item,
+  );
   const arms: R5Arm[] = arm === "both" ? ["control", "treatment"] : [arm];
   const runtime = createDeepSeekPiRuntime();
 
@@ -566,7 +621,8 @@ async function main(): Promise<number> {
         );
         console.log(
           `  jitAttempted=${run.jitAttempted} execSucceeded=${run.jitExecutionSucceeded} ` +
-            `semantic=${run.jitSemanticCorrect === undefined ? "n/a" : run.jitSemanticCorrect} fallback=${run.fallbackUsed} ` +
+            `semantic=${run.jitSemanticCorrect === undefined ? "n/a" : run.jitSemanticCorrect} ` +
+            `jitCompleted=${run.jitCompleted} fallback=${run.fallbackUsed} ` +
             `describe=${run.describeCalls} execute=${run.executeCalls} business=[${run.businessCalls.join(", ") || "无"}]`,
         );
         if (run.submittedAnswer !== undefined) console.log(`  submit_answer：${run.submittedAnswer.slice(0, 300)}`);
@@ -575,7 +631,13 @@ async function main(): Promise<number> {
           console.log(`  程序源码：\n${run.lastProgram.source.replace(/^/gm, "    ")}`);
           if (run.lastProgram.compressed) {
             const c = run.lastProgram.compressed;
-            console.log(`  压缩路径：atomicOps=${c.atomicOps}（tool=${c.toolNodes} map=${c.mapNodes} fanout=${c.fanoutSum} compute=${c.computeNodes} join=${c.joinNodes} return=${c.returnNodes}）`);
+            console.log(
+              `  压缩路径：atomicOps=${c.atomicOps}（tool=${c.toolNodes} map=${c.mapNodes} fanout=${c.fanoutSum} ` +
+                `compute=${c.computeNodes} merge=${c.mergeNodes} concat=${c.concatNodes} return=${c.returnNodes}）` +
+                (run.lastProgram.correctlyCompressedOps !== undefined
+                  ? ` 正确压缩=${run.lastProgram.correctlyCompressedOps}`
+                  : "（语义错误，不计入正确压缩收益）"),
+            );
           }
         }
         for (const errorText of run.executeErrors ?? []) {
@@ -599,12 +661,14 @@ async function main(): Promise<number> {
           `adoption=${(agg.adoptionRate * 100).toFixed(0)}% ` +
           `execSucceeded=${(agg.jitExecutionSucceededRate * 100).toFixed(0)}% ` +
           `semanticCorrect=${(agg.jitSemanticCorrectRate * 100).toFixed(0)}% ` +
+          `jitCompleted=${(agg.jitCompletedRate * 100).toFixed(0)}% ` +
           `offloadPrecision=${(agg.offloadPrecision * 100).toFixed(0)}% ` +
           `unnecessary=${unnecessary} ` +
           `fallback=${(agg.fallbackRate * 100).toFixed(0)}% ` +
           `maxedOut=${(agg.maxedOutRate * 100).toFixed(0)}% ` +
           `taskCompleted=${(agg.taskCompletionRate * 100).toFixed(0)}% ` +
           `compressed=${agg.avgCompressedOps.toFixed(1)} ` +
+          `correctCompressed=${agg.avgCorrectlyCompressedOps.toFixed(1)} ` +
           `rounds=${agg.avgRounds.toFixed(1)} tokens=${Math.round(agg.avgTokens)}`,
       );
     }
@@ -616,7 +680,13 @@ async function main(): Promise<number> {
     "experiments",
     `r5-offloading-${new Date().toISOString().replace(/[:.]/g, "-")}`,
   );
-  const reportPath = writeR5Report(outDir, { arm, task, samples, rounds }, tasks, runs, aggregates);
+  const reportPath = writeR5Report(
+    outDir,
+    { arm, task, samples, rounds, ...(candidates !== undefined ? { candidates } : {}) },
+    tasks,
+    runs,
+    aggregates,
+  );
   console.log(`\n报告已写入: ${reportPath}`);
   return 0;
 }

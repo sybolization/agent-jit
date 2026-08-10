@@ -15,7 +15,7 @@ import type { TaskSpec } from "./taskSpec.js";
  *
  * 三类任务的目标行为：
  * - A（不值得 JIT）：单个工具调用即可完成 → 理想行为是直接调用业务工具；
- * - B（明显值得 JIT）：search 30 → details × 30 → 分支两路 score → join → filter → rank →
+ * - B（明显值得 JIT）：search 30 → details × 30 → 分支两路 score → merge_by_key → filter → rank →
  *   理想行为是 describe → execute 一次程序化（复用 R4e adversarial 数据与正确性判定）；
  * - C（混合型）：先读 issue → Agent 语义判断选出候选 → 对候选做批量确定性处理（取分 + 排序）
  *   → 理想行为是 reasoning → atomic tools → reasoning → JIT 段 → 总结。
@@ -65,7 +65,7 @@ export const R5_B_SPEC: TaskSpec = {
   stageTools: ["github.get_repository"],
   computeExprs: { ratio: "forks / stars" },
   selectPreds: [`ratio > ${RATIO_THRESHOLD}`, `ratio <= ${RATIO_THRESHOLD}`, `score >= ${SCORE_THRESHOLD}`],
-  joinSpec: {
+  mergeSpec: {
     key: "full_name",
     sourceCount: 3,
     extraTools: ["github.get_contributor_stats", "github.list_commits"],
@@ -128,9 +128,33 @@ export function issueScore(issue: R5Issue): number {
   return issue.comments * 3 + (isBugIssue(issue) ? 40 : 0);
 }
 
+/**
+ * C 型 candidate 池：默认 8 个（R5_ISSUES），可扩展为任意数量（P2 C-scaling：
+ * candidate 数 4 / 10 / 20 / 40 找 autonomous offload threshold）。
+ * 扩展部分确定性生成：i % 4 === 0 为缺陷 issue（body 命中 BUG_MARKERS），
+ * 评分（comments 模式）随序号变化，保证 oracle 随规模变化且可判定。
+ */
+export function generateCandidates(count: number): R5Issue[] {
+  if (count <= R5_ISSUES.length) return R5_ISSUES.slice(0, count);
+  const issues: R5Issue[] = [...R5_ISSUES];
+  for (let i = R5_ISSUES.length + 1; issues.length < count; i += 1) {
+    const isBug = i % 4 === 0;
+    issues.push({
+      number: i,
+      title: isBug ? `Regression in scenario ${i}` : `Feature request #${i}`,
+      body: isBug
+        ? `Scenario ${i} crashes after the upgrade; search returns wrong results.`
+        : `Nice-to-have: add support for scenario ${i}.`,
+      comments: i % 9,
+    });
+  }
+  return issues;
+}
+
 /** C 型 oracle：缺陷 issue 中评分前 2 的标题。 */
-export function r5TaskCOracle(): string[] {
-  return R5_ISSUES.filter(isBugIssue)
+export function r5TaskCOracle(issues: readonly R5Issue[] = R5_ISSUES): string[] {
+  return issues
+    .filter(isBugIssue)
     .sort((left, right) => issueScore(right) - issueScore(left))
     .slice(0, 2)
     .map((issue) => issue.title);
@@ -203,16 +227,16 @@ const C_CONTRACTS: CContracts = {
   }),
 };
 
-/** C 型 mock 工具：确定性假数据（issue 表 + 评分规则）。 */
-export function createR5IssueTools(): RegisteredTool[] {
-  const issueByNumber = new Map(R5_ISSUES.map((issue) => [issue.number, issue]));
+/** C 型 mock 工具：确定性假数据（issue 表 + 评分规则）。issues 参数支持 C-scaling。 */
+export function createR5IssueTools(issues: readonly R5Issue[] = R5_ISSUES): RegisteredTool[] {
+  const issueByNumber = new Map(issues.map((issue) => [issue.number, issue]));
   const summary = (issue: R5Issue) => ({ number: issue.number, title: issue.title, state: "open", comments: issue.comments });
   return [
     {
       ...C_CONTRACTS.listIssues,
       execute: async (args) => {
-        const limit = Number((args as Record<string, unknown>).limit ?? R5_ISSUES.length);
-        return R5_ISSUES.slice(0, limit).map(summary);
+        const limit = Number((args as Record<string, unknown>).limit ?? issues.length);
+        return issues.slice(0, limit).map(summary);
       },
     },
     {
@@ -228,7 +252,7 @@ export function createR5IssueTools(): RegisteredTool[] {
       ...C_CONTRACTS.getIssues,
       execute: async (args) => {
         const numbers = ((args as Record<string, unknown>).numbers ?? []) as number[];
-        return R5_ISSUES.filter((issue) => numbers.includes(issue.number)).map(summary);
+        return issues.filter((issue) => numbers.includes(issue.number)).map(summary);
       },
     },
     {
@@ -281,14 +305,23 @@ export const R5_TASKS: readonly R5Task[] = [
     spec: R5_B_SPEC,
     oracle: computeR5GroundTruthB(),
   },
-  {
+  createR5CTask(), // 默认 candidate=8；--candidates=N 时用 createR5CTask(N) 替换（P2 C-scaling）
+];
+
+/**
+ * C 型任务工厂（P2 C-scaling）：candidate 数量可配置（默认 8 = R5_ISSUES）。
+ * 中性 prompt / mock 工具 / oracle 全部随 candidate 集合生成，spec 形状不变。
+ */
+export function createR5CTask(candidateCount: number = R5_ISSUES.length): R5Task {
+  const issues = generateCandidates(candidateCount);
+  return {
     id: "C",
     name: "issue-hybrid",
     prompt:
       "仓库 mock/org-repo-0 的 issue 列表里混着真实缺陷与普通请求。先获取 issue 列表，再阅读若干 issue 的标题与内容，判断哪些与 bug/故障相关" +
       "（例如崩溃、报错、数据丢失、结果错误等），把这些作为候选。对每个候选 issue 获取它的严重性评分，按评分从高到低取前 2 个，返回它们的标题与评分，并附一句总结。",
-    tools: createR5IssueTools(),
+    tools: createR5IssueTools(issues),
     spec: R5_C_SPEC,
-    oracle: r5TaskCOracle(),
-  },
-];
+    oracle: r5TaskCOracle(issues),
+  };
+}

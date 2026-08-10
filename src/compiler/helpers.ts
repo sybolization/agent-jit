@@ -87,7 +87,7 @@ export function elementSchemaOf(definition: ToolContract | undefined): ElementSc
   return undefined;
 }
 
-/** 节点输出 → 元素 schema（编译循环随符号表维护）；compute 形状动态未知，join 取基准 source。 */
+/** 节点输出 → 元素 schema（编译循环随符号表维护）；compute 形状动态未知，join/concat 取第一个 source。 */
 export function nodeElementSchema(
   node: ExecutionNode,
   tools: ToolCatalog | undefined,
@@ -101,6 +101,7 @@ export function nodeElementSchema(
       // compute 会新增字段，元素形状不可静态确定 → 视为未知（避免 _.ratio 误报 UNKNOWN_FIELD）
       return undefined;
     case "join":
+    case "concat":
       return symbols.get(node.sources[0]);
     case "return":
       return undefined;

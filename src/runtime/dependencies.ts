@@ -16,6 +16,7 @@ export function nodeDependencies(node: ExecutionNode): readonly string[] {
     case "compute":
       return [node.source];
     case "join":
+    case "concat":
       return node.sources;
     case "return":
       return [node.value];

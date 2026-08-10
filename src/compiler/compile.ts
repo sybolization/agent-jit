@@ -13,6 +13,7 @@ import {
 import { compareNodes, nodeElementSchema, suggestToolNames, type ElementSchema } from "./helpers.js";
 import { buildToolNode, validateMapBindings } from "./toolCall.js";
 import { buildComputeNode } from "./builtins/compute.js";
+import { buildConcatNode } from "./builtins/concat.js";
 import { buildFilterNode } from "./builtins/filter.js";
 import { buildJoinNode } from "./builtins/join.js";
 import { buildMapNode } from "./builtins/map.js";
@@ -27,9 +28,10 @@ import { buildTakeNode } from "./builtins/take.js";
  * 语言前端复用 `src/language/`（tokenizer / parser），本文件实现语义层：
  * - tool callee（registry 中的工具）→ `ToolNode`，参数校验
  *   （unknown_parameter / config_type_mismatch，LLM 幻觉参数名在编译期拒绝）；
- * - `map` / `take` / `filter` / `sort` / `compute` / `select` / `join` / `return`
- *   → 语言级 construct（`MapNode` / `ComputeNode` / `JoinNode` / `ReturnNode`），
+ * - `map` / `take` / `filter` / `sort` / `compute` / `select` / `merge_by_key` / `concat` / `return`
+ *   → 语言级 construct（`MapNode` / `ComputeNode` / `JoinNode` / `ConcatNode` / `ReturnNode`），
  *   `source` / `value` 必须是变量引用（引用即数据流边）；
+ *   `join` 是 `merge_by_key` 的遗留别名（R1–R4 冻结产物兼容，编译产物同一节点）；
  * - 未注册 callee → `unknown_tool`。
  *
  * canonical 语法冻结：map 的第二个参数必须是嵌套工具调用绑定形态
@@ -71,7 +73,10 @@ function buildNode(
   if (statement.callee === "sort") return buildSortNode(statement, options, defined, diagnostics);
   if (statement.callee === "compute") return buildComputeNode(statement, options, defined, diagnostics);
   if (statement.callee === "select") return buildSelectNode(statement, options, defined, diagnostics);
-  if (statement.callee === "join") return buildJoinNode(statement, options, defined, diagnostics);
+  if (statement.callee === "merge_by_key" || statement.callee === "join") {
+    return buildJoinNode(statement, options, defined, diagnostics);
+  }
+  if (statement.callee === "concat") return buildConcatNode(statement, options, defined, diagnostics);
   if (statement.callee === "return") return buildReturnNode(statement, options, defined, diagnostics);
 
   const tool = options.tools?.get(statement.callee);
@@ -81,7 +86,9 @@ function buildNode(
       line: statement.line,
       code: "unknown_tool",
       message: `未注册的工具或语言关键字：${statement.callee}`,
-      suggestion: suggestion ?? "使用已注册工具 id，或语言关键字 map / take / filter / sort / compute / select / join / return",
+      suggestion:
+        suggestion ??
+        "使用已注册工具 id，或语言关键字 map / take / filter / sort / compute / select / merge_by_key / concat / return",
     });
     return undefined;
   }

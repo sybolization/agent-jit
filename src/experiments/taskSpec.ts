@@ -39,12 +39,12 @@ export interface TaskSpec {
   computeExprs?: Record<string, string>;
   /** R4e：期望的 select 谓词（空白规范化后匹配），return 可达的任意 select 节点命中即通过 */
   selectPreds?: readonly string[];
-  /** R4e：期望的 join 节点形态（key / sources 数量 / 分支工具集合） */
-  joinSpec?: {
+  /** R4e：期望的 merge_by_key（join 节点）形态（key / sources 数量 / 分支工具集合） */
+  mergeSpec?: {
     key: string;
-    /** 期望 join 的 sources 总数（含基准），如 3 */
+    /** 期望 merge_by_key 的 sources 总数（含基准），如 3 */
     sourceCount?: number;
-    /** 期望 join 附加（非基准）source 的工具 id 集合（分支工具，如 contributors/commits） */
+    /** 期望 merge_by_key 附加（非基准）source 的工具 id 集合（分支工具，如 contributors/commits） */
     extraTools?: readonly string[];
   };
 }
@@ -76,8 +76,8 @@ function returnDataflowPath(graph: ExecutionGraph): ExecutionNode[] {
     path.push(node);
     if (node.kind === "map" || node.kind === "compute") {
       cursor = node.source;
-    } else if (node.kind === "join") {
-      cursor = node.sources[0]; // 基准链；分支 source 由 joinSpec 单独检查（return 可达闭包）
+    } else if (node.kind === "join" || node.kind === "concat") {
+      cursor = node.sources[0]; // 基准/首条链；分支 source 由 mergeSpec 单独检查（return 可达闭包）
     } else {
       break; // tool 节点无 source，数据流到头
     }
@@ -85,7 +85,7 @@ function returnDataflowPath(graph: ExecutionGraph): ExecutionNode[] {
   return path;
 }
 
-/** return 可达的节点集合（BFS 依赖闭包，含 join 的全部分支 source）——R4e 检查用。 */
+/** return 可达的节点集合（BFS 依赖闭包，含 merge_by_key / concat 的全部分支 source）——R4e 检查用。 */
 function returnReachableNodes(graph: ExecutionGraph): ExecutionNode[] {
   const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
   const returnNode = graph.nodes.find((node) => node.kind === "return");
@@ -234,8 +234,8 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
     }
   }
 
-  // R4e：return 可达闭包（join 全部分支）上的 compute / select / join 检查
-  if (spec.computeExprs || spec.selectPreds || spec.joinSpec) {
+  // R4e：return 可达闭包（merge_by_key 全部分支）上的 compute / select / merge_by_key 检查
+  if (spec.computeExprs || spec.selectPreds || spec.mergeSpec) {
     const reachable = returnReachableNodes(graph);
     if (spec.computeExprs) {
       const computeNodes = reachable.filter((node): node is ComputeNode => node.kind === "compute" && node.op === "compute");
@@ -252,24 +252,24 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
         if (!found) failures.push(`select 缺少谓词 "${pred}"`);
       }
     }
-    if (spec.joinSpec) {
-      // 存在性匹配：任一 join 节点满足（key + sources 数量 + 分支工具）即通过——
-      // 模型可能额外做二次 join（把 score 再合并一次），第一个 join 未必是分支 join。
-      const joinSpec = spec.joinSpec;
-      const joinNodes = reachable.filter((node) => node.kind === "join");
+    if (spec.mergeSpec) {
+      // 存在性匹配：任一 merge_by_key 节点满足（key + sources 数量 + 分支工具）即通过——
+      // 模型可能额外做二次 merge（把 score 再合并一次），第一个未必是分支 merge。
+      const mergeSpec = spec.mergeSpec;
+      const mergeNodes = reachable.filter((node) => node.kind === "join");
       const graphById = new Map(graph.nodes.map((node) => [node.id, node]));
-      const satisfied = joinNodes.some((joinNode) => {
-        if (joinNode.key !== joinSpec.key) return false;
-        if (joinSpec.sourceCount !== undefined && joinNode.sources.length !== joinSpec.sourceCount) return false;
-        if (joinSpec.extraTools && joinSpec.extraTools.length > 0) {
+      const satisfied = mergeNodes.some((mergeNode) => {
+        if (mergeNode.key !== mergeSpec.key) return false;
+        if (mergeSpec.sourceCount !== undefined && mergeNode.sources.length !== mergeSpec.sourceCount) return false;
+        if (mergeSpec.extraTools && mergeSpec.extraTools.length > 0) {
           const extraToolIds = new Set(
-            joinNode.sources.slice(1).flatMap((sourceId) => {
+            mergeNode.sources.slice(1).flatMap((sourceId) => {
               const source = graphById.get(sourceId);
               if (source && (source.kind === "map" || source.kind === "tool")) return [source.tool];
               return [];
             }),
           );
-          for (const toolId of joinSpec.extraTools) {
+          for (const toolId of mergeSpec.extraTools) {
             if (!extraToolIds.has(toolId)) return false;
           }
         }
@@ -277,7 +277,7 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
       });
       if (!satisfied) {
         failures.push(
-          `缺少满足条件的 join 节点（key=${joinSpec.key}，分支工具 ${(joinSpec.extraTools ?? []).join("、")}）`,
+          `缺少满足条件的 merge_by_key 节点（key=${mergeSpec.key}，分支工具 ${(mergeSpec.extraTools ?? []).join("、")}）`,
         );
       }
     }

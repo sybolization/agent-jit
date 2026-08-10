@@ -6,7 +6,9 @@ import { checkTaskCorrectness } from "../src/experiments/taskSpec.js";
 import {
   BUG_MARKERS,
   computeR5GroundTruthB,
+  createR5CTask,
   createR5IssueTools,
+  generateCandidates,
   isBugIssue,
   issueScore,
   R5_ISSUES,
@@ -91,6 +93,48 @@ describe("C 型数据与 oracle", () => {
   });
 });
 
+describe("C 型 candidate 可扩展（P2 C-scaling：4/10/20/40）", () => {
+  test("generateCandidates：≤8 用 R5_ISSUES 前缀，>8 确定性扩展", () => {
+    expect(generateCandidates(4).map((issue) => issue.number)).toEqual([1, 2, 3, 4]);
+    const sixteen = generateCandidates(16);
+    expect(sixteen).toHaveLength(16);
+    // 扩展部分确定性：i % 4 === 0 为缺陷（body 命中 BUG_MARKERS）
+    const extra = sixteen.find((issue) => issue.number === 9)!;
+    expect(extra.title).toBe("Feature request #9");
+    expect(isBugIssue(extra)).toBe(false);
+    const bug = sixteen.find((issue) => issue.number === 12)!;
+    expect(isBugIssue(bug)).toBe(true);
+    expect(JSON.stringify(generateCandidates(16))).toBe(JSON.stringify(generateCandidates(16))); // 确定性
+  });
+
+  test("createR5CTask(N)：prompt 中性、工具随 N 变化、oracle 可判定", async () => {
+    const scaled = createR5CTask(10);
+    expect(scaled.id).toBe("C");
+    expect(scaled.spec).toBeDefined();
+    expect(scaled.prompt).not.toMatch(/[a-z]+\.[a-z_]+/); // 中性
+    expect(scaled.oracle.length).toBeGreaterThan(0);
+    // 工具表确实包含 10 个 issue（list 全量返回 10 条）
+    const listTool = scaled.tools.find((tool) => tool.id === "github.list_issues")!;
+    expect(await listTool.execute({})).toHaveLength(10);
+    // 默认 createR5CTask() 与 R5_TASKS 里的 C 等价（8 个）
+    expect(r5TaskCOracle(generateCandidates(R5_ISSUES.length))).toEqual(r5TaskCOracle());
+  });
+
+  test("scaled C 的规范 DSL 程序仍通过 R5_C_SPEC（spec 形状与 candidate 数无关）", () => {
+    const scaled = createR5CTask(20);
+    const dsl = [
+      "cands = github.get_issues(numbers=[1, 3, 5, 7, 8, 12, 16, 20])",
+      "scores = map(cands, github.get_issue_score(number=_.number))",
+      'ranked = sort(scores, key="score", desc=true)',
+      "top = take(ranked, 2)",
+      "return top",
+    ].join("\n");
+    const { graph } = compileExecutionDsl(dsl, { tools: new ToolRegistry(scaled.tools) });
+    const check = checkTaskCorrectness(graph, scaled.spec!);
+    expect(check.pass).toBe(true);
+  });
+});
+
 describe("规范 DSL 程序通过各任务的图语义检查（spec 与 oracle 一致）", () => {
   const B_DSL = [
     'repos = github.search_repositories(query="agent framework", limit=30)',
@@ -100,7 +144,7 @@ describe("规范 DSL 程序通过各任务的图语义检查（spec 与 oracle �
     'commit = select(ratio, "ratio <= 0.15")',
     "contribs = map(contrib, github.get_contributor_stats(full_name=_.full_name))",
     "commits = map(commit, github.list_commits(full_name=_.full_name))",
-    'merged = join(details, contribs, commits, key="full_name")',
+    'merged = merge_by_key(details, contribs, commits, key="full_name")',
     'kept = select(merged, "score >= 100")',
     'ranked = sort(kept, key="score", desc=true)',
     "top = take(ranked, 3)",
@@ -115,12 +159,32 @@ describe("规范 DSL 程序通过各任务的图语义检查（spec 与 oracle �
     "return top",
   ].join("\n");
 
-  test("B：分支 + join + 排序 + 截取流水线通过 R5_B_SPEC", () => {
+  test("B：分支 + merge_by_key + 排序 + 截取流水线通过 R5_B_SPEC", () => {
     const task = R5_TASKS.find((item) => item.id === "B")!;
     const { graph } = compileExecutionDsl(B_DSL, { tools: new ToolRegistry(task.tools) });
     const check = checkTaskCorrectness(graph, task.spec!);
     expect(check.pass).toBe(true);
     expect(check.failures).toEqual([]);
+  });
+
+  test("B：join（merge_by_key 的遗留别名）同样通过 R5_B_SPEC", () => {
+    const task = R5_TASKS.find((item) => item.id === "B")!;
+    const dsl = B_DSL.replace("merge_by_key(", "join(");
+    const { graph } = compileExecutionDsl(dsl, { tools: new ToolRegistry(task.tools) });
+    const check = checkTaskCorrectness(graph, task.spec!);
+    expect(check.pass).toBe(true);
+  });
+
+  test("B：用 concat 代替 merge_by_key（语义错误）→ R5_B_SPEC 失败", () => {
+    const task = R5_TASKS.find((item) => item.id === "B")!;
+    const dsl = B_DSL.replace(
+      'merged = merge_by_key(details, contribs, commits, key="full_name")',
+      "merged = concat(contribs, commits)",
+    );
+    const { graph } = compileExecutionDsl(dsl, { tools: new ToolRegistry(task.tools) });
+    const check = checkTaskCorrectness(graph, task.spec!);
+    expect(check.pass).toBe(false);
+    expect(check.failures.some((item) => item.includes("merge_by_key"))).toBe(true);
   });
 
   test("C：候选列表 + map 评分 + 排序 + 截取通过 R5_C_SPEC", () => {

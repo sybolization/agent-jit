@@ -74,13 +74,27 @@ export const ComputeNodeSchema = Type.Object(
   { additionalProperties: false },
 );
 
-/** R4e join：多输入按 key 合并字段。sources[0] 为基准，其余按 key 匹配后附加字段（基准已有字段不覆盖）。 */
+/**
+ * 按 key 合并字段（canonical 关键字 merge_by_key；join 为遗留别名，编译产物同一节点）。
+ * sources[0] 为基准，其余按 key 匹配后附加字段（基准已有字段不覆盖）——语义是
+ * "给每条基准记录附加另一批数据的字段"，不是对称合并。
+ */
 export const JoinNodeSchema = Type.Object(
   {
     id: Type.String({ minLength: 1, maxLength: 200 }),
     kind: Type.Literal("join"),
     sources: Type.Array(Type.String({ minLength: 1, maxLength: 200 }), { minItems: 2, maxItems: 20 }),
     key: Type.String({ minLength: 1, maxLength: 200 }),
+  },
+  { additionalProperties: false },
+);
+
+/** concat：真正的列表拼接——按顺序把多个数组拼成一个大数组，元素原样保留，不做任何字段合并。 */
+export const ConcatNodeSchema = Type.Object(
+  {
+    id: Type.String({ minLength: 1, maxLength: 200 }),
+    kind: Type.Literal("concat"),
+    sources: Type.Array(Type.String({ minLength: 1, maxLength: 200 }), { minItems: 2, maxItems: 20 }),
   },
   { additionalProperties: false },
 );
@@ -99,6 +113,7 @@ export const ExecutionNodeSchema = Type.Union([
   MapNodeSchema,
   ComputeNodeSchema,
   JoinNodeSchema,
+  ConcatNodeSchema,
   ReturnNodeSchema,
 ]);
 
@@ -116,6 +131,7 @@ export type ToolNode = Static<typeof ToolNodeSchema>;
 export type MapNode = Static<typeof MapNodeSchema>;
 export type ComputeNode = Static<typeof ComputeNodeSchema>;
 export type JoinNode = Static<typeof JoinNodeSchema>;
+export type ConcatNode = Static<typeof ConcatNodeSchema>;
 export type ReturnNode = Static<typeof ReturnNodeSchema>;
 export type ExecutionNode = Static<typeof ExecutionNodeSchema>;
 export type ExecutionGraph = Static<typeof ExecutionGraphSchema>;

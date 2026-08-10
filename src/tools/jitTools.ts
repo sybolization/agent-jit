@@ -34,9 +34,7 @@ export const MAX_DESCRIBE_TOOLS = 20;
 export const DESCRIBE_TOOLS_TOOL: Tool = {
   name: "jit_describe_tools",
   description:
-    "获取指定工具在 Agent Execution DSL 中的用法契约（输入参数 + 输出字段）。" +
-    "当你决定把几个工具编排成一段 DSL 程序时，先调用本工具：传入要编排的工具 id 列表，" +
-    "一次性返回每个工具的紧凑调用签名与命名输出类型（下游可引用的字段）。返回的是契约文本，不是真实数据。",
+    "获取工具在 DSL 程序中的用法契约（输入参数 + 输出字段）。决定把几个工具编排成 DSL 程序时，先调用本工具。",
   parameters: Type.Object({
     tool_names: Type.Array(Type.String(), {
       description:
@@ -50,8 +48,7 @@ export const DESCRIBE_TOOLS_TOOL: Tool = {
 /** 提交 DSL 程序源码给 Harness 编译执行（DSL 臂唯一的 transport 工具）。 */
 export const EXECUTE_PROGRAM_TOOL: Tool = {
   name: "jit_execute_program",
-  description:
-    "提交一段 Agent Execution DSL 程序源码给 Harness 编译执行。这是唯一允许的提交方式——把完整程序放在 source 参数里，不要直接写在回复文本中。",
+  description: "提交一段 Agent Execution DSL 程序源码给 Harness 编译执行（把完整程序放在 source 参数里）。",
   parameters: Type.Object({
     source: Type.String({ description: "Agent Execution DSL 程序源码（每条语句独占一行）" }),
   }),
