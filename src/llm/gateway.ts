@@ -9,7 +9,15 @@ import {
   type Tool,
   type ToolCall,
 } from "@earendil-works/pi-ai";
+import type { StreamFn } from "@earendil-works/pi-agent-core";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+
+/**
+ * Pi Agent runtime：pi-agent-core `Agent` 需要的模型 + stream 函数。
+ *
+ * LlmGateway（completeSimple）与 Agent（streamSimple）共用同一 DeepSeek provider——
+ * 两通道的模型配置只有一处（createDeepSeekModels），实验代码接触模型的入口不分裂。
+ */
 
 /**
  * LLM gateway：实验代码唯一接触模型的地方。
@@ -76,19 +84,8 @@ function createDeepSeekModel(): Model<"openai-completions"> {
 }
 
 export function createDeepSeekGateway(): LlmGateway {
-  const provider = createProvider({
-    id: "deepseek",
-    name: "DeepSeek",
-    baseUrl: DEEPSEEK_BASE_URL,
-    auth: { apiKey: envApiKeyAuth("DeepSeek API key", ["DEEPSEEK_API_KEY"]) },
-    models: [createDeepSeekModel()],
-    api: openAICompletionsApi(),
-  });
-
-  const models = createModels();
-  models.setProvider(provider);
-  const model = models.getModel("deepseek", DEEPSEEK_MODEL_ID);
-  if (!model) throw new Error("DeepSeek 模型未就绪：deepseek-chat");
+  const models = createDeepSeekModels();
+  const model = getDeepSeekModel(models);
 
   return {
     async complete(messages, options) {
@@ -177,5 +174,41 @@ export function createDeepSeekGateway(): LlmGateway {
         },
       };
     },
+  };
+}
+
+/** DeepSeek provider 的唯一创建点（LlmGateway 与 Agent 两通道共用）。 */
+function createDeepSeekModels() {
+  const provider = createProvider({
+    id: "deepseek",
+    name: "DeepSeek",
+    baseUrl: DEEPSEEK_BASE_URL,
+    auth: { apiKey: envApiKeyAuth("DeepSeek API key", ["DEEPSEEK_API_KEY"]) },
+    models: [createDeepSeekModel()],
+    api: openAICompletionsApi(),
+  });
+  const models = createModels();
+  models.setProvider(provider);
+  return models;
+}
+
+function getDeepSeekModel(models: ReturnType<typeof createDeepSeekModels>): Model<"openai-completions"> {
+  const model = models.getModel("deepseek", DEEPSEEK_MODEL_ID);
+  if (!model) throw new Error("DeepSeek 模型未就绪：deepseek-chat");
+  return model as Model<"openai-completions">;
+}
+
+/** pi-agent-core `Agent` 的运行基座：模型 + stream 函数（Agent 负责工具调用循环）。 */
+export interface PiRuntime {
+  model: Model<"openai-completions">;
+  streamFn: StreamFn;
+}
+
+/** 创建 DeepSeek 的 Pi Agent runtime（与 LlmGateway 共用同一个 provider 配置）。 */
+export function createDeepSeekPiRuntime(): PiRuntime {
+  const models = createDeepSeekModels();
+  return {
+    model: getDeepSeekModel(models),
+    streamFn: models.streamSimple.bind(models) as unknown as StreamFn,
   };
 }

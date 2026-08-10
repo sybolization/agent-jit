@@ -16,6 +16,11 @@
  *
  * 工具名两种写法等价（canonical / host alias，ToolIdResolver 无感解析）。
  *
+ * 本轮改动（JIT 变成真正的 Pi Agent Tool）：工具调用循环由 pi-agent-core `Agent`
+ * 统一负责——普通工具与 jit_* 工具都是 `createPiTools(registry)` 注册的 AgentTool，
+ * harness **不再对 JIT 工具做特殊 dispatch**（删除 describe/execute 分支，
+ * 改由 jit 工具的 execute 内部完成 compile → execute(graph, 同一 registry)）。
+ *
  * 运行：npx tsx src/experiments/hybridAgentBenchmark.ts [taskId]（缺省 4：customer-detail，字段异名区分度最高）
  * 环境：DEEPSEEK_API_KEY（.env，已被 gitignore）
  */
@@ -24,15 +29,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { Tool } from "@earendil-works/pi-ai";
-
-import { compileExecutionDsl, ExecutionDslCompileError } from "../compiler/compile.js";
-import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL, JIT_META_TOOLS, describeToolsResult } from "../tools/jitTools.js";
+import { createDeepSeekPiRuntime, type PiRuntime } from "../llm/gateway.js";
+import { createPiTools } from "../integrations/pi/toolAdapter.js";
+import type { JitExecuteProgramDetails } from "../integrations/pi/jit.js";
+import type { RegisteredTool } from "../tools/definition.js";
+import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL } from "../tools/jitTools.js";
 import { createMockDomainTools } from "../tools/providers/domain/mock.js";
 import { createMockGithubTools } from "../tools/providers/github/mock.js";
 import { toolIdAlias, ToolRegistry } from "../tools/registry.js";
-import { createDeepSeekGateway, type LlmMessage } from "../llm/gateway.js";
-import { execute } from "../runtime/runtime.js";
+import { runPiAgent } from "./agentRunner.js";
 import { R3_TASKS, type R3Task } from "./r3Tasks.js";
 import { checkTaskCorrectness } from "./taskSpec.js";
 
@@ -108,149 +113,69 @@ interface HybridResult {
   finalText: string;
 }
 
-async function runHybrid(task: R3Task, gateway: ReturnType<typeof createDeepSeekGateway>): Promise<HybridResult> {
-  // 双通道：业务工具（host alias 名）+ JIT 元工具
-  const businessTools: Tool[] = task.tools.map((tool) => ({
-    name: toolIdAlias(tool.id),
-    description: tool.description ?? tool.label,
-    parameters: tool.inputSchema,
-  }));
-  const allTools: readonly Tool[] = [...businessTools, ...JIT_META_TOOLS];
-
+async function runHybrid(task: R3Task, runtime: PiRuntime): Promise<HybridResult> {
   const allowed = new Set(task.tools.map((tool) => tool.id));
   const mockAll = task.tools.some((tool) => tool.id.startsWith("github."))
     ? createMockGithubTools()
     : createMockDomainTools();
-  const registry = new ToolRegistry(mockAll.filter((tool) => allowed.has(tool.id)));
+  const registry = new ToolRegistry<RegisteredTool>(mockAll.filter((tool) => allowed.has(tool.id)));
+  const piTools = createPiTools(registry);
 
-  const messages: LlmMessage[] = [
-    { role: "system", content: hybridSystemPrompt() },
-    { role: "user", content: task.prompt },
-  ];
+  let describeCalls = 0;
+  let executeCalls = 0;
+  const businessCalls: string[] = [];
+  let lastProgramDetails: JitExecuteProgramDetails | undefined;
 
-  const result: HybridResult = {
-    path: "maxed_out",
-    rounds: 0,
-    describeCalls: 0,
-    executeCalls: 0,
-    businessCalls: [],
-    dslCorrect: undefined,
-    finalText: "",
-  };
-
-  const maxRounds = 8;
-  for (let round = 1; round <= maxRounds; round += 1) {
-    const { content, toolCalls } = await gateway.complete(messages, { tools: allTools });
-    // 协议要求：toolResult 必须跟在带 tool_calls 的 assistant 消息之后
-    messages.push({ role: "assistant", content, toolCalls });
-
-    if (toolCalls.length === 0) {
-      // 普通路径：模型不再调用工具，直接给出最终答案
-      result.path = "ordinary";
-      result.rounds = round;
-      result.finalText = content;
-      return result;
-    }
-
-    for (const call of toolCalls) {
-      if (call.name === DESCRIBE_TOOLS_TOOL.name) {
-        result.describeCalls += 1;
-        const toolResult = describeToolsResult(registry, call);
-        console.log(`  [describe] ${JSON.stringify(call.arguments)} → ${toolResult.content.slice(0, 200)}`);
-        messages.push(toolResult);
-        continue;
+  const run = await runPiAgent({
+    systemPrompt: hybridSystemPrompt(),
+    tools: piTools,
+    prompt: task.prompt,
+    runtime,
+    maxRounds: 8,
+    onToolCall: ({ name, arguments: args }) => {
+      if (name === DESCRIBE_TOOLS_TOOL.name) {
+        describeCalls += 1;
+        console.log(`  [describe] ${JSON.stringify(args)}`);
+        return;
       }
-
-      if (call.name === EXECUTE_PROGRAM_TOOL.name) {
-        result.executeCalls += 1;
-        const source = typeof call.arguments["source"] === "string" ? call.arguments["source"].trim() : "";
+      if (name === EXECUTE_PROGRAM_TOOL.name) {
+        executeCalls += 1;
+        const source = typeof args["source"] === "string" ? args["source"] : "";
         console.log(`\n[提交程序]\n${source}\n`);
-        if (!source) {
-          messages.push({
-            role: "toolResult",
-            toolCallId: call.id,
-            toolName: EXECUTE_PROGRAM_TOOL.name,
-            content: `错误：source 为空。请把完整 DSL 程序放在 source 参数里。`,
-            isError: true,
-          });
-          continue;
-        }
-        try {
-          const { graph } = compileExecutionDsl(source, { tools: new ToolRegistry(task.tools) });
-          const correctness = checkTaskCorrectness(graph, task.spec);
-          const execution = await execute(graph, registry);
-          console.log(`[执行] status=${execution.status} task_correctness=${correctness.pass}`);
-          if (execution.status === "success") {
-            console.log(`[结果] ${JSON.stringify(execution.result).slice(0, 300)}`);
-            result.path = "dsl";
-            result.rounds = round;
-            result.dslCorrect = correctness.pass;
-            result.finalText = content;
-            return result;
-          }
-          // 执行失败（如运行时错误）→ 回填错误让模型修正
-          messages.push({
-            role: "toolResult",
-            toolCallId: call.id,
-            toolName: EXECUTE_PROGRAM_TOOL.name,
-            content: `执行失败：${(execution.error ?? "").slice(0, 400)}`,
-            isError: true,
-          });
-        } catch (error) {
-          if (error instanceof ExecutionDslCompileError) {
-            const feedback = [
-              "编译失败，请根据以下诊断修正 DSL 后再次调用 jit_execute_program 重新提交：",
-              ...error.diagnostics.map((item) => `L${item.line}: ${item.code}: ${item.message}`),
-            ].join("\n");
-            console.log(`[编译失败]\n${feedback}\n`);
-            messages.push({
-              role: "toolResult",
-              toolCallId: call.id,
-              toolName: EXECUTE_PROGRAM_TOOL.name,
-              content: feedback,
-              isError: true,
-            });
-          } else {
-            throw error;
-          }
-        }
-        continue;
+        return;
       }
+      businessCalls.push(name);
+      console.log(`  [业务] ${name}(${JSON.stringify(args)})`);
+    },
+    onToolEnd: ({ name, isError, result }) => {
+      if (name !== EXECUTE_PROGRAM_TOOL.name) return;
+      const details = (result as { details?: JitExecuteProgramDetails } | null)?.details;
+      if (details && details.status === "success") {
+        lastProgramDetails = details;
+        const correctness = checkTaskCorrectness(details.graph, task.spec);
+        console.log(`[执行] status=success task_correctness=${correctness.pass}`);
+        console.log(`[结果] ${JSON.stringify(details.result).slice(0, 300)}`);
+        return;
+      }
+      if (isError) {
+        const text = (result as { content?: Array<{ text?: string }> } | null)?.content?.map((c) => c.text ?? "").join("") ?? "";
+        console.log(`[执行失败] ${text.slice(0, 400)}`);
+      }
+    },
+  });
 
-      // 普通业务工具：registry.get 经 resolver 解析（canonical / host alias 无感）
-      const tool = registry.get(call.name);
-      result.businessCalls.push(call.name);
-      if (!tool || typeof tool.execute !== "function") {
-        console.log(`  [业务] 未知工具 ${call.name}`);
-        messages.push({
-          role: "toolResult",
-          toolCallId: call.id,
-          toolName: call.name,
-          content: `未知工具：${call.name}`,
-          isError: true,
-        });
-        continue;
-      }
-      console.log(`  [业务] ${call.name}(${JSON.stringify(call.arguments)})`);
-      let resultText: string;
-      let isError = false;
-      try {
-        resultText = JSON.stringify(await tool.execute(call.arguments));
-      } catch (error) {
-        resultText = String((error as Error).message);
-        isError = true;
-      }
-      messages.push({
-        role: "toolResult",
-        toolCallId: call.id,
-        toolName: call.name,
-        content: resultText,
-        isError,
-      });
-    }
-    result.rounds = round;
-  }
-  return result;
+  const path: HybridResult["path"] = executeCalls > 0 ? "dsl" : run.maxedOut ? "maxed_out" : "ordinary";
+  const dslCorrect = lastProgramDetails ? checkTaskCorrectness(lastProgramDetails.graph, task.spec).pass : undefined;
+
+  return {
+    path,
+    rounds: run.rounds,
+    describeCalls,
+    executeCalls,
+    businessCalls,
+    dslCorrect: path === "dsl" ? dslCorrect : undefined,
+    finalText: run.finalText,
+  };
 }
 
 async function main(): Promise<number> {
@@ -266,14 +191,14 @@ async function main(): Promise<number> {
     console.error(`[FAIL] 未知任务 id ${taskId}（可选 1-5）`);
     return 1;
   }
-  const gateway = createDeepSeekGateway();
+  const runtime = createDeepSeekPiRuntime();
   const taskWithNeutralPrompt: R3Task = { ...task, prompt: NEUTRAL_PROMPTS[task.id] ?? task.prompt };
 
-  console.log(`任务 ${taskWithNeutralPrompt.id}（${taskWithNeutralPrompt.name}）— 双通道：业务工具 ${taskWithNeutralPrompt.tools.map((t) => toolIdAlias(t.id)).join(", ")} + ${JIT_META_TOOLS.map((t) => t.name).join(" / ")}`);
+  console.log(`任务 ${taskWithNeutralPrompt.id}（${taskWithNeutralPrompt.name}）— 双通道：业务工具 ${taskWithNeutralPrompt.tools.map((t) => toolIdAlias(t.id)).join(", ")} + ${DESCRIBE_TOOLS_TOOL.name} / ${EXECUTE_PROGRAM_TOOL.name}`);
   console.log(`task prompt（中性，不点名工具）：${taskWithNeutralPrompt.prompt}`);
   console.log("===== 循环开始 =====\n");
 
-  const result = await runHybrid(taskWithNeutralPrompt, gateway);
+  const result = await runHybrid(taskWithNeutralPrompt, runtime);
 
   console.log(`\n===== 结论 =====`);
   console.log(`执行路径：${result.path === "dsl" ? "describe → compile → execute（DSL 程序化）" : result.path === "ordinary" ? "普通 Tool Calling（逐次调用）" : "达到最大轮数"}`);

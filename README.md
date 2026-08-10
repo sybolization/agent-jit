@@ -232,6 +232,29 @@ R4e 也暴露了一个早期实现缺口：
 
 这个结果推动了当前 `ToolContract` 设计：工具的 input/output schema 应成为 compiler、LLM catalog 和 runtime 共同使用的唯一事实源，使参数和字段错误尽可能在执行前被静态发现。
 
+### R5：Autonomous Offloading（模型自己决定是否 offload）
+
+R4 系列验证的是 forced-JIT 形态（模型被告知"请用 DSL 完成任务"）。R5 把问题换成：
+
+> **仅仅给 Agent 多一个 JIT 能力，它会不会自己正确使用？**
+
+实验（`src/experiments/r5OffloadingBenchmark.ts`，两类工具都注册为 `AgentTool`，Agent loop 统一调度）：
+- **Control**：普通 Agent + atomic tools；
+- **Treatment**：同一个 Agent + 相同 atomic tools + `jit_describe_tools` + `jit_execute_program`；系统提示词只说"当一段后续工作可以确定性程序化时可以选择 describe + execute，**是否使用由你决定**"，不点名工具、不预设机制。
+
+三类任务（`src/experiments/r5Tasks.ts`）：
+- **A 不值得 JIT**（单个 get_repository）：理想是直接调用业务工具；
+- **B 明显值得 JIT**（search 30 → details × 30 → 分支两路 score → join → filter → rank）：理想是 describe → execute 一次程序化；
+- **C 混合型**（先读 issue → Agent 语义判断候选 → 批量确定性取分/排序 → 总结）：理想是 reasoning → atomic tools → reasoning → JIT 段 → reasoning。
+
+新指标（在 task correctness / tokens / round trips / latency 之上）：
+- **JIT adoption rate**：多少任务主动用了 JIT；
+- **offload precision**：该 JIT 的任务（B/C）中用了多少；
+- **unnecessary offload rate**：一个工具就能解决的任务（A）是否反而 describe → execute 把事情搞复杂；
+- **compressed path length**：一次 `jit_execute_program` 实际替代了多少原子操作（tool nodes + map fanout + compute/join/filter，从执行 trace 统计）。
+
+单样本 smoke（DeepSeek，真模型）已验证 harness 行为符合设计：A 在 treatment 下仍走普通工具（不 unnecessary offload）；C 出现理想混合行为（先原子读 8 个 issue 做语义判断，再 describe → 写 `get_issues(numbers=[1,3,5,7]) → map score → sort → take 2`，DSL 正确、压缩 8 个原子操作）；B 主动选择 JIT（一次程序压缩 69 个原子操作），但该样本的程序把 join 基准写成两个分支源而非 details——`dslCorrect=false` 正确捕获结构性错误，模型随后用原子调用补救。
+
 ---
 
 ## 当前结论
@@ -603,6 +626,28 @@ JIT 元工具：
 
 `jit_describe_tools` 是**确定性**的：`tool_names → ToolIdResolver → SchemaView → compact DSL 契约文本`，没有概率过程。**严格语义（不允许 partial success）**：请求里任一 id 未知就整体失败——`UNKNOWN_TOOL: unknown1, unknown2` 一次性列出全部未知 + 确定性近似建议（`Did you mean "github_get_repository"（github.get_repository）？`），绝不返回部分契约；`tool_names` 上限 20（防 lazy loading 变回 eager loading）。因此 DSL 臂的常驻 system prompt **不内嵌业务工具目录**——只包含 DSL 语法/原则 + 两个元工具的说明；模型只有在判断"接下来这几步可以程序化"时才调用 describe_tools 获取契约，再写程序、调用 execute_program。
 
+### Pi Agent Tool 集成（`src/integrations/pi/`）
+
+JIT 元工具不仅是 gateway 的 transport 工具，也是 **Pi Agent 的普通可执行工具**（`@earendil-works/pi-agent-core` 的 `AgentTool`：parameters + execute）。工具调用循环由 Agent/agent loop 统一负责，实验 harness **不再对 jit_* 做特殊 dispatch**：
+
+```text
+ToolRegistry
+    ↓
+createPiTools(registry)        ← src/integrations/pi/toolAdapter.ts
+    ↓
+Pi Agent
+  ├─ github_search_repositories    普通业务工具：host alias 名，execute → 原 RegisteredTool.execute
+  ├─ github_get_repository
+  ├─ ...
+  ├─ jit_describe_tools            → registry → renderToolContracts
+  └─ jit_execute_program           → compileExecutionDsl → execute(graph, 同一 registry) → result
+```
+
+- 普通工具只改名字（canonical → host alias）与执行签名（`execute(input)` → `execute(toolCallId, params)`），语义零改动；
+- `jit_execute_program.execute` 内部完成 编译 → 执行（**同一个 registry**，compile 与 runtime 解析同一批工具），失败（未知工具 / 编译失败 / 执行失败）一律 throw，由 Agent 转成 `isError` toolResult 回填给模型——严格语义天然成立；
+- 成功执行的程序随 `AgentToolResult.details` 携带结构化记录（`JitExecuteProgramDetails`：source / result / graph / trace），供 benchmark 测量（任务正确性、compressed path length），**不进入模型上下文**；
+- 模型侧运行基座统一由 `src/llm/gateway.ts` 的 `createDeepSeekPiRuntime()` 提供（model + streamFn，与 `LlmGateway` 共用同一个 DeepSeek provider 配置）；共享运行辅助 `src/experiments/agentRunner.ts` 采集轮数 / tokens / 工具调用序列 / 最终文本。
+
 ### Runtime
 
 调用同一个工具实现，并在执行前后各做一道 schema 校验（runtime validation 是不变量的最终防线）：
@@ -716,7 +761,7 @@ Runtime 处理的数据量可以随 fan-out 增长。
 - 当前实验主要使用单一模型（DeepSeek）
 - 部分实验使用可控 mock backend，以减少外部 API 随机性并构造可验证任务
 - 当前的 “JIT” 是 agent execution 层的动态路径编译类比，不是传统机器码 JIT compiler
-- Agent 自动判断“什么时候值得 offload”仍是下一阶段需要直接验证的问题
+- R5（Autonomous Offloading）已搭建双 arm 实验与三类任务，但统计结论（多采样下的 adoption / precision / unnecessary offload 率）尚未跑满
 - Harness → Agent 的最小充分 output / continuation state 仍在设计中
 
 这些限制是当前研究边界的一部分，而不是被隐藏的假设。
@@ -780,12 +825,16 @@ src/language/
 
 src/tools/
     ToolContract / RegisteredTool / ToolCatalog / ToolRegistry
-    jitTools.ts                      JIT 元工具（jit_describe_tools / jit_execute_program）
+    jitTools.ts                      JIT 元工具契约（jit_describe_tools / jit_execute_program）
     schemaView（归一化 schema 层：JSON Schema → SchemaView）
     llmCatalog（Compact LLM Catalog：全量目录 + describe_tools 子集渲染）
     providers/
         github/{contracts,real,mock}.ts   契约 + 真实 adapter + mock
         domain/mock.ts                    跨域 mock（CRM / users / email）
+
+src/integrations/pi/
+    toolAdapter.ts                   createPiTools(registry)：业务工具 + JIT 元工具 → Pi AgentTool
+    jit.ts                           jit_describe_tools / jit_execute_program 的 AgentTool execute 层
 
 src/compiler/
     Execution IR compiler
@@ -800,7 +849,7 @@ src/runtime/
     expression evaluation
 
 src/llm/
-    LLM gateway
+    LLM gateway（LlmGateway + createDeepSeekPiRuntime：Agent 的 model/streamFn 基座）
 
 src/prompt/
     unified DSL system prompt（语法构造注册表 + 两个元工具的工作方式，不内嵌工具目录）
@@ -808,6 +857,10 @@ src/prompt/
 src/experiments/
     language experiments
     iterative-vs-programmatic benchmarks
+    agentRunner.ts                   共享 Agent 运行辅助（轮数 / tokens / 工具调用 / 最终文本）
+    hybridAgentBenchmark.ts          真 Agent 双通道 benchmark（Agent loop 统一调度，无特殊 dispatch）
+    r5Tasks.ts                       R5 任务集（A/B/C 三类 + oracle + C 型 mock）
+    r5OffloadingBenchmark.ts         R5 Autonomous Offloading 双 arm 实验 + 新指标汇总
 
 tests/
     compiler / runtime / experiment tests
@@ -833,7 +886,7 @@ the same deterministic path can often be executed
 with much less model involvement
 ```
 
-下一阶段不再主要研究“DSL 能不能完成更复杂的工具流”，而是研究 Agent JIT 如何作为普通 Agent 的 execution accelerator：
+下一阶段不再主要研究“DSL 能不能完成更复杂的工具流”，而是研究 Agent JIT 如何作为普通 Agent 的 execution accelerator（R5 已实现双 arm harness 与三类任务）：
 
 ```text
 Existing Agent
@@ -851,9 +904,9 @@ Existing Agent
 
 重点问题包括：
 
-1. Agent 是否会自主识别值得 offload 的 deterministic path？
-2. Agent 会压缩多长的执行路径？
-3. 什么情况下它应该继续 reasoning，而不是 offload？
+1. Agent 是否会自主识别值得 offload 的 deterministic path？（R5 的 adoption rate / offload precision 直接回答）
+2. Agent 会压缩多长的执行路径？（R5 的 compressed path length）
+3. 什么情况下它应该继续 reasoning，而不是 offload？（R5 的 unnecessary offload rate）
 4. Harness 应该返回多少信息，才能保持后续 reasoning quality？
 5. 是否可以在不损失任务质量的情况下继续降低 model-visible intermediate state？
 

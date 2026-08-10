@@ -1,0 +1,134 @@
+import { describe, expect, test } from "vitest";
+import { Type } from "typebox";
+
+import { adaptRegisteredTool, createPiTools } from "../src/integrations/pi/toolAdapter.js";
+import { createJitDescribeTool, createJitExecuteProgramTool, type JitExecuteProgramDetails } from "../src/integrations/pi/jit.js";
+import { defineTool, type RegisteredTool } from "../src/tools/definition.js";
+import { ToolRegistry } from "../src/tools/registry.js";
+import { createMockGithubTools } from "../src/tools/providers/github/mock.js";
+
+const GITHUB_IDS = ["github.search_repositories", "github.get_repository"];
+
+function makeRegistry(): ToolRegistry<RegisteredTool> {
+  return new ToolRegistry(createMockGithubTools().filter((tool) => GITHUB_IDS.includes(tool.id)));
+}
+
+describe("createPiTools — ToolRegistry → Pi AgentTool（JIT 变成真正的 Pi Agent Tool）", () => {
+  test("返回普通业务工具（host alias 名）+ jit_describe_tools + jit_execute_program", () => {
+    const tools = createPiTools(makeRegistry());
+    expect(tools.map((tool) => tool.name)).toEqual([
+      "github_search_repositories",
+      "github_get_repository",
+      "jit_describe_tools",
+      "jit_execute_program",
+    ]);
+  });
+
+  test("每个 AgentTool 都有 label / description / parameters / execute", () => {
+    const tools = createPiTools(makeRegistry());
+    for (const tool of tools) {
+      expect(tool.label).toBeTruthy();
+      expect(typeof tool.description).toBe("string");
+      expect(tool.parameters).toBeTruthy();
+      expect(typeof tool.execute).toBe("function");
+    }
+  });
+
+  test("普通业务工具：execute 透传原 RegisteredTool.execute，结果序列化为文本 content", async () => {
+    const tools = createPiTools(makeRegistry());
+    const repoTool = tools[1]!;
+    const result = await repoTool.execute("call-1", { full_name: "mock/org-repo-0" });
+    const text = result.content[0] as { type: "text"; text: string };
+    expect(text.type).toBe("text");
+    expect(text.text).toContain("mock/org-repo-0");
+  });
+
+  test("description 缺省回退到 label", () => {
+    const bare = defineTool({
+      id: "demo.no_description",
+      label: "No Description Tool",
+      inputSchema: Type.Object({}),
+      outputSchema: Type.Object({}),
+    });
+    const registry = new ToolRegistry<RegisteredTool>([{ ...bare, execute: async () => ({ ok: true }) }]);
+    const [adapted] = createPiTools(registry);
+    expect(adapted!.description).toBe("No Description Tool");
+  });
+
+  test("adaptRegisteredTool 用 host alias 作为 Pi 工具名", () => {
+    const registry = makeRegistry();
+    const [search] = registry.all();
+    const adapted = adaptRegisteredTool(registry, search!);
+    expect(adapted.name).toBe("github_search_repositories");
+  });
+});
+
+describe("jit_describe_tools（AgentTool）— 严格语义", () => {
+  const registry = makeRegistry();
+  const tool = createJitDescribeTool(registry);
+
+  test("tool_names 走 resolver：canonical / host alias 等价解析，返回契约文本", async () => {
+    const result = await tool.execute("c1", { tool_names: ["github.get_repository", "github_get_repository"] });
+    const text = (result.content[0] as { type: "text"; text: string }).text;
+    expect(text).toContain("github.get_repository(");
+    expect(text).toContain("full_name: string");
+    expect(text).toContain("Repository");
+  });
+
+  test("任一 id 未知 → 整体失败（UNKNOWN_TOOL 全列），不返回部分契约", async () => {
+    await expect(
+      tool.execute("c2", { tool_names: ["github.get_repository", "nope.tool", "also_missing"] }),
+    ).rejects.toThrow(/UNKNOWN_TOOL: nope\.tool, also_missing/);
+  });
+
+  test("tool_names 为空 → 报错", async () => {
+    await expect(tool.execute("c3", { tool_names: [] })).rejects.toThrow(/tool_names 为空/);
+  });
+});
+
+describe("jit_execute_program（AgentTool）— 编译 + 同一 registry 执行", () => {
+  const registry = makeRegistry();
+  const tool = createJitExecuteProgramTool(registry);
+
+  const PROGRAM = [
+    'repos = github.search_repositories(query="agent framework", limit=10)',
+    "details = map(repos, github.get_repository(full_name=_.full_name))",
+    "top = take(details, 3)",
+    "return top",
+  ].join("\n");
+
+  test("DSL 程序在**同一 registry** 上编译并执行，返回结果与结构化 details", async () => {
+    const result = await tool.execute("c1", { source: PROGRAM });
+    const details = result.details as JitExecuteProgramDetails;
+    expect(result.content[0]?.type).toBe("text");
+    expect(details.status).toBe("success");
+    expect(Array.isArray(details.result)).toBe(true);
+    expect(details.result).toHaveLength(3);
+    // IR 节点：search + map + take + return（同一 registry 解析，canonical id）
+    const tools = details.graph.nodes
+      .filter((node) => node.kind === "tool" || node.kind === "map")
+      .map((node) => (node.kind === "tool" ? node.tool : node.tool));
+    expect(tools).toContain("github.search_repositories");
+    expect(tools).toContain("github.get_repository");
+    expect(details.trace.some((entry) => entry.kind === "map" && entry.fanout === 10)).toBe(true);
+  });
+
+  test("编译失败 → throw（含诊断反馈，模型据此修正重提）", async () => {
+    await expect(tool.execute("c2", { source: 'x = github.nope(query="a")' })).rejects.toThrow(/编译失败/);
+    await expect(tool.execute("c2", { source: 'x = github.nope(query="a")' })).rejects.toThrow(/unknown_tool/);
+  });
+
+  test("执行失败（运行时错误）→ throw", async () => {
+    // map 的 source 是对象而非数组 → 运行时错误
+    const source = [
+      'x = github.get_repository(full_name="mock/org-repo-0")',
+      "y = map(x, github.get_repository(full_name=_.full_name))",
+      "return y",
+    ].join("\n");
+    await expect(tool.execute("c3", { source })).rejects.toThrow(/执行失败/);
+  });
+
+  test("source 为空 → 报错", async () => {
+    await expect(tool.execute("c4", { source: "   " })).rejects.toThrow(/source 为空/);
+  });
+});
