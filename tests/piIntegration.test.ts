@@ -84,6 +84,18 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
   test("tool_names 为空 → 报错", async () => {
     await expect(tool.execute("c3", { tool_names: [] })).rejects.toThrow(/tool_names 为空/);
   });
+
+  test("DSL manual 按需加载：第一次 describe 附带极简语法参考，后续不再重复", async () => {
+    const lazyTool = createJitDescribeTool(makeRegistry());
+    const first = await lazyTool.execute("c1", { tool_names: ["github.get_repository"] });
+    const firstText = (first.content[0] as { type: "text"; text: string }).text;
+    expect(firstText).toContain("Agent Execution DSL 极简参考");
+    expect(firstText).toContain("github.get_repository("); // 契约仍然返回
+    const second = await lazyTool.execute("c2", { tool_names: ["github.get_repository"] });
+    const secondText = (second.content[0] as { type: "text"; text: string }).text;
+    expect(secondText).not.toContain("Agent Execution DSL 极简参考");
+    expect(secondText).toContain("github.get_repository(");
+  });
 });
 
 describe("jit_execute_program（AgentTool）— 编译 + 同一 registry 执行", () => {

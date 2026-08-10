@@ -247,8 +247,10 @@ export function createR5IssueTools(): RegisteredTool[] {
 // 任务集
 // ---------------------------------------------------------------------------
 
+export type R5TaskId = "A" | "B" | "C";
+
 export interface R5Task {
-  id: "A" | "B" | "C";
+  id: R5TaskId;
   name: string;
   /** 中性 task prompt：不点名工具、不预设机制 */
   prompt: string;

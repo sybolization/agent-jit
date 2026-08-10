@@ -15,10 +15,13 @@
  * 三类任务（见 src/experiments/r5Tasks.ts）：
  * - A 不值得 JIT（单次调用）；B 明显值得 JIT（批量流水线）；C 混合型（语义判断 + 确定性段）。
  *
- * 新指标（在 task correctness / tokens / round trips / latency 之上）：
- * - JIT adoption rate：多少任务主动用了 JIT（path === "dsl"）；
- * - offload precision：该 JIT 的任务（B/C）中用了多少；
- * - unnecessary offload rate：一个工具就能解决的任务（A）是否反而 describe → execute 把事情搞复杂；
+ * 新指标（在 task correctness / tokens / round trips / latency 之上）——R5 review 后重定义，
+ * 不再用单一 path（dsl / ordinary）概括：
+ * - jitAttempted / jitExecutionSucceeded / jitSemanticCorrect / fallbackUsed / maxedOut 逐项记录；
+ * - adoption rate = jitAttempted 比例（“愿不愿意尝试”），offload precision =
+ *   (attempted && semanticCorrect) 比例（“正确选择并成功完成 offload”）——两个问题分开；
+ * - 最终答案走结构化 submit_answer（双 arm 同标准），绝不拿错误程序的 result 做子串判定
+ *   （P0：dslCorrect=false 的 run 必须 fail，除非模型用普通工具补救）；
  * - compressed path length：一次 jit_execute_program 实际替代了多少原子操作
  *   （tool nodes + map fanout + compute/join/filter）。
  *
@@ -33,20 +36,44 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { Type } from "typebox";
+
 import { createDeepSeekPiRuntime, type PiRuntime } from "../llm/gateway.js";
 import { adaptRegisteredTool, createPiTools } from "../integrations/pi/toolAdapter.js";
 import type { JitExecuteProgramDetails } from "../integrations/pi/jit.js";
 import type { ExecutionGraph } from "../compiler/ir.js";
 import type { TraceEntry } from "../runtime/trace.js";
-import type { RegisteredTool } from "../tools/definition.js";
+import { defineTool, type RegisteredTool } from "../tools/definition.js";
 import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL } from "../tools/jitTools.js";
 import { ToolRegistry } from "../tools/registry.js";
 import { checkTaskCorrectness } from "./taskSpec.js";
 import { runPiAgent } from "./agentRunner.js";
-import { R5_TASKS, type R5Task } from "./r5Tasks.js";
+import { R5_TASKS, type R5Task, type R5TaskId } from "./r5Tasks.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
+
+/**
+ * submit_answer：双 arm 完全同标准的最终答案提交通道。
+ *
+ * 为什么需要它（P0 review）：旧实现把“最后一次成功程序的整个 result JSON + finalText”拼成
+ * haystack 做 oracle 子串判定——B 型错误程序（dslCorrect=false）的 result 恰好包含三个目标
+ * repo 名，于是被误判 answerCorrect=true。改为结构化提交后，答案只来自模型显式提交的
+ * answer 参数（未提交时退回 finalText），错误程序的 result 永不进入答案判定。
+ */
+const SUBMIT_ANSWER_ID = "submit_answer";
+
+const submitAnswerTool: RegisteredTool = {
+  ...defineTool({
+    id: SUBMIT_ANSWER_ID,
+    label: "Submit final answer",
+    description:
+      "提交任务的最终答案。完成所有工具调用后，调用本工具一次，把完整最终答案放在 answer 参数里；这是最终答案的唯一提交通道。",
+    inputSchema: Type.Object({ answer: Type.String() }, { additionalProperties: false }),
+    outputSchema: Type.Object({ ok: Type.Boolean() }, { additionalProperties: false }),
+  }),
+  execute: async () => ({ ok: true }),
+};
 
 function loadEnv(root: string): void {
   const envPath = path.join(root, ".env");
@@ -65,48 +92,31 @@ function loadEnv(root: string): void {
 // 系统提示词（两个 arm 唯一差异：是否告知 JIT 能力）
 // ---------------------------------------------------------------------------
 
-/** control 臂：普通 Agent，只有 atomic tools，完全不知道 JIT。 */
+/** control 臂：普通 Agent，只有 atomic tools + submit_answer，完全不知道 JIT。 */
 export function r5ControlSystemPrompt(): string {
   return [
     "你是一个自主 Agent，需要完成用户交给的任务。",
     "使用提供的工具逐步完成；工具名与参数见工具定义。",
-    "完成后，在回复文本中直接给出最终结果。",
+    `完成所有工具调用后，调用 ${SUBMIT_ANSWER_ID}(answer="...") 提交最终答案（最终答案的唯一提交通道，不要只写在普通文本里）。`,
   ].join("\n");
 }
 
-/** treatment 臂：普通工具 + Agent JIT；是否 offload 由模型自己决定。 */
+/**
+ * treatment 臂：普通工具 + Agent JIT；是否 offload 由模型自己决定。
+ *
+ * 常驻 prompt **极简**（R5 review）：不内嵌 DSL 语法 / 示例 / 使用规则——DSL manual
+ * 改为按需加载：jit_describe_tools 第一次调用会随契约返回极简语法参考（见
+ * src/integrations/pi/jit.ts 的 MINIMAL_DSL_REFERENCE）。这样 A 型这种完全不用 JIT 的
+ * 任务基本不承担 DSL context 成本（控制 context tax 的设计意图）。
+ */
 export function r5TreatmentSystemPrompt(): string {
   return [
     "你是一个自主 Agent，需要完成用户交给的任务。你有两类工具：",
+    "- 普通业务工具：直接调用（工具名与参数见工具定义），适合单次查询/操作。",
+    `- Agent JIT：将已经确定的多步工具操作编译执行——需要时先用 ${DESCRIBE_TOOLS_TOOL.name} 获取编程契约（返回 DSL 语法极简参考 + 你要编排工具的契约），再用 ${EXECUTE_PROGRAM_TOOL.name} 提交程序。`,
     "",
-    "## 普通业务工具（单次调用）",
-    "系统已注册的业务工具可以直接调用（工具名与参数见工具定义），适合单次查询/操作。",
-    "",
-    "## Agent JIT 元工具（把确定性工作程序化）",
-    `- ${DESCRIBE_TOOLS_TOOL.name}(tool_names=[...])：获取指定工具在 Agent Execution DSL 中的用法契约（输入参数 + 输出字段）；`,
-    `- ${EXECUTE_PROGRAM_TOOL.name}(source="...")：提交一段 DSL 程序源码，编译并执行。`,
-    "",
-    "## 什么时候用 JIT，由你决定",
-    "- 单个查询或几次调用就能完成：直接调用普通业务工具，不要用 JIT；",
-    "- 一段后续工作可以确定性程序化（对列表每个元素做同样处理、过滤/排序/合并/取前 N 等）：可以先用 jit_describe_tools 获取要编排工具的契约，再写一段 DSL 程序，用 jit_execute_program 一次提交。",
-    "",
-    "## DSL 语法（newline 分隔语句，每条独占一行）",
-    "<name> = <callee>(<参数>, ...)",
-    "- <name>：变量名（[a-zA-Z_][a-zA-Z0-9_]*）",
-    "- <callee>：已注册工具 id（canonical 或 host alias 均可），或语言关键字 map / take / filter / sort / compute / select / join / return",
-    "- map：第二个参数是“绑定调用”：<工具>(<参数名>=_.<字段>)，把每个元素的 <字段> 传给该工具的 <参数名>",
-    "- take：截取前 N 条；sort(key=\"<字段>\", desc=true)；filter 等值条件；compute(<源>, <字段>=\"<表达式>\"）；select(<源>, \"<谓词>\"）；join(<源1>, <源2>, ..., key=\"<字段>\")",
-    "示例：",
-    "items = demo.search_all(limit=10)",
-    "details = map(items, demo.get_detail(key=_.id))",
-    "top = take(details, 3)",
-    "return top",
-    "",
-    "工具名两种写法等价：canonical（github.get_repository）与 host alias（github_get_repository），无需换算。",
-    "",
-    "## 结束方式",
-    "- 用普通工具完成：在回复文本中直接给出最终结果。",
-    "- 用 JIT 完成：程序以 return <变量> 结尾，通过 jit_execute_program 提交；提交后如有需要再给出总结。",
+    "是否使用 JIT 由你决定：单个查询用普通工具即可；一段后续工作可以确定性程序化（对列表每个元素做同样处理、过滤/排序/合并/取前 N 等）时再考虑 JIT。",
+    `完成所有工具调用后，调用 ${SUBMIT_ANSWER_ID}(answer="...") 提交最终答案（最终答案的唯一提交通道，不要只写在普通文本里）。`,
   ].join("\n");
 }
 
@@ -175,17 +185,42 @@ function matchesOracle(haystack: string, oracle: readonly (string | RegExp)[]): 
 
 export type R5Arm = "control" | "treatment";
 
+/** 一次工具调用的时间线记录（按首次出现顺序；isError 在执行结束时回填）。 */
+export interface R5ToolCallRecord {
+  name: string;
+  isError: boolean;
+}
+
 export interface R5RunMetrics {
   arm: R5Arm;
-  taskId: "A" | "B" | "C";
-  path: "dsl" | "ordinary" | "maxed_out";
+  taskId: R5TaskId;
   rounds: number;
+  /** 独立字段：是否跑满最大轮数（不再被 executeCalls 掩盖） */
+  maxedOut: boolean;
   tokens: { input: number; output: number; cacheRead: number; total: number };
   latencyMs: number;
-  /** 普通路径调用的业务工具（host alias，按序） */
+  /** 完整工具时间线（业务 / jit_describe_tools / jit_execute_program / submit_answer，按序） */
+  toolTimeline: readonly R5ToolCallRecord[];
+  /** 普通路径调用的业务工具（host alias，按序，不含 jit_* 与 submit_answer） */
   businessCalls: readonly string[];
   describeCalls: number;
   executeCalls: number;
+  // JIT 行为（R5 review：拆分代替单一 path = "dsl"）
+  /** 是否调用过 jit_describe_tools / jit_execute_program（愿不愿意尝试） */
+  jitAttempted: boolean;
+  /** 是否至少一次 jit_execute_program 执行成功 */
+  jitExecutionSucceeded: boolean;
+  /** 最后一次成功程序的语义正确性（无成功执行 → undefined；A 型无 spec → undefined） */
+  jitSemanticCorrect: boolean | undefined;
+  /** 第一次 jit 调用之后仍调用了普通业务工具（JIT 失败/不合适后的补救） */
+  fallbackUsed: boolean;
+  /** submit_answer 的 answer 参数（未提交 → undefined） */
+  submittedAnswer?: string;
+  /** 最终答案匹配 oracle（只来自 submit_answer 或 finalText，绝不拼程序 result） */
+  answerCorrect: boolean;
+  /** 严格任务完成：answerCorrect 且（未尝试 JIT 或 JIT 语义正确或有 fallback 补救）。
+   *  P0：dslCorrect=false 的 run 必须 fail——错误程序 result 即使包含目标 repo 名也不作数。 */
+  taskCompleted: boolean;
   /** 最后一次成功执行 jit_execute_program 的程序记录 */
   lastProgram?: {
     source: string;
@@ -194,9 +229,74 @@ export interface R5RunMetrics {
   };
   /** 失败的 jit_execute_program 尝试（编译失败 / 执行失败的错误文本，截断，最多 5 条） */
   executeErrors?: readonly string[];
-  answerCorrect: boolean;
   finalText: string;
   error?: string;
+}
+
+export interface R5RunDerivationInput {
+  arm: R5Arm;
+  taskId: R5TaskId;
+  rounds: number;
+  maxedOut: boolean;
+  tokens: R5RunMetrics["tokens"];
+  latencyMs: number;
+  toolTimeline: readonly R5ToolCallRecord[];
+  businessCalls: readonly string[];
+  describeCalls: number;
+  executeCalls: number;
+  jitSemanticCorrect: boolean | undefined;
+  executeErrors: readonly string[];
+  submittedAnswer?: string;
+  finalText: string;
+  oracle: readonly (string | RegExp)[];
+  error?: string;
+}
+
+/** 纯函数：从原始观测推导 R5 run 指标（与模型运行解耦，便于单测回归 P0 语义）。 */
+export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
+  const jitAttempted = input.describeCalls > 0 || input.executeCalls > 0;
+  const isJitName = (name: string): boolean =>
+    name === DESCRIBE_TOOLS_TOOL.name || name === EXECUTE_PROGRAM_TOOL.name;
+  const isSubmit = (name: string): boolean => name === SUBMIT_ANSWER_ID;
+  const firstJitIndex = input.toolTimeline.findIndex((call) => isJitName(call.name));
+  const fallbackUsed =
+    firstJitIndex >= 0 &&
+    input.toolTimeline.slice(firstJitIndex + 1).some((call) => !isJitName(call.name) && !isSubmit(call.name));
+  const jitExecutionSucceeded = input.toolTimeline.some(
+    (call) => call.name === EXECUTE_PROGRAM_TOOL.name && !call.isError,
+  );
+
+  // 答案正确性：只认模型显式提交的 answer（未提交时退回 finalText）；程序 result 永不参与
+  const answerCorrect =
+    input.submittedAnswer !== undefined
+      ? matchesOracle(input.submittedAnswer, input.oracle)
+      : matchesOracle(input.finalText, input.oracle);
+  // P0 严格语义：JIT 程序语义错误（dslCorrect=false）必须 fail——除非模型用普通工具补救（fallbackUsed）
+  const taskCompleted =
+    answerCorrect && (!jitAttempted || input.jitSemanticCorrect !== false || fallbackUsed);
+
+  return {
+    arm: input.arm,
+    taskId: input.taskId,
+    rounds: input.rounds,
+    maxedOut: input.maxedOut,
+    tokens: input.tokens,
+    latencyMs: input.latencyMs,
+    toolTimeline: input.toolTimeline,
+    businessCalls: input.businessCalls,
+    describeCalls: input.describeCalls,
+    executeCalls: input.executeCalls,
+    jitAttempted,
+    jitExecutionSucceeded,
+    jitSemanticCorrect: input.jitSemanticCorrect,
+    fallbackUsed,
+    ...(input.submittedAnswer !== undefined ? { submittedAnswer: input.submittedAnswer } : {}),
+    answerCorrect,
+    taskCompleted,
+    ...(input.executeErrors.length > 0 ? { executeErrors: input.executeErrors } : {}),
+    finalText: input.finalText,
+    ...(input.error !== undefined ? { error: input.error } : {}),
+  };
 }
 
 export async function runR5Run(
@@ -205,14 +305,16 @@ export async function runR5Run(
   runtime: PiRuntime,
   maxRounds = 10,
 ): Promise<R5RunMetrics> {
-  const registry = new ToolRegistry<RegisteredTool>(task.tools);
-  // 双 arm 唯一差异：control 只有 atomic tools；treatment 再挂上 jit_* 元工具
-  const piTools = arm === "control" ? registry.all().map((tool) => adaptRegisteredTool(registry, tool)) : createPiTools(registry);
+  const registry = new ToolRegistry<RegisteredTool>([...task.tools, submitAnswerTool]);
+  // 双 arm 唯一差异：control 只有 atomic tools（含 submit_answer）；treatment 再挂上 jit_* 元工具
+  const piTools =
+    arm === "control" ? registry.all().map((tool) => adaptRegisteredTool(registry, tool)) : createPiTools(registry);
 
   let describeCalls = 0;
   let executeCalls = 0;
   const businessCalls: string[] = [];
   const executeErrors: string[] = [];
+  let submittedAnswer: string | undefined;
   let lastProgramDetails: JitExecuteProgramDetails | undefined;
 
   const run = await runPiAgent({
@@ -221,7 +323,11 @@ export async function runR5Run(
     prompt: task.prompt,
     runtime,
     maxRounds,
-    onToolCall: ({ name }) => {
+    onToolCall: ({ name, arguments: args }) => {
+      if (name === SUBMIT_ANSWER_ID) {
+        submittedAnswer = String((args as { answer?: string }).answer ?? "");
+        return;
+      }
       if (name === DESCRIBE_TOOLS_TOOL.name) {
         describeCalls += 1;
         return;
@@ -240,94 +346,122 @@ export async function runR5Run(
         return;
       }
       if (isError) {
-        const text = (result as { content?: Array<{ text?: string }> } | null)?.content?.map((c) => c.text ?? "").join("") ?? "";
+        const text =
+          (result as { content?: Array<{ text?: string }> } | null)?.content?.map((c) => c.text ?? "").join("") ?? "";
         if (text.trim() && executeErrors.length < 5) executeErrors.push(text.trim().slice(0, 300));
       }
     },
   });
 
-  const path: R5RunMetrics["path"] = executeCalls > 0 ? "dsl" : run.maxedOut ? "maxed_out" : "ordinary";
-
   let lastProgram: R5RunMetrics["lastProgram"];
-  let dslCorrect: boolean | undefined;
-  let compressed: CompressedPath | undefined;
+  let jitSemanticCorrect: boolean | undefined;
   if (lastProgramDetails) {
-    dslCorrect = task.spec ? checkTaskCorrectness(lastProgramDetails.graph, task.spec).pass : undefined;
-    compressed = compressedPath(lastProgramDetails.graph, lastProgramDetails.trace);
+    jitSemanticCorrect = task.spec
+      ? checkTaskCorrectness(lastProgramDetails.graph, task.spec).pass
+      : undefined;
     lastProgram = {
       source: lastProgramDetails.source,
-      dslCorrect,
-      compressed,
+      dslCorrect: jitSemanticCorrect,
+      compressed: compressedPath(lastProgramDetails.graph, lastProgramDetails.trace),
     };
   }
 
-  // 答案正确性：DSL 成功路径看程序结果 + 最终文本；其余看最终文本（oracle 全命中）
-  const haystack =
-    lastProgramDetails && path === "dsl"
-      ? `${JSON.stringify(lastProgramDetails.result)}\n${run.finalText}`
-      : run.finalText;
-  const answerCorrect = matchesOracle(haystack, task.oracle);
-
-  return {
+  const metrics = deriveR5Metrics({
     arm,
     taskId: task.id,
-    path,
     rounds: run.rounds,
+    maxedOut: run.maxedOut,
     tokens: run.tokens,
     latencyMs: run.latencyMs,
+    toolTimeline: run.toolCalls.map((call) => ({ name: call.name, isError: call.isError })),
     businessCalls,
     describeCalls,
     executeCalls,
-    ...(lastProgram ? { lastProgram } : {}),
-    ...(executeErrors.length > 0 ? { executeErrors } : {}),
-    answerCorrect,
+    jitSemanticCorrect,
+    executeErrors,
+    submittedAnswer,
     finalText: run.finalText,
+    oracle: task.oracle,
     ...(run.error !== undefined ? { error: run.error } : {}),
+  });
+  return {
+    ...metrics,
+    ...(lastProgram ? { lastProgram } : {}),
   };
 }
 
 // ---------------------------------------------------------------------------
-// 汇总指标
+// 汇总指标（按 arm × task(A/B/C) 分格报告，不再只看三任务平均）
 // ---------------------------------------------------------------------------
 
 export interface R5Aggregate {
   arm: R5Arm;
+  taskId: R5TaskId;
   runs: number;
-  /** JIT adoption rate：多少任务主动用了 JIT（path === "dsl"） */
+  /** 愿意尝试：jitAttempted 比例（原 adoption rate 的准确含义） */
   adoptionRate: number;
-  /** offload precision：该 JIT 的任务（B/C）中主动用 JIT 的比例 */
+  /** 尝试后至少一次执行成功的比例 */
+  jitExecutionSucceededRate: number;
+  /** 最后一次成功程序语义正确的比例 */
+  jitSemanticCorrectRate: number;
+  /** 正确选择并完成 offload：(attempted && semanticCorrect===true) 比例（B/C 有意义；A 上 attempt 已属多余） */
   offloadPrecision: number;
-  /** unnecessary offload rate：不该 JIT 的任务（A）中反而用 JIT 的比例 */
-  unnecessaryOffloadRate: number;
-  /** compressed path length：成功 JIT 执行的原子操作压缩数均值 */
+  /** 不该 offload 却尝试：A 上 jitAttempted 比例（B/C 无意义 → undefined，不入 JSON） */
+  unnecessaryOffloadRate: number | undefined;
+  /** 第一次 jit 调用之后又用普通业务工具补救的比例 */
+  fallbackRate: number;
+  /** 跑满轮数比例（独立报告，不再混进路径） */
+  maxedOutRate: number;
+  /** 严格任务完成率（dslCorrect=false 的 JIT run 除非 fallback 补救否则不计完成） */
+  taskCompletionRate: number;
+  /** 成功 JIT 执行的原子操作压缩数均值 */
   avgCompressedOps: number;
   avgRounds: number;
   avgTokens: number;
-  correctRate: number;
 }
 
-export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm): R5Aggregate {
-  const armRuns = runs.filter((run) => run.arm === arm);
-  const total = armRuns.length;
-  const adopted = armRuns.filter((run) => run.path === "dsl").length;
-  const shouldOffload = armRuns.filter((run) => run.taskId !== "A").length;
-  const shouldAndAdopted = armRuns.filter((run) => run.taskId !== "A" && run.path === "dsl").length;
-  const aRuns = armRuns.filter((run) => run.taskId === "A").length;
-  const aAdopted = armRuns.filter((run) => run.taskId === "A" && run.path === "dsl").length;
-  const compressedOps = armRuns
-    .filter((run) => run.path === "dsl" && run.lastProgram?.compressed)
+export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R5TaskId): R5Aggregate {
+  const cell = runs.filter((run) => run.arm === arm && run.taskId === taskId);
+  const total = cell.length;
+  const ratio = (n: number): number => (total > 0 ? n / total : 0);
+  const attempted = cell.filter((run) => run.jitAttempted).length;
+  const compressedOps = cell
+    .filter((run) => run.lastProgram?.compressed)
     .map((run) => run.lastProgram!.compressed!.atomicOps);
   const avg = (values: number[]): number => (values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0);
   return {
     arm,
+    taskId,
     runs: total,
-    adoptionRate: total > 0 ? adopted / total : 0,
-    offloadPrecision: shouldOffload > 0 ? shouldAndAdopted / shouldOffload : 0,
-    unnecessaryOffloadRate: aRuns > 0 ? aAdopted / aRuns : 0,
+    adoptionRate: ratio(attempted),
+    jitExecutionSucceededRate: ratio(cell.filter((run) => run.jitExecutionSucceeded).length),
+    jitSemanticCorrectRate: ratio(cell.filter((run) => run.jitSemanticCorrect === true).length),
+    offloadPrecision: ratio(cell.filter((run) => run.jitAttempted && run.jitSemanticCorrect === true).length),
+    unnecessaryOffloadRate: taskId === "A" ? ratio(attempted) : undefined,
+    fallbackRate: ratio(cell.filter((run) => run.fallbackUsed).length),
+    maxedOutRate: ratio(cell.filter((run) => run.maxedOut).length),
+    taskCompletionRate: ratio(cell.filter((run) => run.taskCompleted).length),
     avgCompressedOps: avg(compressedOps),
-    avgRounds: avg(armRuns.map((run) => run.rounds)),
-    avgTokens: avg(armRuns.map((run) => run.tokens.total)),
-    correctRate: avg(armRuns.map((run) => (run.answerCorrect ? 1 : 0))),
+    avgRounds: avg(cell.map((run) => run.rounds)),
+    avgTokens: avg(cell.map((run) => run.tokens.total)),
+  };
+}
+
+/** 报告里的汇总结构：arm → task → aggregate。 */
+export type R5Aggregates = Record<R5Arm, Record<R5TaskId, R5Aggregate>>;
+
+export function buildR5Aggregates(runs: readonly R5RunMetrics[]): R5Aggregates {
+  return {
+    control: {
+      A: aggregateR5(runs, "control", "A"),
+      B: aggregateR5(runs, "control", "B"),
+      C: aggregateR5(runs, "control", "C"),
+    },
+    treatment: {
+      A: aggregateR5(runs, "treatment", "A"),
+      B: aggregateR5(runs, "treatment", "B"),
+      C: aggregateR5(runs, "treatment", "C"),
+    },
   };
 }
 
@@ -345,7 +479,7 @@ export interface R5ReportConfig {
 
 /**
  * 把一次 R5 实验的结果完整写入 report.json：
- * 配置 + 任务元数据（prompt / oracle）+ 每个 run 的全部指标 + 双 arm 汇总。
+ * 配置 + 任务元数据（prompt / oracle）+ 每个 run 的全部指标 + arm×task 分格汇总。
  * 返回 report.json 的绝对路径。
  */
 export function writeR5Report(
@@ -353,7 +487,7 @@ export function writeR5Report(
   config: R5ReportConfig,
   tasks: readonly R5Task[],
   runs: readonly R5RunMetrics[],
-  aggregates: Record<R5Arm, R5Aggregate>,
+  aggregates: R5Aggregates,
 ): string {
   fs.mkdirSync(outDir, { recursive: true });
   const reportPath = path.join(outDir, "report.json");
@@ -426,8 +560,16 @@ async function main(): Promise<number> {
         console.log(`\n===== [${currentArm}/${currentTask.id}] ${currentTask.name}（sample ${i}/${samples}）=====`);
         const run = await runR5Run(currentTask, currentArm, runtime, rounds);
         runs.push(run);
-        console.log(`→ path=${run.path} rounds=${run.rounds} tokens=${run.tokens.total} latency=${run.latencyMs}ms answer=${run.answerCorrect ? "✓" : "✗"}`);
-        console.log(`  describe=${run.describeCalls} execute=${run.executeCalls} business=[${run.businessCalls.join(", ") || "无"}]`);
+        console.log(
+          `→ rounds=${run.rounds} maxedOut=${run.maxedOut} tokens=${run.tokens.total} latency=${run.latencyMs}ms ` +
+            `answer=${run.answerCorrect ? "✓" : "✗"} completed=${run.taskCompleted ? "✓" : "✗"}`,
+        );
+        console.log(
+          `  jitAttempted=${run.jitAttempted} execSucceeded=${run.jitExecutionSucceeded} ` +
+            `semantic=${run.jitSemanticCorrect === undefined ? "n/a" : run.jitSemanticCorrect} fallback=${run.fallbackUsed} ` +
+            `describe=${run.describeCalls} execute=${run.executeCalls} business=[${run.businessCalls.join(", ") || "无"}]`,
+        );
+        if (run.submittedAnswer !== undefined) console.log(`  submit_answer：${run.submittedAnswer.slice(0, 300)}`);
         if (run.lastProgram) {
           console.log(`  DSL 正确：${run.lastProgram.dslCorrect === undefined ? "n/a" : run.lastProgram.dslCorrect}`);
           console.log(`  程序源码：\n${run.lastProgram.source.replace(/^/gm, "    ")}`);
@@ -444,20 +586,28 @@ async function main(): Promise<number> {
     }
   }
 
-  console.log("\n\n===== R5 汇总 =====");
-  const aggregates: Record<R5Arm, R5Aggregate> = {
-    control: aggregateR5(runs, "control"),
-    treatment: aggregateR5(runs, "treatment"),
-  };
+  console.log("\n\n===== R5 汇总（arm × task 分格）=====");
+  const aggregates = buildR5Aggregates(runs);
+  const taskCells: R5TaskId[] = ["A", "B", "C"];
   for (const currentArm of arms) {
-    const agg = aggregates[currentArm];
-    console.log(`\n${ARM_LABEL[currentArm]}（${agg.runs} runs）`);
-    console.log(`  JIT adoption rate：${(agg.adoptionRate * 100).toFixed(0)}%`);
-    console.log(`  offload precision（B/C 中用了 JIT）：${(agg.offloadPrecision * 100).toFixed(0)}%`);
-    console.log(`  unnecessary offload rate（A 反而用 JIT）：${(agg.unnecessaryOffloadRate * 100).toFixed(0)}%`);
-    console.log(`  compressed path length（均值）：${agg.avgCompressedOps.toFixed(1)} 原子操作`);
-    console.log(`  correct rate：${(agg.correctRate * 100).toFixed(0)}%`);
-    console.log(`  avg rounds：${agg.avgRounds.toFixed(1)}；avg tokens：${Math.round(agg.avgTokens)}`);
+    console.log(`\n${ARM_LABEL[currentArm]}`);
+    for (const taskId of taskCells) {
+      const agg = aggregates[currentArm][taskId];
+      const unnecessary = agg.unnecessaryOffloadRate === undefined ? "n/a" : `${(agg.unnecessaryOffloadRate * 100).toFixed(0)}%`;
+      console.log(
+        `  [${taskId}] runs=${agg.runs} ` +
+          `adoption=${(agg.adoptionRate * 100).toFixed(0)}% ` +
+          `execSucceeded=${(agg.jitExecutionSucceededRate * 100).toFixed(0)}% ` +
+          `semanticCorrect=${(agg.jitSemanticCorrectRate * 100).toFixed(0)}% ` +
+          `offloadPrecision=${(agg.offloadPrecision * 100).toFixed(0)}% ` +
+          `unnecessary=${unnecessary} ` +
+          `fallback=${(agg.fallbackRate * 100).toFixed(0)}% ` +
+          `maxedOut=${(agg.maxedOutRate * 100).toFixed(0)}% ` +
+          `taskCompleted=${(agg.taskCompletionRate * 100).toFixed(0)}% ` +
+          `compressed=${agg.avgCompressedOps.toFixed(1)} ` +
+          `rounds=${agg.avgRounds.toFixed(1)} tokens=${Math.round(agg.avgTokens)}`,
+      );
+    }
   }
 
   const outDir = path.join(

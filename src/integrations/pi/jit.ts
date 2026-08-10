@@ -33,16 +33,41 @@ export interface JitExecuteProgramDetails {
   totalDurationMs: number;
 }
 
+/**
+ * 极简 DSL 参考：**按需加载**——不再常驻 system prompt，而是由 jit_describe_tools
+ * **第一次**调用时随契约文本一并返回（与"工具 contract 可以 lazy load"同一设计原则）。
+ * 内容只覆盖语法骨架，不内嵌任何业务工具契约。
+ */
+export const MINIMAL_DSL_REFERENCE = [
+  "## Agent Execution DSL 极简参考（仅随首次 describe 返回一次）",
+  "程序是 newline 分隔的语句序列：<变量> = <调用>(...)，最后一行必须是 return <变量>。",
+  "- map(列表, 工具(参数=_.字段))：对列表每个元素执行一次绑定调用，_.字段 引用当前元素",
+  "- take(列表, N)：截取前 N 条；sort(列表, key=\"字段\", desc=true)：按字段排序",
+  "- filter(列表, 字段=值)：等值过滤；compute(列表, 字段=\"表达式\")：计算新字段",
+  "- select(列表, \"谓词\")：按谓词过滤；join(列表1, 列表2, ..., key=\"字段\")：按键合并多个列表",
+  "- 工具 id 两种写法等价：github.search_repositories 与 github_search_repositories",
+  "",
+  "示例（搜索 → 批量取详情 → 取前 3）：",
+  'repos = github.search_repositories(query="agent framework", limit=10)',
+  "details = map(repos, github.get_repository(full_name=_.full_name))",
+  "top = take(details, 3)",
+  "return top",
+].join("\n");
+
 /** jit_describe_tools 工具：tool_names → 确定性 DSL 契约文本。 */
 export function createJitDescribeTool(registry: RuntimeRegistry): AgentTool<typeof DESCRIBE_TOOLS_TOOL.parameters> {
+  let describeCalls = 0;
   return {
     ...DESCRIBE_TOOLS_TOOL,
     label: "Describe DSL tool contracts",
     execute: async (_toolCallId, params) => {
       const toolNames = (params as { tool_names: string[] }).tool_names;
-      const text = describeToolContracts(registry, toolNames);
+      let text = describeToolContracts(registry, toolNames);
       // 严格语义：任一 id 未知 → 整体失败（UNKNOWN_TOOL 全列 + 建议），抛给 Agent 转 toolResult
       if (text.startsWith("错误")) throw new Error(text);
+      describeCalls += 1;
+      // DSL manual 按需加载：第一次 describe 顺带返回极简语法参考，之后不再重复
+      if (describeCalls === 1) text = `${MINIMAL_DSL_REFERENCE}\n\n${text}`;
       return {
         content: [{ type: "text", text }],
         details: { toolNames: (params as { tool_names: string[] }).tool_names },

@@ -239,23 +239,28 @@ R4 系列验证的是 forced-JIT 形态（模型被告知"请用 DSL 完成任�
 > **仅仅给 Agent 多一个 JIT 能力，它会不会自己正确使用？**
 
 实验（`src/experiments/r5OffloadingBenchmark.ts`，两类工具都注册为 `AgentTool`，Agent loop 统一调度）：
-- **Control**：普通 Agent + atomic tools；
+- **Control**：普通 Agent + atomic tools + `submit_answer`；
 - **Treatment**：同一个 Agent + 相同 atomic tools + `jit_describe_tools` + `jit_execute_program`；系统提示词只说"当一段后续工作可以确定性程序化时可以选择 describe + execute，**是否使用由你决定**"，不点名工具、不预设机制。
+- 两个 arm 的最终答案都走结构化 `submit_answer(answer=...)`（同标准），不再从普通文本/程序 result 里抠答案。
 
 三类任务（`src/experiments/r5Tasks.ts`）：
 - **A 不值得 JIT**（单个 get_repository）：理想是直接调用业务工具；
 - **B 明显值得 JIT**（search 30 → details × 30 → 分支两路 score → join → filter → rank）：理想是 describe → execute 一次程序化；
 - **C 混合型**（先读 issue → Agent 语义判断候选 → 批量确定性取分/排序 → 总结）：理想是 reasoning → atomic tools → reasoning → JIT 段 → reasoning。
 
-新指标（在 task correctness / tokens / round trips / latency 之上）：
-- **JIT adoption rate**：多少任务主动用了 JIT；
-- **offload precision**：该 JIT 的任务（B/C）中用了多少；
-- **unnecessary offload rate**：一个工具就能解决的任务（A）是否反而 describe → execute 把事情搞复杂；
-- **compressed path length**：一次 `jit_execute_program` 实际替代了多少原子操作（tool nodes + map fanout + compute/join/filter，从执行 trace 统计）。
+**R5 review 后的指标**（在 task correctness / tokens / round trips / latency 之上，不再用单一 `path` 概括）：
+- **逐 run 拆分记录**：`jitAttempted`（愿不愿意尝试）/ `jitExecutionSucceeded`（至少一次执行成功）/ `jitSemanticCorrect`（最后一次成功程序过图语义检查 `dslCorrect`）/ `fallbackUsed`（第一次 jit 调用之后又用普通业务工具补救）/ `maxedOut`（跑满轮数，独立字段）；
+- **JIT adoption rate = jitAttempted 比例**（"愿不愿意尝试"），**offload precision = (attempted && semanticCorrect) 比例**（"是否正确选择并成功完成 offload"）——两个问题分开，避免旧 precision 只是 adoption 的别名；
+- **unnecessary offload rate**：A 上 jitAttempted 比例（不该 offload 却尝试）；
+- **compressed path length**：一次 `jit_execute_program` 实际替代了多少原子操作（tool nodes + map fanout + compute/join/filter，从执行 trace 统计）；
+- **taskCompleted 严格语义（P0 修复）**：`answerCorrect && (!jitAttempted || jitSemanticCorrect !== false || fallbackUsed)`——`dslCorrect=false` 的 JIT run 必须 fail，错误程序的 result 即使包含目标 repo 名也不作数（除非模型用普通工具补救）。旧实现把"错误程序的整个 result JSON + finalText"拼成 haystack 做子串判定，导致 B 型 `dslCorrect=false` 仍被记成 `answerCorrect=true`，`correctRate=100%` 无意义——已废弃。
+- **完整 tool timeline**：每个 run 记录按序的 `toolTimeline`（业务 / describe / execute / submit_answer + isError），可验证 atomic → reasoning → JIT → reasoning 的真实序列。
 
-**结果记录到 log**：每次实验运行结束把完整结果写入 `logs/experiments/r5-offloading-<ts>/report.json`（与 r4e 等实验约定一致，`logs/` 纳入版本控制以保证可复现性）——包含实验配置、任务元数据（prompt / oracle）、**每个 run 的全部指标**（路径 / 轮数 / tokens / latency / 业务调用序列 / describe+execute 次数 / 最后一次成功程序的源码与 `dslCorrect` / 压缩路径统计 / **失败的 execute 尝试的错误文本** `executeErrors` / 最终文本）以及双 arm 汇总。运行入口：`npm run experiment:r5`（等价 `npx tsx src/experiments/r5OffloadingBenchmark.ts`）。
+**DSL manual 按需加载**：treatment 常驻 prompt 只留一句"需要时使用 jit_describe_tools 获取编程契约"；DSL 语法极简参考改由 `jit_describe_tools` **第一次**调用时随工具契约一并返回（`MINIMAL_DSL_REFERENCE`，见 `src/integrations/pi/jit.ts`）——与"工具 contract 可以 lazy load"同一设计原则，A 型这种完全不用 JIT 的任务基本不承担 DSL context 成本（旧版常驻完整 DSL manual 让 treatment 的 A 型任务 token 从 861 涨到 2438）。
 
-单样本 smoke（DeepSeek，真模型）已验证 harness 行为符合设计：A 在 treatment 下仍走普通工具（不 unnecessary offload）；C 出现理想混合行为（先原子读 8 个 issue 做语义判断，再 describe → 写 `get_issues(numbers=[1,3,5,7]) → map score → sort → take 2`，DSL 正确、压缩 8 个原子操作）；B 主动选择 JIT（一次程序压缩 69 个原子操作），但该样本的程序把 join 基准写成两个分支源而非 details——`dslCorrect=false` 正确捕获结构性错误，模型随后用原子调用补救。
+**结果记录到 log**：每次实验运行结束把完整结果写入 `logs/experiments/r5-offloading-<ts>/report.json`（与 r4e 等实验约定一致，`logs/` 纳入版本控制以保证可复现性）——包含实验配置、任务元数据（prompt / oracle）、**每个 run 的全部指标**（`toolTimeline` / 拆分后的 JIT 指标 / `submittedAnswer` / `answerCorrect` / `taskCompleted` / 轮数 / tokens / latency / 业务调用序列 / describe+execute 次数 / 最后一次成功程序的源码与 `dslCorrect` / 压缩路径统计 / 失败的 execute 尝试的错误文本 `executeErrors` / 最终文本）以及 **arm × task(A/B/C) 分格汇总**（不再只看三任务平均 token）。运行入口：`npm run experiment:r5 -- --arm=both --task=all --samples=10`。
+
+单样本 smoke（DeepSeek，真模型）已验证 harness 行为符合设计：A 在 treatment 下仍走普通工具（不 unnecessary offload）；C 出现理想混合行为（先原子读 issue 做语义判断，再 describe → 写 `get_issues(numbers=[1,3,5,7]) → map score → sort → take 2`，DSL 正确、压缩 8 个原子操作）；B 主动选择 JIT 但程序把 join 基准写错（`dslCorrect=false`）——新语义下该样本 `taskCompleted=false`（跑满轮数、无 fallback），adoption 与 offload precision 由此分开。
 
 ---
 

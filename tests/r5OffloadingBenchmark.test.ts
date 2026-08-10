@@ -10,28 +10,38 @@ import { ToolRegistry } from "../src/tools/registry.js";
 import { R5_TASKS } from "../src/experiments/r5Tasks.js";
 import {
   aggregateR5,
+  buildR5Aggregates,
   compressedPath,
+  deriveR5Metrics,
   r5ControlSystemPrompt,
   r5TreatmentSystemPrompt,
   writeR5Report,
+  type R5Arm,
+  type R5RunDerivationInput,
   type R5RunMetrics,
+  type R5TaskId,
 } from "../src/experiments/r5OffloadingBenchmark.js";
 
 describe("系统提示词：两个 arm 的唯一差异是 JIT 能力", () => {
-  test("control：普通 Agent，完全不知道 JIT", () => {
+  test("control：普通 Agent + submit_answer，完全不知道 JIT", () => {
     const prompt = r5ControlSystemPrompt();
     expect(prompt).toContain("自主 Agent");
+    expect(prompt).toContain("submit_answer");
     expect(prompt).not.toContain("jit_");
     expect(prompt).not.toContain("DSL");
   });
 
-  test("treatment：双通道 + 是否使用由模型决定（不强制 JIT）", () => {
+  test("treatment：常驻极简（不内嵌 DSL 语法/示例）——是否使用 JIT 由模型决定", () => {
     const prompt = r5TreatmentSystemPrompt();
     expect(prompt).toContain("jit_describe_tools");
     expect(prompt).toContain("jit_execute_program");
+    expect(prompt).toContain("submit_answer");
     expect(prompt).toContain("由你决定");
-    expect(prompt).toContain("不要用 JIT");
-    expect(prompt).toContain("host alias（github_get_repository）");
+    // DSL manual 已按需加载（jit_describe_tools 首次调用返回）——常驻 prompt 不含语法关键字/示例
+    expect(prompt).not.toContain("map(");
+    expect(prompt).not.toContain("join(");
+    expect(prompt).not.toContain("compute(");
+    expect(prompt).not.toContain("<name> = <callee>");
     expect(prompt).not.toContain("必须用");
   });
 });
@@ -69,101 +79,263 @@ describe("compressedPath — 一次 jit_execute_program 压缩了多少原子操
   });
 });
 
-describe("aggregateR5 — 新指标汇总", () => {
-  const base: R5RunMetrics = {
-    arm: "treatment",
-    taskId: "A",
-    path: "ordinary",
-    rounds: 3,
-    tokens: { input: 1, output: 1, cacheRead: 0, total: 2 },
-    latencyMs: 0,
-    businessCalls: [],
-    describeCalls: 0,
-    executeCalls: 0,
-    answerCorrect: true,
-    finalText: "",
-  };
-  const dslRun = (taskId: "B" | "C", atomicOps: number): R5RunMetrics => ({
-    ...base,
-    taskId,
-    path: "dsl",
-    executeCalls: 1,
-    lastProgram: {
-      source: "…",
-      dslCorrect: true,
-      compressed: { toolNodes: 2, mapNodes: 2, fanoutSum: 34, computeNodes: 5, joinNodes: 1, returnNodes: 1, atomicOps },
-    },
+// ---------------------------------------------------------------------------
+// deriveR5Metrics —— P0 严格 correctness 回归（纯函数，不跑模型）
+// ---------------------------------------------------------------------------
+
+const deriveInput = (
+  overrides: Partial<R5RunDerivationInput> & { taskId: R5TaskId },
+): R5RunDerivationInput => ({
+  arm: "treatment",
+  rounds: 3,
+  maxedOut: false,
+  tokens: { input: 1, output: 1, cacheRead: 0, total: 2 },
+  latencyMs: 0,
+  toolTimeline: [],
+  businessCalls: [],
+  describeCalls: 0,
+  executeCalls: 0,
+  jitSemanticCorrect: undefined,
+  executeErrors: [],
+  finalText: "",
+  oracle: [],
+  ...overrides,
+});
+
+describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 result 不再参与答案判定）", () => {
+  const B_ORACLE = ["adv/org-repo-0", "adv/org-repo-1", "adv/org-repo-17"];
+
+  test("B 型坏 case：执行成功但语义错误、无 fallback、跑满轮数 → taskCompleted=false（即使提交答案包含 repo 名）", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        rounds: 8,
+        maxedOut: true,
+        toolTimeline: [
+          { name: "jit_describe_tools", isError: false },
+          { name: "jit_execute_program", isError: false }, // 执行成功
+        ],
+        describeCalls: 1,
+        executeCalls: 1,
+        jitSemanticCorrect: false,
+        // 旧实现会因“错误程序 result 包含这三个 repo”而误判 answerCorrect=true
+        submittedAnswer: "前 3 个：adv/org-repo-0、adv/org-repo-1、adv/org-repo-17",
+        finalText: "",
+        oracle: B_ORACLE,
+      }),
+    );
+    expect(metrics.jitAttempted).toBe(true);
+    expect(metrics.jitExecutionSucceeded).toBe(true);
+    expect(metrics.jitSemanticCorrect).toBe(false);
+    expect(metrics.fallbackUsed).toBe(false);
+    expect(metrics.maxedOut).toBe(true);
+    expect(metrics.answerCorrect).toBe(true); // 答案字符串本身匹配
+    expect(metrics.taskCompleted).toBe(false); // 但严格语义：必须 fail
   });
 
-  test("adoption / precision / unnecessary / compressed 汇总", () => {
-    const agg = aggregateR5([base, dslRun("B", 43), dslRun("C", 8)], "treatment");
-    expect(agg.runs).toBe(3);
-    expect(agg.adoptionRate).toBe(2 / 3); // B/C 主动用 JIT，A 没有
-    expect(agg.offloadPrecision).toBe(1); // 该 JIT 的任务（B/C）全部用了
-    expect(agg.unnecessaryOffloadRate).toBe(0); // A 没有用
-    expect(agg.avgCompressedOps).toBe((43 + 8) / 2);
+  test("B 型坏 case + fallback 补救：JIT 后改用普通业务工具 → taskCompleted 恢复为 answerCorrect", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [
+          { name: "jit_describe_tools", isError: false },
+          { name: "jit_execute_program", isError: false },
+          { name: "github_get_repository", isError: false }, // fallback 补救
+        ],
+        businessCalls: ["github_get_repository"],
+        describeCalls: 1,
+        executeCalls: 1,
+        jitSemanticCorrect: false,
+        submittedAnswer: "adv/org-repo-0, adv/org-repo-1, adv/org-repo-17",
+        oracle: B_ORACLE,
+      }),
+    );
+    expect(metrics.fallbackUsed).toBe(true);
+    expect(metrics.answerCorrect).toBe(true);
+    expect(metrics.taskCompleted).toBe(true);
   });
 
-  test("A 型反而用 JIT → unnecessary offload rate = 1", () => {
-    const agg = aggregateR5([{ ...base, path: "dsl", executeCalls: 1 }], "treatment");
-    expect(agg.adoptionRate).toBe(1);
-    expect(agg.offloadPrecision).toBe(0); // 没有该 JIT 的任务
-    expect(agg.unnecessaryOffloadRate).toBe(1);
-    expect(agg.avgCompressedOps).toBe(0); // 无成功程序 details
+  test("JIT 之后的 submit_answer 不算 fallback（不触发补救判定）", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [
+          { name: "jit_execute_program", isError: false },
+          { name: "submit_answer", isError: false },
+        ],
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(metrics.fallbackUsed).toBe(false);
+    expect(metrics.taskCompleted).toBe(true);
   });
 
-  test("B/C 该 JIT 但没用 → offload precision = 0", () => {
-    const agg = aggregateR5([{ ...base, taskId: "B", path: "ordinary" }, { ...base, taskId: "C", path: "maxed_out" }], "treatment");
-    expect(agg.adoptionRate).toBe(0);
-    expect(agg.offloadPrecision).toBe(0);
+  test("B 型好 case：语义正确 + 答案正确 → taskCompleted=true", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [{ name: "jit_execute_program", isError: false }],
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0 / adv/org-repo-1 / adv/org-repo-17",
+        oracle: B_ORACLE,
+      }),
+    );
+    expect(metrics.taskCompleted).toBe(true);
   });
 
-  test("control 臂的 runs 被过滤（aggregate 只看自己 arm）", () => {
-    const control = { ...base, arm: "control" as const, taskId: "B" as const, path: "ordinary" as const };
-    const agg = aggregateR5([control, base], "treatment");
-    expect(agg.runs).toBe(1);
+  test("A 型普通路径：不尝试 JIT，答案正确 → taskCompleted=true", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "A",
+        submittedAnswer: "1600，TypeScript",
+        oracle: [/1[,，]?600/, "TypeScript"],
+      }),
+    );
+    expect(metrics.jitAttempted).toBe(false);
+    expect(metrics.answerCorrect).toBe(true);
+    expect(metrics.taskCompleted).toBe(true);
+  });
+
+  test("未提交 submit_answer 时退回 finalText 判定答案", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({ taskId: "A", submittedAnswer: undefined, finalText: "star 1600，语言 TypeScript", oracle: [/1[,，]?600/, "TypeScript"] }),
+    );
+    expect(metrics.submittedAnswer).toBeUndefined();
+    expect(metrics.answerCorrect).toBe(true);
   });
 });
 
-describe("writeR5Report — 结果记录到 log（report.json）", () => {
-  test("写入配置 + 任务元数据 + 全部 runs + 双 arm 汇总，JSON 可读回", () => {
+// ---------------------------------------------------------------------------
+// aggregateR5 —— arm × task 分格汇总
+// ---------------------------------------------------------------------------
+
+const baseMetrics = (
+  overrides: Partial<R5RunMetrics> & { arm: R5Arm; taskId: R5TaskId },
+): R5RunMetrics => ({
+  rounds: 3,
+  maxedOut: false,
+  tokens: { input: 1, output: 1, cacheRead: 0, total: 2 },
+  latencyMs: 0,
+  toolTimeline: [],
+  businessCalls: [],
+  describeCalls: 0,
+  executeCalls: 0,
+  jitAttempted: false,
+  jitExecutionSucceeded: false,
+  jitSemanticCorrect: undefined,
+  fallbackUsed: false,
+  answerCorrect: true,
+  taskCompleted: true,
+  finalText: "",
+  ...overrides,
+});
+
+describe("aggregateR5 — adoption 与 offloadPrecision 分开，按 arm×task 分格", () => {
+  test("B 格：adoption（愿意尝试）与 offloadPrecision（正确完成）是不同的数", () => {
+    const bGood = baseMetrics({
+      arm: "treatment",
+      taskId: "B",
+      jitAttempted: true,
+      jitExecutionSucceeded: true,
+      jitSemanticCorrect: true,
+      taskCompleted: true,
+      lastProgram: { source: "…", dslCorrect: true, compressed: { toolNodes: 2, mapNodes: 2, fanoutSum: 34, computeNodes: 5, joinNodes: 1, returnNodes: 1, atomicOps: 43 } },
+    });
+    const bBad = baseMetrics({
+      arm: "treatment",
+      taskId: "B",
+      jitAttempted: true,
+      jitExecutionSucceeded: true,
+      jitSemanticCorrect: false,
+      maxedOut: true,
+      answerCorrect: false,
+      taskCompleted: false,
+    });
+    const agg = aggregateR5([bGood, bBad], "treatment", "B");
+    expect(agg.runs).toBe(2);
+    expect(agg.adoptionRate).toBe(1); // 都愿意尝试
+    expect(agg.jitExecutionSucceededRate).toBe(1);
+    expect(agg.jitSemanticCorrectRate).toBe(0.5);
+    expect(agg.offloadPrecision).toBe(0.5); // 只有一半正确选择并完成 offload
+    expect(agg.taskCompletionRate).toBe(0.5);
+    expect(agg.maxedOutRate).toBe(0.5);
+    expect(agg.fallbackRate).toBe(0);
+    expect(agg.avgCompressedOps).toBe(43);
+    expect(agg.unnecessaryOffloadRate).toBeUndefined(); // B 格无此概念
+  });
+
+  test("A 格：unnecessaryOffloadRate = jitAttempted 比例", () => {
+    const aPlain = baseMetrics({ arm: "treatment", taskId: "A" });
+    const aJit = baseMetrics({
+      arm: "treatment",
+      taskId: "A",
+      jitAttempted: true,
+      jitExecutionSucceeded: true,
+      jitSemanticCorrect: undefined, // A 无 spec，语义不可判定
+    });
+    const agg = aggregateR5([aPlain, aJit], "treatment", "A");
+    expect(agg.adoptionRate).toBe(0.5);
+    expect(agg.unnecessaryOffloadRate).toBe(0.5); // A 上尝试 JIT 即多余
+    expect(agg.offloadPrecision).toBe(0); // semanticCorrect===true 才计，A 上无 spec → 0
+  });
+
+  test("control 臂与 treatment 臂互不混用", () => {
+    const control = baseMetrics({ arm: "control", taskId: "A" });
+    const treatment = baseMetrics({ arm: "treatment", taskId: "A" });
+    expect(aggregateR5([control, treatment], "control", "A").runs).toBe(1);
+    expect(aggregateR5([control, treatment], "treatment", "A").runs).toBe(1);
+    expect(buildR5Aggregates([control, treatment]).control.A.runs).toBe(1);
+    expect(buildR5Aggregates([control, treatment]).treatment.A.runs).toBe(1);
+  });
+});
+
+describe("writeR5Report — 结果记录到 log（report.json，含完整 tool timeline 与分格汇总）", () => {
+  test("写入配置 + 任务元数据 + 全部 runs + arm×task 汇总，JSON 可读回", () => {
     const runs: R5RunMetrics[] = [
-      {
+      baseMetrics({
         arm: "control",
         taskId: "A",
-        path: "ordinary",
         rounds: 2,
         tokens: { input: 100, output: 50, cacheRead: 0, total: 150 },
         latencyMs: 2000,
+        toolTimeline: [
+          { name: "github_get_repository", isError: false },
+          { name: "submit_answer", isError: false },
+        ],
         businessCalls: ["github_get_repository"],
-        describeCalls: 0,
-        executeCalls: 0,
-        answerCorrect: true,
-        finalText: "1600, TypeScript",
-      },
-      {
+        submittedAnswer: "1600, TypeScript",
+        finalText: "…",
+      }),
+      baseMetrics({
         arm: "treatment",
         taskId: "B",
-        path: "dsl",
         rounds: 4,
         tokens: { input: 1000, output: 500, cacheRead: 0, total: 1500 },
         latencyMs: 15000,
+        toolTimeline: [
+          { name: "jit_describe_tools", isError: false },
+          { name: "jit_execute_program", isError: false },
+        ],
         businessCalls: [],
         describeCalls: 1,
-        executeCalls: 2,
+        executeCalls: 1,
+        jitAttempted: true,
+        jitExecutionSucceeded: true,
+        jitSemanticCorrect: false,
         answerCorrect: false,
-        finalText: "…",
+        taskCompleted: false,
         lastProgram: {
-          source: "repos = github.search_repositories(query=\"agent framework\", limit=30)",
+          source: 'repos = github.search_repositories(query="agent framework", limit=30)',
           dslCorrect: false,
           compressed: { toolNodes: 2, mapNodes: 2, fanoutSum: 34, computeNodes: 5, joinNodes: 1, returnNodes: 1, atomicOps: 43 },
         },
-      },
+      }),
     ];
-    const aggregates = {
-      control: aggregateR5(runs, "control"),
-      treatment: aggregateR5(runs, "treatment"),
-    };
+    const aggregates = buildR5Aggregates(runs);
 
     const outDir = path.join(os.tmpdir(), `r5-report-test-${Date.now()}`);
     const reportPath = writeR5Report(outDir, { arm: "both", task: "all", samples: 1, rounds: 10 }, R5_TASKS, runs, aggregates);
@@ -173,8 +345,15 @@ describe("writeR5Report — 结果记录到 log（report.json）", () => {
         mode: string;
         config: { arm: string; task: string; samples: number; rounds: number };
         tasks: Array<{ id: string; name: string; prompt: string; oracle: string[] }>;
-        aggregates: Record<string, { runs: number; adoptionRate: number }>;
-        runs: Array<{ arm: string; taskId: string; path: string }>;
+        aggregates: Record<string, Record<string, { runs: number; adoptionRate: number }>>;
+        runs: Array<{
+          arm: string;
+          taskId: string;
+          jitAttempted: boolean;
+          jitSemanticCorrect: boolean | null;
+          taskCompleted: boolean;
+          toolTimeline: Array<{ name: string; isError: boolean }>;
+        }>;
       };
       expect(report.mode).toBe("r5-autonomous-offloading");
       expect(report.config).toEqual({ arm: "both", task: "all", samples: 1, rounds: 10 });
@@ -184,10 +363,19 @@ describe("writeR5Report — 结果记录到 log（report.json）", () => {
         expect(task.prompt.length).toBeGreaterThan(0);
         expect(task.oracle.length).toBeGreaterThan(0);
       }
-      expect(report.aggregates.control.runs).toBe(1);
-      expect(report.aggregates.treatment.runs).toBe(1);
+      // arm×task 分格汇总
+      expect(report.aggregates.control.A.runs).toBe(1);
+      expect(report.aggregates.treatment.B.runs).toBe(1);
+      expect(report.aggregates.treatment.B.adoptionRate).toBe(1);
       expect(report.runs).toHaveLength(2);
-      expect(report.runs[1]!.path).toBe("dsl");
+      // run 级：完整 tool timeline + 拆分指标
+      expect(report.runs[1].toolTimeline).toEqual([
+        { name: "jit_describe_tools", isError: false },
+        { name: "jit_execute_program", isError: false },
+      ]);
+      expect(report.runs[1].jitAttempted).toBe(true);
+      expect(report.runs[1].jitSemanticCorrect).toBe(false);
+      expect(report.runs[1].taskCompleted).toBe(false);
     } finally {
       fs.rmSync(outDir, { recursive: true, force: true });
     }
