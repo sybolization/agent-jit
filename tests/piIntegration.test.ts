@@ -90,12 +90,12 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     await expect(tool.execute("c3", { tool_names: [] })).rejects.toThrow(/tool_names 为空/);
   });
 
-  test("DSL manual 按需加载：第一次 describe 附带语法参考（默认 patterns），后续只返回契约 + bindings", async () => {
+  test("DSL manual 按需加载：第一次 describe 附带语法参考（默认 primitive），后续只返回契约 + bindings", async () => {
     const lazyTool = createJitDescribeTool(makeRegistry());
     const first = await lazyTool.execute("c1", { tool_names: ["github.get_repository"] });
     const firstText = (first.content[0] as { type: "text"; text: string }).text;
     expect(firstText).toContain("## 1. Tool calls"); // manual 只随首次 describe 返回
-    expect(firstText).toContain("Composition patterns"); // 默认 patterns：含组合模式
+    expect(firstText).not.toContain("Composition patterns"); // 默认 primitive：只含核心参考
     expect(firstText).toContain("merge_by_key("); // R5 review：join → merge_by_key（base+overlay 语义）
     expect(firstText).toContain("concat("); // 真正的列表拼接
     expect(firstText).toContain("github.get_repository("); // 契约仍然返回
@@ -113,7 +113,7 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
         expect(manual, `mode=${mode} 不应含 ${constant}`).not.toContain(constant);
       }
     }
-    // describe 首次返回（默认 patterns）同样不含
+    // describe 首次返回（默认 primitive）同样不含
     const lazyTool = createJitDescribeTool(makeRegistry());
     const result = await lazyTool.execute("c1", { tool_names: ["github.search_repositories", "github.get_repository"] });
     const text = (result.content[0] as { type: "text"; text: string }).text;
@@ -152,7 +152,7 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
   });
 
   test("四段式输出：manual + # Requested Tool Contracts + ## Compatible bindings（patterns 模式每次返回）", async () => {
-    const lazyTool = createJitDescribeTool(makeRegistry());
+    const lazyTool = createJitDescribeTool(makeRegistry(), { guidance: "patterns" });
     const first = await lazyTool.execute("c1", {
       tool_names: ["github.search_repositories", "github.get_repository"],
     });

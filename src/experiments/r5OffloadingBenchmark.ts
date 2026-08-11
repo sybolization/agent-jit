@@ -23,8 +23,8 @@
  * - adoption rate = jitAttempted 比例；offload precision = semanticCorrect / attempted
  *   （真 precision，分母是尝试过的 run，不是总 run 数）——两个问题分开；
  * - offload 时机（P0：jitCompleted 只反映"是否独立完成"，不反映"是否及时"）：
- *   offloadDecisionRound（第一次 JIT 调用的轮数）+ preJit/postJitBusinessCalls（JIT 决定前后
- *   已做/仍做的业务工作）；B 型再统计 preOffloadPipelineCalls（JIT 前已执行掉的、本可 offload
+ *   offloadDecisionRound（第一次 JIT 调用的轮数）+ pre/same/post-execute 三桶业务调用（按 Agent
+ *   round 分割，避免同轮并发 describe+业务工具被误判为 fallback）；B 型再统计 preOffloadPipelineCalls（JIT 前已执行掉的、本可 offload
  *   的流水线调用）并据此定义 timelyOffload（= 语义正确 且 preOffloadPipelineCalls === 0）；
  * - 最终答案走结构化 submit_answer（双 arm 同标准），**未提交即判错**，绝不从 finalText /
  *   错误程序的 result 做子串判定（P0：dslCorrect=false 的 run 必须 fail，除非模型用普通工具补救）；
@@ -115,7 +115,7 @@ export function r5ControlSystemPrompt(): string {
  *
  * 常驻 prompt **极简**（R5 review）：不内嵌 DSL 语法 / 示例 / 使用规则——DSL manual
  * 改为按需加载：jit_describe_tools 第一次调用会随契约返回极简语法参考（见
- * src/integrations/pi/dslReference.ts 的 renderDslReference(guidance)（--dsl-guidance 可选 primitive/patterns/full-example，默认 patterns））。
+ * src/integrations/pi/dslReference.ts 的 renderDslReference(guidance)（--dsl-guidance 可选 primitive/patterns/full-example，默认 primitive））。
  * 这样 A 型这种完全不用 JIT 的任务基本不承担 DSL context 成本（控制 context tax 的设计意图）。
  */
 export function r5TreatmentSystemPrompt(): string {
@@ -235,17 +235,20 @@ export interface R5RunMetrics {
   jitSemanticCorrect: boolean | undefined;
   /** JIT 独立完成：尝试过 JIT 且最后一次程序语义正确且未 fallback（"用对了"的完成级） */
   jitFinishedWithoutFallback: boolean;
-  /** 第一次 jit 调用之后仍调用了普通业务工具（JIT 失败/不合适后的补救） */
+  /** 看到 jit_execute_program 结果后仍用普通业务工具补救（round > lastExecuteRound；同一轮并发发出的业务调用不判 fallback） */
   fallbackUsed: boolean;
   /** 第一次 JIT 调用（describe 或 execute）发生在第几轮；未尝试 JIT → undefined */
   offloadDecisionRound?: number;
-  /** 第一次 JIT 调用之前调用的业务工具（按序；= 决定 offload 前已做的工作） */
-  preJitBusinessCalls: readonly string[];
-  preJitBusinessCallCount: number;
-  /** 第一次 JIT 调用之后调用的业务工具（按序；= offload 后仍需普通工具完成的部分） */
-  postJitBusinessCalls: readonly string[];
-  postJitBusinessCallCount: number;
-  /** B 型：JIT 前已执行掉的、本可 offload 的流水线调用数（preJit 业务调用 ∩ pipeline 工具）；
+  /** round < firstJitRound 的业务工具（按序；= 决定 offload 前已做的工作，round-strict） */
+  preOffloadBusinessCalls: readonly string[];
+  preOffloadBusinessCallCount: number;
+  /** round === firstJitRound 的业务工具（按序；= 与第一次 JIT 决策同一轮并发发出，模型尚未看到任何 JIT 结果） */
+  sameRoundBusinessCalls: readonly string[];
+  sameRoundBusinessCallCount: number;
+  /** round > lastExecuteRound 的业务工具（按序；= 模型已看到最后一次 execute 结果后仍用原子工具，真 fallback） */
+  postExecuteBusinessCalls: readonly string[];
+  postExecuteBusinessCallCount: number;
+  /** B 型：round < firstJitRound 已执行掉的、本可 offload 的流水线调用数（preOffload 业务调用 ∩ pipeline 工具）；
    *  任务无 pipeline 定义（A/C）→ undefined */
   preOffloadPipelineCalls?: number;
   /** 及时 offload：决定 offload 时还没执行掉任何本可 offload 的流水线工作，且这次 offload 语义正确。
@@ -302,34 +305,47 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
     name === DESCRIBE_TOOLS_TOOL.name || name === EXECUTE_PROGRAM_TOOL.name;
   const isSubmit = (name: string): boolean => name === SUBMIT_ANSWER_ID;
   const isBusiness = (name: string): boolean => !isJitName(name) && !isSubmit(name);
-  const firstJitIndex = input.toolTimeline.findIndex((call) => isJitName(call.name));
-  const fallbackUsed =
-    firstJitIndex >= 0 &&
-    input.toolTimeline.slice(firstJitIndex + 1).some((call) => isBusiness(call.name));
   const jitExecutionSucceeded = input.toolTimeline.some(
     (call) => call.name === EXECUTE_PROGRAM_TOOL.name && !call.isError,
   );
 
-  // offload 时机（P0 review）：第一次 JIT 调用之前/之后的业务工作分开统计。
-  // businessCalls 只按序记录业务工具名；JIT 前后的分界必须用完整 toolTimeline（含 jit_* 交错位置）。
-  const preJitBusinessCalls =
-    firstJitIndex < 0
+  // offload 时机（R5 review 第二轮，round-aware）：按 Agent round 分割业务调用，不再用 timeline
+  // 数组位置——同轮并发 describe+业务工具在数组上会落在 JIT 之后而被误判为 fallback。
+  // businessCalls 仍按序记录全部业务工具名；三桶分界用 round 与 firstJitRound / lastExecuteRound 比较。
+  const firstJitCall = input.toolTimeline.find((call) => isJitName(call.name));
+  const firstJitRound = firstJitCall?.round;
+  const offloadDecisionRound = firstJitRound;
+  const executeCallsInTimeline = input.toolTimeline.filter((call) => call.name === EXECUTE_PROGRAM_TOOL.name);
+  const lastExecuteRound =
+    executeCallsInTimeline.length > 0 ? executeCallsInTimeline[executeCallsInTimeline.length - 1]!.round : undefined;
+  const preOffloadBusinessCalls =
+    firstJitRound === undefined
       ? []
-      : input.toolTimeline.slice(0, firstJitIndex).filter((call) => isBusiness(call.name)).map((call) => call.name);
-  const postJitBusinessCalls =
-    firstJitIndex < 0
+      : input.toolTimeline
+          .filter((call) => isBusiness(call.name) && call.round < firstJitRound)
+          .map((call) => call.name);
+  const sameRoundBusinessCalls =
+    firstJitRound === undefined
       ? []
-      : input.toolTimeline.slice(firstJitIndex + 1).filter((call) => isBusiness(call.name)).map((call) => call.name);
-  const offloadDecisionRound = firstJitIndex >= 0 ? input.toolTimeline[firstJitIndex]!.round : undefined;
+      : input.toolTimeline
+          .filter((call) => isBusiness(call.name) && call.round === firstJitRound)
+          .map((call) => call.name);
+  const postExecuteBusinessCalls =
+    lastExecuteRound === undefined
+      ? []
+      : input.toolTimeline
+          .filter((call) => isBusiness(call.name) && call.round > lastExecuteRound)
+          .map((call) => call.name);
+  const fallbackUsed = postExecuteBusinessCalls.length > 0;
 
-  // B 型：JIT 前已执行掉的、本可 offload 的流水线调用（preJit 业务调用 ∩ pipeline 工具）。
+  // B 型：round < firstJitRound 已执行掉的、本可 offload 的流水线调用（preOffload 业务调用 ∩ pipeline 工具）。
   // pipelineToolIds 是 canonical id，toolTimeline 记录的是 host alias 名，需转换后比对。
   const pipelineAliases = new Set((input.pipelineToolIds ?? []).map(toolIdAlias));
   const preOffloadPipelineCalls =
-    firstJitIndex >= 0 && input.pipelineToolIds && input.pipelineToolIds.length > 0
-      ? input.toolTimeline
-          .slice(0, firstJitIndex)
-          .filter((call) => isBusiness(call.name) && pipelineAliases.has(call.name)).length
+    firstJitRound !== undefined && input.pipelineToolIds && input.pipelineToolIds.length > 0
+      ? input.toolTimeline.filter(
+          (call) => isBusiness(call.name) && call.round < firstJitRound && pipelineAliases.has(call.name),
+        ).length
       : undefined;
 
   // P0 严格输出协议：答案正确性**只认模型显式提交的 submit_answer**。
@@ -372,10 +388,12 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
     jitFinishedWithoutFallback,
     fallbackUsed,
     ...(offloadDecisionRound !== undefined ? { offloadDecisionRound } : {}),
-    preJitBusinessCalls,
-    preJitBusinessCallCount: preJitBusinessCalls.length,
-    postJitBusinessCalls,
-    postJitBusinessCallCount: postJitBusinessCalls.length,
+    preOffloadBusinessCalls,
+    preOffloadBusinessCallCount: preOffloadBusinessCalls.length,
+    sameRoundBusinessCalls,
+    sameRoundBusinessCallCount: sameRoundBusinessCalls.length,
+    postExecuteBusinessCalls,
+    postExecuteBusinessCallCount: postExecuteBusinessCalls.length,
     ...(preOffloadPipelineCalls !== undefined ? { preOffloadPipelineCalls } : {}),
     timelyOffload,
     ...(input.submittedAnswer !== undefined ? { submittedAnswer: input.submittedAnswer } : {}),
@@ -511,17 +529,19 @@ export interface R5Aggregate {
   offloadPrecision: number;
   /** 第一次 JIT 调用的平均轮数（仅统计尝试过 JIT 的 run；无尝试 → 0） */
   avgOffloadDecisionRound: number;
-  /** 平均 JIT 前业务调用数（决定 offload 前已做的工作量） */
-  avgPreJitBusinessCallCount: number;
-  /** 平均 JIT 后业务调用数（offload 后仍需普通工具完成的工作量） */
-  avgPostJitBusinessCallCount: number;
-  /** B 型：平均 JIT 前已执行掉的流水线调用数（无 pipeline 定义 → undefined） */
+  /** 平均决策前业务调用数（round < firstJitRound） */
+  avgPreOffloadBusinessCallCount: number;
+  /** 平均与决策同轮业务调用数（round === firstJitRound，并发发出） */
+  avgSameRoundBusinessCallCount: number;
+  /** 平均看到 execute 结果后的业务调用数（round > lastExecuteRound，真 fallback） */
+  avgPostExecuteBusinessCallCount: number;
+  /** B 型：平均决策前（round < firstJitRound）已执行掉的流水线调用数（无 pipeline 定义 → undefined） */
   avgPreOffloadPipelineCalls: number | undefined;
   /** 及时 offload 比例（timelyOffload === true / 总 run 数；B 型有定义，A/C → undefined） */
   timelyOffloadRate: number | undefined;
   /** 不该 offload 却尝试：A 上 jitAttempted 比例（B/C 无意义 → undefined，不入 JSON） */
   unnecessaryOffloadRate: number | undefined;
-  /** 第一次 jit 调用之后又用普通业务工具补救的比例 */
+  /** 看到 execute 结果后仍用普通业务工具补救的比例（round > lastExecuteRound） */
   fallbackRate: number;
   /** 跑满轮数比例（独立报告，不再混进路径） */
   maxedOutRate: number;
@@ -565,8 +585,9 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
     // P1 review：真 precision = 语义正确 / 尝试过（数学意义与名字一致）
     offloadPrecision: attempted > 0 ? attemptedCorrect / attempted : 0,
     avgOffloadDecisionRound: avg(decisionRounds),
-    avgPreJitBusinessCallCount: avg(cell.map((run) => run.preJitBusinessCallCount)),
-    avgPostJitBusinessCallCount: avg(cell.map((run) => run.postJitBusinessCallCount)),
+    avgPreOffloadBusinessCallCount: avg(cell.map((run) => run.preOffloadBusinessCallCount)),
+    avgSameRoundBusinessCallCount: avg(cell.map((run) => run.sameRoundBusinessCallCount)),
+    avgPostExecuteBusinessCallCount: avg(cell.map((run) => run.postExecuteBusinessCallCount)),
     // 无 pipeline 定义（A/C）→ undefined，不入 JSON
     avgPreOffloadPipelineCalls:
       preOffloadPipelineValues.length > 0 ? avg(preOffloadPipelineValues) : undefined,
@@ -664,12 +685,12 @@ export interface R5CliFlags {
   samples: number;
   rounds: number;
   candidates?: number;
-  /** Z/P/F ablation：DSL 参考的渲染模式（默认 patterns = 产品候选） */
+  /** Z/P/F ablation：DSL 参考的渲染模式（默认 primitive = production default） */
   dslGuidance: DslGuidanceMode;
 }
 
 export function parseFlags(argv: readonly string[]): R5CliFlags {
-  const flags: R5CliFlags = { arm: "both", task: "all", samples: 1, rounds: 10, dslGuidance: "patterns" };
+  const flags: R5CliFlags = { arm: "both", task: "all", samples: 1, rounds: 10, dslGuidance: "primitive" };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, "").split("=");
     if (key === "arm" && (value === "control" || value === "treatment" || value === "both")) flags.arm = value;
@@ -724,7 +745,7 @@ async function main(): Promise<number> {
         if (run.offloadDecisionRound !== undefined) {
           console.log(
             `  offloadDecisionRound=${run.offloadDecisionRound} ` +
-              `preJitBusiness=${run.preJitBusinessCallCount} postJitBusiness=${run.postJitBusinessCallCount}` +
+              `pre=${run.preOffloadBusinessCallCount} same=${run.sameRoundBusinessCallCount} postExec=${run.postExecuteBusinessCallCount}` +
               (run.preOffloadPipelineCalls !== undefined ? ` preOffloadPipeline=${run.preOffloadPipelineCalls}` : "") +
               ` timely=${run.timelyOffload === undefined ? "n/a" : run.timelyOffload}`,
           );
@@ -777,7 +798,7 @@ async function main(): Promise<number> {
           `correctCompressed=${agg.avgCorrectlyCompressedOps.toFixed(1)} ` +
           `rounds=${agg.avgRounds.toFixed(1)} tokens=${Math.round(agg.avgTokens)} ` +
           `offloadRound=${agg.avgOffloadDecisionRound.toFixed(1)} ` +
-          `preJit=${agg.avgPreJitBusinessCallCount.toFixed(1)} postJit=${agg.avgPostJitBusinessCallCount.toFixed(1)} ` +
+          `pre=${agg.avgPreOffloadBusinessCallCount.toFixed(1)} same=${agg.avgSameRoundBusinessCallCount.toFixed(1)} postExec=${agg.avgPostExecuteBusinessCallCount.toFixed(1)} ` +
           `preOffloadPipeline=${avgPipeline} timely=${timely}`,
       );
     }

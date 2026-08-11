@@ -17,8 +17,9 @@
 
 export type DslGuidanceMode = "primitive" | "patterns" | "full-example";
 
-/** 产品默认 guidance（P = 核心 + 组合模式 + bindings 是正式候选）。 */
-export const DEFAULT_DSL_GUIDANCE: DslGuidanceMode = "patterns";
+/** 生产默认 guidance（Z = 核心语言参考）：最少信息已达 100% offload precision，不默认给模型更多信息。
+ *  primitive → production default；patterns → experimental / fallback guidance；full-example → benchmark upper bound only。 */
+export const DEFAULT_DSL_GUIDANCE: DslGuidanceMode = "primitive";
 
 /**
  * 核心语言参考：三层语言模型——1. Tool calls（普通工具遵循 Tool Contract）；

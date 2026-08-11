@@ -152,7 +152,7 @@ describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 r
         toolTimeline: [
           call("jit_describe_tools"),
           call("jit_execute_program"),
-          call("github_get_repository"), // fallback 补救
+          call("github_get_repository", 2), // fallback 补救（execute 之后的轮次）
         ],
         businessCalls: ["github_get_repository"],
         describeCalls: 1,
@@ -240,7 +240,7 @@ describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 r
         taskId: "A",
         toolTimeline: [
           call("jit_execute_program", 1, true),
-          call("github_get_repository"),
+          call("github_get_repository", 2),
         ],
         businessCalls: ["github_get_repository"],
         executeCalls: 1,
@@ -271,7 +271,7 @@ describe("deriveR5Metrics — P0：dslCorrect=false 必须 fail（错误程序 r
         taskId: "B",
         toolTimeline: [
           call("jit_execute_program"),
-          call("github_get_repository"),
+          call("github_get_repository", 2),
         ],
         businessCalls: ["github_get_repository"],
         executeCalls: 1,
@@ -313,8 +313,8 @@ describe("deriveR5Metrics — offload 时机（P0：jitFinishedWithoutFallback �
       }),
     );
     expect(metrics.offloadDecisionRound).toBe(1);
-    expect(metrics.preJitBusinessCallCount).toBe(0);
-    expect(metrics.postJitBusinessCallCount).toBe(0);
+    expect(metrics.preOffloadBusinessCallCount).toBe(0);
+    expect(metrics.postExecuteBusinessCallCount).toBe(0);
     expect(metrics.preOffloadPipelineCalls).toBe(0);
     expect(metrics.timelyOffload).toBe(true);
   });
@@ -341,12 +341,12 @@ describe("deriveR5Metrics — offload 时机（P0：jitFinishedWithoutFallback �
     );
     expect(metrics.jitFinishedWithoutFallback).toBe(true); // correctness 层面没错
     expect(metrics.offloadDecisionRound).toBe(2);
-    expect(metrics.preJitBusinessCallCount).toBe(31);
+    expect(metrics.preOffloadBusinessCallCount).toBe(31);
     expect(metrics.preOffloadPipelineCalls).toBe(31); // 最贵的 iterative 部分已被普通工具做完
     expect(metrics.timelyOffload).toBe(false); // 但 offload boundary 太晚，不是及时 offload
   });
 
-  test("JIT 后仍有业务调用 → preJit/postJit 分界正确，且这些不算 timely（语义错时）", () => {
+  test("看到 execute 结果后仍有业务调用 → pre/post-execute 分界正确，且这些不算 timely（语义错时）", () => {
     const metrics = deriveR5Metrics(
       deriveInput({
         taskId: "B",
@@ -363,9 +363,9 @@ describe("deriveR5Metrics — offload 时机（P0：jitFinishedWithoutFallback �
         oracle: B_ORACLE,
       }),
     );
-    expect(metrics.preJitBusinessCallCount).toBe(0);
-    expect(metrics.postJitBusinessCallCount).toBe(1);
-    expect(metrics.postJitBusinessCalls).toEqual(["github_get_repository"]);
+    expect(metrics.preOffloadBusinessCallCount).toBe(0);
+    expect(metrics.postExecuteBusinessCallCount).toBe(1);
+    expect(metrics.postExecuteBusinessCalls).toEqual(["github_get_repository"]);
     expect(metrics.fallbackUsed).toBe(true);
     expect(metrics.timelyOffload).toBe(false);
   });
@@ -382,7 +382,7 @@ describe("deriveR5Metrics — offload 时机（P0：jitFinishedWithoutFallback �
       }),
     );
     expect(a.offloadDecisionRound).toBe(1);
-    expect(a.preJitBusinessCallCount).toBe(0);
+    expect(a.preOffloadBusinessCallCount).toBe(0);
     expect(a.preOffloadPipelineCalls).toBeUndefined();
     expect(a.timelyOffload).toBeUndefined();
 
@@ -398,6 +398,55 @@ describe("deriveR5Metrics — offload 时机（P0：jitFinishedWithoutFallback �
     );
     expect(c.preOffloadPipelineCalls).toBeUndefined();
     expect(c.timelyOffload).toBeUndefined();
+  });
+
+  test("同轮并发不判 fallback：describe 与业务工具同一轮发出 → sameRound 桶，fallbackUsed=false", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [
+          call("jit_describe_tools", 1),
+          call("github_search_repositories", 1), // 与 describe 同一轮并发发出
+          call("jit_execute_program", 2),
+          call("submit_answer", 3),
+        ],
+        businessCalls: ["github_search_repositories"],
+        describeCalls: 1,
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0 / adv/org-repo-1 / adv/org-repo-17",
+        oracle: B_ORACLE,
+      }),
+    );
+    expect(metrics.fallbackUsed).toBe(false);
+    expect(metrics.sameRoundBusinessCalls).toEqual(["github_search_repositories"]);
+    expect(metrics.preOffloadBusinessCallCount).toBe(0);
+    expect(metrics.postExecuteBusinessCallCount).toBe(0);
+    expect(metrics.preOffloadPipelineCalls).toBe(0); // 同轮 search 不入 pre（round-strict）
+    expect(metrics.timelyOffload).toBe(true);
+  });
+
+  test("看到 execute 结果后才判 fallback：round > lastExecuteRound 的业务调用才进 postExecute 桶", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [
+          call("jit_describe_tools", 1),
+          call("jit_execute_program", 2),
+          call("github_get_repository", 3), // 已看到 execute 结果后的补救
+        ],
+        businessCalls: ["github_get_repository"],
+        describeCalls: 1,
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0 / adv/org-repo-1 / adv/org-repo-17",
+        oracle: B_ORACLE,
+      }),
+    );
+    expect(metrics.fallbackUsed).toBe(true);
+    expect(metrics.postExecuteBusinessCalls).toEqual(["github_get_repository"]);
+    expect(metrics.sameRoundBusinessCalls).toEqual([]);
+    expect(metrics.preOffloadBusinessCallCount).toBe(0);
   });
 });
 
@@ -568,10 +617,12 @@ const baseMetrics = (
   jitSemanticCorrect: undefined,
   jitFinishedWithoutFallback: false,
   fallbackUsed: false,
-  preJitBusinessCalls: [],
-  preJitBusinessCallCount: 0,
-  postJitBusinessCalls: [],
-  postJitBusinessCallCount: 0,
+  preOffloadBusinessCalls: [],
+  preOffloadBusinessCallCount: 0,
+  sameRoundBusinessCalls: [],
+  sameRoundBusinessCallCount: 0,
+  postExecuteBusinessCalls: [],
+  postExecuteBusinessCallCount: 0,
   timelyOffload: undefined,
   answerCorrect: true,
   taskCompleted: true,
@@ -761,8 +812,8 @@ describe("writeR5Report — 结果记录到 log（report.json，含完整 tool t
 });
 
 describe("parseFlags — --dsl-guidance（Z/P/F ablation）", () => {
-  test("默认 patterns（产品候选）", () => {
-    expect(parseFlags([]).dslGuidance).toBe("patterns");
+  test("默认 primitive（production default）", () => {
+    expect(parseFlags([]).dslGuidance).toBe("primitive");
   });
 
   test("解析 primitive / patterns / full-example", () => {
