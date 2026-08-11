@@ -7,6 +7,9 @@ dist/
 *.log
 
 # 实验产物：logs/ 纳入版本控制（实验可复现性要求保留原始 report.json）
+# 例外：raw CoT（模型思维链原文）绝不入库——只进 gitignored 的 logs/reasoning-raw/，
+# report.json 只含指标与 phases，不含 reasoning 原文（见 r5ReasoningBenchmark.ts）
+logs/reasoning-raw/
 
 # 环境变量（含 API key，绝不提交）
 .env

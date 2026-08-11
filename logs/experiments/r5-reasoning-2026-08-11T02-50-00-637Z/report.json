@@ -1,0 +1,279 @@
+{
+  "mode": "r5-reasoning-observation",
+  "config": {
+    "task": "B",
+    "arm": "treatment",
+    "samples": 1,
+    "rounds": 10,
+    "dslGuidance": "primitive",
+    "policy": "current",
+    "rawLogging": true,
+    "reasoning": true
+  },
+  "model": {
+    "id": "deepseek-chat",
+    "reasoningEnabled": true,
+    "thinkingLevel": "medium"
+  },
+  "timestamp": "2026-08-11T02:50:00.638Z",
+  "tasks": [
+    {
+      "id": "B",
+      "name": "repo-score-pipeline",
+      "prompt": "搜索 GitHub 上活跃的 agent 框架仓库（查询条件用 agent framework），取前 30 个。对每个仓库获取它的详细数据（star 数与 fork 数）。然后按 fork/star 比值（ratio = forks / stars）分支：比值 > 0.15 的仓库获取贡献者路径的分数，其余仓库获取提交路径的分数（两条路径返回的分数同一尺度，可直接比较）。把每条分数对应回它所属的仓库，只保留分数 >= 100 的仓库，按分数从高到低取前 3 个，返回它们的完整名称（owner/repo）。",
+      "oracle": [
+        "adv/org-repo-0",
+        "adv/org-repo-1",
+        "adv/org-repo-17"
+      ]
+    }
+  ],
+  "aggregates": {
+    "control": {
+      "A": {
+        "arm": "control",
+        "taskId": "A",
+        "runs": 0,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 0,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 0,
+        "avgTokens": 0
+      },
+      "B": {
+        "arm": "control",
+        "taskId": "B",
+        "runs": 0,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "timelyOffloadRate": 0,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 0,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 0,
+        "avgTokens": 0
+      },
+      "C": {
+        "arm": "control",
+        "taskId": "C",
+        "runs": 0,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 0,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 0,
+        "avgTokens": 0
+      }
+    },
+    "treatment": {
+      "A": {
+        "arm": "treatment",
+        "taskId": "A",
+        "runs": 0,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 0,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 0,
+        "avgTokens": 0
+      },
+      "B": {
+        "arm": "treatment",
+        "taskId": "B",
+        "runs": 1,
+        "adoptionRate": 1,
+        "jitExecutionSucceededRate": 1,
+        "jitSemanticCorrectRate": 1,
+        "jitFinishedWithoutFallbackRate": 1,
+        "offloadPrecision": 1,
+        "avgOffloadDecisionRound": 1,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "avgPreOffloadPipelineCalls": 0,
+        "timelyOffloadRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 69,
+        "avgCorrectlyCompressedOps": 69,
+        "avgRounds": 4,
+        "avgTokens": 11624
+      },
+      "C": {
+        "arm": "treatment",
+        "taskId": "C",
+        "runs": 0,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 0,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 0,
+        "avgTokens": 0
+      }
+    }
+  },
+  "runs": [
+    {
+      "arm": "treatment",
+      "taskId": "B",
+      "rounds": 4,
+      "maxedOut": false,
+      "tokens": {
+        "input": 2375,
+        "output": 1441,
+        "cacheRead": 7808,
+        "total": 11624
+      },
+      "latencyMs": 14465,
+      "toolTimeline": [
+        {
+          "name": "jit_describe_tools",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "tool_names": [
+              "github.search_repositories",
+              "github.get_repository",
+              "github.get_contributor_stats",
+              "github.list_commits"
+            ]
+          }
+        },
+        {
+          "name": "jit_execute_program",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "source": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ncomputed = compute(details, ratio=\"forks / stars\")\nhigh = select(computed, \"ratio > 0.15\")\nlow = select(computed, \"ratio <= 0.15\")\nhigh_scores = map(high, github.get_contributor_stats(full_name=_.full_name))\nlow_scores = map(low, github.list_commits(full_name=_.full_name))\nall_scores = concat(high_scores, low_scores)\nqualified = select(all_scores, \"score >= 100\")\nranked = sort(qualified, key=\"score\", desc=true)\ntop = take(ranked, 3)\nreturn top"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "answer": "按 fork/star 比值分支取分（>0.15 用贡献者路径，≤0.15 用提交路径），过滤分数 ≥ 100 后按分数降序取前 3 的仓库为：\n\n1. adv/org-repo-0 (score 801)\n2. adv/org-repo-1 (score 750)\n3. adv/org-repo-17 (score 170)"
+          }
+        }
+      ],
+      "businessCalls": [],
+      "describeCalls": 1,
+      "executeCalls": 1,
+      "jitAttempted": true,
+      "jitExecutionSucceeded": true,
+      "jitSemanticCorrect": true,
+      "jitFinishedWithoutFallback": true,
+      "fallbackUsed": false,
+      "offloadDecisionRound": 1,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "preOffloadPipelineCalls": 0,
+      "timelyOffload": true,
+      "submittedAnswer": "按 fork/star 比值分支取分（>0.15 用贡献者路径，≤0.15 用提交路径），过滤分数 ≥ 100 后按分数降序取前 3 的仓库为：\n\n1. adv/org-repo-0 (score 801)\n2. adv/org-repo-1 (score 750)\n3. adv/org-repo-17 (score 170)",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "已完成任务。最终结果（按分数从高到低取前 3）：\n\n- **adv/org-repo-0**（801 分）\n- **adv/org-repo-1**（750 分）\n- **adv/org-repo-17**（170 分）\n\n处理流程：搜索 \"agent framework\" 取前 30 个仓库 → 获取各仓库 star/fork 详情 → 计算 ratio = forks/stars → ratio > 0.15 的仓库取贡献者路径分数、其余取提交路径分数 → 合并分数并过滤 ≥ 100 → 降序排序取前 3。",
+      "lastProgram": {
+        "source": "repos = github.search_repositories(query=\"agent framework\", limit=30)\ndetails = map(repos, github.get_repository(full_name=_.full_name))\ncomputed = compute(details, ratio=\"forks / stars\")\nhigh = select(computed, \"ratio > 0.15\")\nlow = select(computed, \"ratio <= 0.15\")\nhigh_scores = map(high, github.get_contributor_stats(full_name=_.full_name))\nlow_scores = map(low, github.list_commits(full_name=_.full_name))\nall_scores = concat(high_scores, low_scores)\nqualified = select(all_scores, \"score >= 100\")\nranked = sort(qualified, key=\"score\", desc=true)\ntop = take(ranked, 3)\nreturn top",
+        "dslCorrect": true,
+        "compressed": {
+          "toolNodes": 1,
+          "mapNodes": 3,
+          "fanoutSum": 60,
+          "computeNodes": 6,
+          "mergeNodes": 0,
+          "concatNodes": 1,
+          "returnNodes": 1,
+          "atomicOps": 69
+        },
+        "correctlyCompressedOps": 69
+      },
+      "reasoningTraceFile": "local:r5r-001",
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ]
+    }
+  ]
+}

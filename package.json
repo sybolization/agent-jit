@@ -10,7 +10,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "experiment": "tsx src/experiments/dslGenerationExperiment.ts",
-    "experiment:r5": "tsx src/experiments/r5OffloadingBenchmark.ts"
+    "experiment:r5": "tsx src/experiments/r5OffloadingBenchmark.ts",
+    "experiment:r5-reasoning": "tsx src/experiments/r5ReasoningBenchmark.ts"
   },
   "engines": {
     "node": ">=20"

@@ -1,0 +1,1648 @@
+{
+  "analyses": [
+    {
+      "runId": "r5r-001",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-002",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-003",
+      "jitActionRound": 2,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 6,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 2,
+      "jitConsiderationRound": 2,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "primaryCause": "recognition-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": true,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-004",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-005",
+      "jitActionRound": 2,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 2,
+      "jitConsiderationRound": 2,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "primaryCause": "recognition-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-006",
+      "jitActionRound": 2,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 2,
+      "jitConsiderationRound": 2,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "primaryCause": "recognition-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-007",
+      "jitActionRound": 2,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 2,
+      "recognitionToConsiderationLag": 1,
+      "considerationToActionLag": 0,
+      "primaryCause": "jit-selection-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-008",
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "before-jit",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "before-jit",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 3,
+      "jitConsiderationRound": 3,
+      "recognitionToConsiderationLag": 0,
+      "primaryCause": "recognition-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": false,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": true,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-009",
+      "jitActionRound": 2,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 2,
+      "jitConsiderationRound": 2,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "primaryCause": "recognition-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-010",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-011",
+      "jitActionRound": 2,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 2,
+      "jitConsiderationRound": 2,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "primaryCause": "recognition-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-012",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-013",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-014",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-015",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": true,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-016",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-017",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-018",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-019",
+      "jitActionRound": 2,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 2,
+      "jitConsiderationRound": 2,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "primaryCause": "recognition-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-020",
+      "jitActionRound": 2,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 2,
+      "recognitionToConsiderationLag": 1,
+      "considerationToActionLag": 0,
+      "primaryCause": "jit-selection-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-021",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-022",
+      "jitActionRound": 2,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 2,
+      "recognitionToConsiderationLag": 1,
+      "considerationToActionLag": 0,
+      "primaryCause": "jit-selection-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-023",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-024",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-025",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-026",
+      "jitActionRound": 2,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 2,
+      "jitConsiderationRound": 2,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "primaryCause": "recognition-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-027",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-028",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-029",
+      "jitActionRound": 3,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "before-jit",
+          "toolCalls": [
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 6,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 2,
+      "jitConsiderationRound": 3,
+      "recognitionToConsiderationLag": 1,
+      "considerationToActionLag": 0,
+      "primaryCause": "jit-selection-late",
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    },
+    {
+      "runId": "r5r-030",
+      "jitActionRound": 1,
+      "phases": [
+        {
+          "round": 1,
+          "phase": "jit-decision",
+          "toolCalls": [
+            "github_search_repositories",
+            "jit_describe_tools"
+          ]
+        },
+        {
+          "round": 2,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "phase": "jit-execute",
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 4,
+          "phase": "after-execute",
+          "toolCalls": [
+            "submit_answer"
+          ]
+        },
+        {
+          "round": 5,
+          "phase": "after-execute",
+          "toolCalls": []
+        }
+      ],
+      "deterministicRecognitionRound": 1,
+      "jitConsiderationRound": 1,
+      "recognitionToConsiderationLag": 0,
+      "considerationToActionLag": 0,
+      "labels": {
+        "deterministicPathRecognized": true,
+        "jitConsidered": true,
+        "jitSelected": true,
+        "dataUnknownBlocksOffload": false,
+        "semanticUncertainty": false,
+        "greedyProbe": false,
+        "jitOverheadConcern": false,
+        "pathTooShort": false,
+        "duplicateExecutionAwareness": false
+      }
+    }
+  ],
+  "causeDistribution": {
+    "recognition-late": 8,
+    "data-uncertainty-blocker": 0,
+    "jit-selection-late": 4,
+    "greedy-speculative": 0,
+    "economic-rejection": 0
+  }
+}

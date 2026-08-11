@@ -56,7 +56,7 @@ import { defineTool, type RegisteredTool } from "../tools/definition.js";
 import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL } from "../tools/jitTools.js";
 import { toolIdAlias, ToolRegistry } from "../tools/registry.js";
 import { checkTaskCorrectness } from "./taskSpec.js";
-import { runPiAgent } from "./agentRunner.js";
+import { runPiAgent, type AgentReasoningTurn } from "./agentRunner.js";
 import { createR5CTask, R5_TASKS, type R5Task, type R5TaskId } from "./r5Tasks.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -405,12 +405,18 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
   };
 }
 
+export interface R5RunOptions {
+  dslGuidance?: DslGuidanceMode;
+  /** reasoning observation：runPiAgent 完成后回调该 run 的全部 reasoningTurns（附加式，不进 R5RunMetrics/report） */
+  onReasoningTurns?: (turns: readonly AgentReasoningTurn[]) => void;
+}
+
 export async function runR5Run(
   task: R5Task,
   arm: R5Arm,
   runtime: PiRuntime,
   maxRounds = 10,
-  options: { dslGuidance?: DslGuidanceMode } = {},
+  options: R5RunOptions = {},
 ): Promise<R5RunMetrics> {
   const registry = new ToolRegistry<RegisteredTool>([...task.tools, submitAnswerTool]);
   // 双 arm 唯一差异：control 只有 atomic tools（含 submit_answer）；treatment 再挂上 jit_* 元工具。
@@ -462,6 +468,9 @@ export async function runR5Run(
       }
     },
   });
+
+  // reasoning observation：透传该 run 的全部 reasoningTurns（附加式，不进 R5RunMetrics/report）
+  options.onReasoningTurns?.(run.reasoningTurns);
 
   let lastProgram: R5RunMetrics["lastProgram"];
   let jitSemanticCorrect: boolean | undefined;

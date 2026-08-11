@@ -20,6 +20,17 @@ export interface AgentToolCallRecord {
   arguments: Record<string, unknown>;
 }
 
+/** 单个 assistant 轮（decision）的 reasoning（CoT）观测记录。 */
+export interface AgentReasoningTurn {
+  round: number;
+  /** provider 暴露的 reasoning/thinking（无则空串） */
+  reasoning: string;
+  /** 同一 assistant decision 中选择的工具 */
+  toolCalls: readonly { name: string; arguments: Record<string, unknown> }[];
+  /** assistant 普通文本（无则空串） */
+  text: string;
+}
+
 export interface PiAgentRunOptions {
   systemPrompt: string;
   tools: readonly AgentTool<any>[];
@@ -39,6 +50,8 @@ export interface PiAgentRunResult {
   latencyMs: number;
   /** 工具调用记录（按首次出现顺序；isError 在执行结束时回填） */
   toolCalls: readonly AgentToolCallRecord[];
+  /** 每轮 assistant decision 的 reasoning（CoT）观测（始终返回数组；无 message_end 的轮不在其中） */
+  reasoningTurns: readonly AgentReasoningTurn[];
   /** 最后一个不带 toolCall 的 assistant 文本（最终答复；截断时可能为空串） */
   finalText: string;
   /** 最后一轮 assistant 仍带 toolCall → 被 maxRounds 截断 */
@@ -47,12 +60,40 @@ export interface PiAgentRunResult {
   error?: string;
 }
 
+/**
+ * 从单个 assistant message 提取该轮的 reasoning（CoT）观测。
+ *
+ * block 类型约定与 pi-ai 一致：`thinking`（reasoning 文本）、`toolCall`（工具选择）、
+ * `text`（普通文本）；未知 block（如 image）忽略。thinking/text 多个块按序拼接。
+ */
+export function extractAgentReasoningTurn(
+  message: { role: string; content: readonly { type: string; [key: string]: unknown }[] },
+  round: number,
+): AgentReasoningTurn {
+  const reasoning = message.content
+    .filter((block): block is { type: "thinking"; thinking: string } => block.type === "thinking")
+    .map((block) => block.thinking)
+    .join("");
+  const toolCalls = message.content
+    .filter(
+      (block): block is { type: "toolCall"; name: string; arguments: Record<string, unknown> } =>
+        block.type === "toolCall",
+    )
+    .map((block) => ({ name: block.name, arguments: block.arguments }));
+  const text = message.content
+    .filter((block): block is { type: "text"; text: string } => block.type === "text")
+    .map((block) => block.text)
+    .join("");
+  return { round, reasoning, toolCalls, text };
+}
+
 export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRunResult> {
   const { systemPrompt, tools, prompt, runtime, maxRounds = 10, onToolCall, onToolEnd } = options;
 
   let turns = 0;
   const toolCallOrder: string[] = [];
   const toolCallById = new Map<string, AgentToolCallRecord>();
+  const reasoningTurns: AgentReasoningTurn[] = [];
   let finalText = "";
   let lastAssistantHasToolCalls = false;
   const tokens = { input: 0, output: 0, cacheRead: 0, total: 0 };
@@ -65,6 +106,10 @@ export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRun
       systemPrompt,
       model: runtime.model,
       tools: [...tools],
+      // reasoning observation：runtime 声明了 thinkingLevel 时启用模型思考（DeepSeek thinking 模式
+      // 需要在请求带 thinking:{type:"enabled"}，pi-ai 经 Agent thinkingLevel → streamFn reasoning 实现；
+      // 缺失 = 默认 off，与旧行为一致）。
+      ...(runtime.thinkingLevel ? { thinkingLevel: runtime.thinkingLevel } : {}),
     },
     streamFn: runtime.streamFn,
     shouldStopAfterTurn: () => turns >= maxRounds,
@@ -75,6 +120,22 @@ export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRun
       case "turn_end":
         turns += 1;
         break;
+      case "message_end": {
+        const message = event.message;
+        if (message.role !== "assistant") break;
+        // AgentMessage 的 block 是具体 interface（TextContent 等），无 index signature，
+        // 无法直接匹配纯函数的宽松结构签名——只做类型层面断言，运行时不复制。
+        reasoningTurns.push(
+          extractAgentReasoningTurn(
+            {
+              role: message.role,
+              content: message.content as unknown as readonly { type: string; [key: string]: unknown }[],
+            },
+            turns + 1,
+          ),
+        );
+        break;
+      }
       case "tool_execution_start": {
         if (!toolCallById.has(event.toolCallId)) {
           toolCallById.set(event.toolCallId, {
@@ -125,6 +186,7 @@ export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRun
     tokens,
     latencyMs: Math.round(performance.now() - started),
     toolCalls: toolCallOrder.map((id) => toolCallById.get(id)!),
+    reasoningTurns,
     finalText,
     maxedOut: lastAssistantHasToolCalls,
     ...(error !== undefined ? { error } : {}),
