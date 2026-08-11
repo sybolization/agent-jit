@@ -284,6 +284,8 @@ R4 系列验证的是 forced-JIT 形态（模型被告知"请用 DSL 完成任�
 
 （此前 B 未稳定时的 single-sample smoke：B 主动选择 JIT 但把 join 基准写错 `dslCorrect=false`，新语义下 `taskCompleted=false`——adoption 与 offload precision 由此分开。）
 
+**R5.1 reasoning observation（实验状态，暂无结论）**：为诊断 offload 决策时机，`experiment:r5-reasoning` 逐轮采集 agent 的 reasoning（CoT）并离线按固定 taxonomy 标注（`r5ReasoningAnalyze.ts`）；`experiment:r5-reasoning-validity` 跑 **reasoning OFF vs ON 双 arm 对照**（唯一变量 = `reasoning`，task=B / arm=treatment / dslGuidance=primitive / policy=current 全部固定，OFF→ON / ON→OFF 交替抵消时间偏差）。**注意：reasoning trace 是 active diagnostic configuration，不是纯被动观测**——开启 DeepSeek thinking 模式（`thinking:{type:"enabled"}`）本身会改变 agent 的 offload 行为（早期 30 条对照显示 ON 的 timely offload 高于 OFF），因此 CoT 只能解释 reasoning-enabled agent，不能直接当作原始 agent 的因果证据；validity 实验正是先把这个观测工具是否改变被观测对象的方法论问题验证干净。raw CoT 只写 gitignored 的 `logs/reasoning-raw/`，report 不含思维链原文。
+
 ---
 
 ## 当前结论

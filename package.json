@@ -11,12 +11,14 @@
     "typecheck": "tsc --noEmit",
     "experiment": "tsx src/experiments/dslGenerationExperiment.ts",
     "experiment:r5": "tsx src/experiments/r5OffloadingBenchmark.ts",
-    "experiment:r5-reasoning": "tsx src/experiments/r5ReasoningBenchmark.ts"
+    "experiment:r5-reasoning": "tsx src/experiments/r5ReasoningBenchmark.ts",
+    "experiment:r5-reasoning-validity": "tsx src/experiments/r5ReasoningBenchmark.ts --mode=validity"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "@earendil-works/pi-ai": "^0.84.0",
     "@earendil-works/pi-agent-core": "^0.84.0",
     "typebox": "^1.3.11"
   },

@@ -61,9 +61,14 @@ export type CauseDistribution = Record<LateOffloadCause, number>;
 
 /**
  * report.json 里单个 run 的输入形态（只取分析需要的字段；R5RunMetrics 扩展的其余字段忽略）。
- * R5RunMetrics 本身不含 runId——runId 按 runs 数组下标 +1 对应（r5r-001…）。
+ *
+ * runId / reasoningEnabled 由 validity 模式的 report 提供（off-001/on-001…）；
+ * observation 模式的旧 report 没有这两个字段 → runId 按 runs 数组下标 +1 对应（r5r-001…），
+ * reasoningEnabled 视为未声明（legacy，按旧行为处理：有 label 就做 taxonomy 分析）。
  */
 export type RunInput = {
+  runId?: string;
+  reasoningEnabled?: boolean;
   offloadDecisionRound?: number;
   phases: readonly { round: number; phase: ReasoningPhase }[];
 };
@@ -131,9 +136,16 @@ export function aggregateCauses(analyses: readonly RunReasoningAnalysis[]): Caus
 
 /**
  * 读 <experiment-dir>/report.json（取 runs 数组）与可选的人工标注 labels.json（RunReasoningLabel[]，
- * 按 runId 建 Map；runId 生成规则：runs[i] 对应 `r5r-${String(i + 1).padStart(3, "0")}`），
- * 逐 run 调 analyzeRun，输出 `{ analyses, causeDistribution }` 写入
+ * 按 runId 建 Map），逐 run 调 analyzeRun，输出 `{ analyses, causeDistribution }` 写入
  * <experiment-dir>/reasoning-analysis.json（缩进 2、末尾换行）。返回输出文件的绝对路径。
+ *
+ * runId 生成规则：优先取 run.runId（validity 模式的 off-001/on-001…）；
+ * 旧 observation report（无 runId）回退为 `r5r-${下标+1:03d}`。
+ *
+ * **OFF arm（reasoningEnabled === false）没有 CoT**：即使 labels.json 里误标了它，
+ * taxonomy 字段（recognition/consideration/lag/primaryCause/labels）也不会应用；
+ * 行为指标（jitActionRound / phases）照常输出。legacy report（reasoningEnabled 未声明）
+ * 按旧行为处理（有 label 就做 taxonomy 分析）。
  */
 export function analyzeExperiment(experimentDir: string, labelsPath?: string): string {
   const report = JSON.parse(
@@ -147,9 +159,10 @@ export function analyzeExperiment(experimentDir: string, labelsPath?: string): s
   }
 
   const analyses: RunReasoningAnalysis[] = report.runs.map((run, i) => {
-    const runId = `r5r-${String(i + 1).padStart(3, "0")}`;
-    const analysis = analyzeRun(run, labelsById.get(runId));
-    // 无 label 时 analyzeRun 返回空 runId，这里补上按 runs 下标生成的 runId，保证输出总正确
+    const runId = run.runId ?? `r5r-${String(i + 1).padStart(3, "0")}`;
+    const label = run.reasoningEnabled === false ? undefined : labelsById.get(runId);
+    const analysis = analyzeRun(run, label);
+    // 无 label 时 analyzeRun 返回空 runId，这里补上生成的 runId，保证输出总正确
     return analysis.runId !== "" ? analysis : { ...analysis, runId };
   });
 

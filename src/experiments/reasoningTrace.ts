@@ -29,6 +29,19 @@ export interface ReasoningTraceEntry {
 }
 
 /**
+ * raw CoT traces 的诊断元数据（写进 traces.jsonl 首行，供审计运行配置）。
+ *
+ * - reasoningMode：thinking-blocks = provider 返回真正的 thinking block（CoT 原文）；
+ *   none = 未开启 reasoning（reasoning 观测为空串，规划信号在 text）。
+ * - thinkingLevel：开启 reasoning 时的 Agent thinking level（pi-agent-core 语义）。
+ */
+export interface ReasoningTraceMeta {
+  modelId: string;
+  reasoningMode: "thinking-blocks" | "none";
+  thinkingLevel?: "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+}
+
+/**
  * 逐轮（round 升序）把 reasoningTurns 与工具调用记录对齐。
  *
  * 工具记录按 round 分组作为本轮工具名的权威来源（保持输入顺序）；

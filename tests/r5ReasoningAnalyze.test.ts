@@ -193,4 +193,85 @@ describe("analyzeExperiment — report.json + labels.json → reasoning-analysis
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("validity report：OFF run（reasoningEnabled=false）即使有 label 也不做 taxonomy；runId 取 run.runId", () => {
+    const dir = path.join(os.tmpdir(), `r5-reasoning-analyze-validity-test-${Date.now()}`);
+    fs.mkdirSync(dir, { recursive: true });
+    try {
+      fs.writeFileSync(
+        path.join(dir, "report.json"),
+        JSON.stringify({
+          runs: [
+            {
+              runId: "off-001",
+              reasoningEnabled: false,
+              offloadDecisionRound: 1,
+              phases: [{ round: 1, phase: "jit-decision" }],
+            },
+            {
+              runId: "on-001",
+              reasoningEnabled: true,
+              offloadDecisionRound: 1,
+              phases: [{ round: 1, phase: "jit-decision" }],
+            },
+          ],
+        }),
+      );
+      // labels.json 里故意同时标了 off-001 与 on-001——OFF 的必须被忽略
+      fs.writeFileSync(
+        path.join(dir, "labels.json"),
+        JSON.stringify([
+          {
+            runId: "off-001",
+            deterministicRecognitionRound: 1,
+            jitConsiderationRound: 1,
+            primaryCause: "recognition-late",
+          },
+          {
+            runId: "on-001",
+            deterministicRecognitionRound: 1,
+            jitConsiderationRound: 1,
+            primaryCause: "jit-selection-late",
+          },
+        ]),
+      );
+
+      const outputPath = analyzeExperiment(dir, path.join(dir, "labels.json"));
+      const result = JSON.parse(fs.readFileSync(outputPath, "utf8")) as {
+        analyses: Array<Record<string, unknown>>;
+        causeDistribution: CauseDistribution;
+      };
+
+      // OFF：runId 用 report 里的 off-001；行为指标（jitActionRound/phases）保留；taxonomy 字段全部缺席
+      expect(result.analyses[0]!.runId).toBe("off-001");
+      expect(result.analyses[0]!.jitActionRound).toBe(1);
+      expect(result.analyses[0]!.phases).toEqual([{ round: 1, phase: "jit-decision" }]);
+      for (const key of [
+        "deterministicRecognitionRound",
+        "jitConsiderationRound",
+        "recognitionToConsiderationLag",
+        "considerationToActionLag",
+        "primaryCause",
+        "labels",
+      ] as const) {
+        expect(key in result.analyses[0]!).toBe(false);
+      }
+
+      // ON：label 正常应用
+      expect(result.analyses[1]!.runId).toBe("on-001");
+      expect(result.analyses[1]!.primaryCause).toBe("jit-selection-late");
+      expect(result.analyses[1]!.recognitionToConsiderationLag).toBe(0);
+
+      // cause 分布只统计 ON（off-001 的 recognition-late 不计入）
+      expect(result.causeDistribution).toEqual({
+        "recognition-late": 0,
+        "data-uncertainty-blocker": 0,
+        "jit-selection-late": 1,
+        "greedy-speculative": 0,
+        "economic-rejection": 0,
+      });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
