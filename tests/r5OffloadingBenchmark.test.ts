@@ -1066,3 +1066,110 @@ describe("aggregateR5 — 新 pipeline 汇总字段", () => {
     expect(agg.avgPreOffloadPipelineCalls).toBeUndefined(); // 未设置 preOffload 值
   });
 });
+
+describe("boundaryPolicy — r5TreatmentSystemPrompt 开关", () => {
+  test("默认不追加 Offload 边界策略（保持旧极简提示词）", () => {
+    const prompt = r5TreatmentSystemPrompt();
+    expect(prompt).not.toContain("Offload 边界策略");
+    expect(prompt).not.toContain("边界策略");
+  });
+
+  test("boundaryPolicy:true 追加编号规则，仍保留 jit_* 工具说明", () => {
+    const prompt = r5TreatmentSystemPrompt({ boundaryPolicy: true });
+    expect(prompt).toContain("## Offload 边界策略");
+    expect(prompt).toContain("决策规则");
+    expect(prompt).toContain("同一个 assistant turn");
+    expect(prompt).toMatch(/1\. /);
+    expect(prompt).toMatch(/2\. /);
+    expect(prompt).toContain("jit_describe_tools");
+    expect(prompt).toContain("jit_execute_program");
+    expect(prompt).toContain("submit_answer");
+  });
+});
+
+describe("boundaryPolicy — parseFlags", () => {
+  test("--boundary-policy → true；默认 false", () => {
+    expect(parseFlags([]).boundaryPolicy).toBe(false);
+    expect(parseFlags(["--boundary-policy"]).boundaryPolicy).toBe(true);
+  });
+
+  test("与 --stop-after-submit 共存解析", () => {
+    const flags = parseFlags(["--stop-after-submit", "--boundary-policy"]);
+    expect(flags.stopAfterSubmit).toBe(true);
+    expect(flags.boundaryPolicy).toBe(true);
+  });
+});
+
+describe("boundaryPolicy — writeR5Report config", () => {
+  test("writeR5Report：config 记录 boundaryPolicy", () => {
+    const runs: R5RunMetrics[] = [baseMetrics({ arm: "treatment", taskId: "B" })];
+    const outDir = path.join(os.tmpdir(), `r5-boundary-report-${Date.now()}`);
+    const reportPath = writeR5Report(
+      outDir,
+      { arm: "treatment", task: "B", samples: 1, rounds: 10, boundaryPolicy: true },
+      R5_TASKS,
+      runs,
+      buildR5Aggregates(runs),
+    );
+    try {
+      const report = JSON.parse(fs.readFileSync(reportPath, "utf8")) as { config: { boundaryPolicy?: boolean } };
+      expect(report.config.boundaryPolicy).toBe(true);
+    } finally {
+      fs.rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
+  test("writeR5Report：未传 boundaryPolicy 时 config 不写该字段", () => {
+    const runs: R5RunMetrics[] = [baseMetrics({ arm: "treatment", taskId: "B" })];
+    const outDir = path.join(os.tmpdir(), `r5-boundary-report-none-${Date.now()}`);
+    const reportPath = writeR5Report(
+      outDir,
+      { arm: "treatment", task: "B", samples: 1, rounds: 10 },
+      R5_TASKS,
+      runs,
+      buildR5Aggregates(runs),
+    );
+    try {
+      const report = JSON.parse(fs.readFileSync(reportPath, "utf8")) as { config: { boundaryPolicy?: boolean } };
+      expect(report.config.boundaryPolicy).toBeUndefined();
+    } finally {
+      fs.rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("aggregateR5 — 四组占比与 avgDuplicatedPipelineCalls（Primary Metric）", () => {
+  test("clean / earlyDirty / late / noJit 不重不漏，占比之和为 1", () => {
+    const clean = baseMetrics({
+      arm: "treatment", taskId: "B",
+      jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: true,
+      timelyOffload: true, earlyOffloadDecision: true,
+    });
+    const earlyDirty1 = baseMetrics({
+      arm: "treatment", taskId: "B",
+      jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: true,
+      earlyOffloadDecision: true, preExecutePipelineCalls: 1, duplicatedPipelineCalls: 2,
+    });
+    const earlyDirty2 = baseMetrics({
+      arm: "treatment", taskId: "B",
+      jitAttempted: true, jitSemanticCorrect: false, jitFinishedWithoutFallback: false,
+      earlyOffloadDecision: true, duplicatedPipelineCalls: undefined,
+    });
+    const late = baseMetrics({
+      arm: "treatment", taskId: "B",
+      jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: true,
+      earlyOffloadDecision: false, preExecutePipelineCalls: 3,
+    });
+    const noJit = baseMetrics({ arm: "treatment", taskId: "B", jitAttempted: false });
+
+    const agg = aggregateR5([clean, earlyDirty1, earlyDirty2, late, noJit], "treatment", "B");
+    expect(agg.runs).toBe(5);
+    expect(agg.cleanOffloadRate).toBeCloseTo(1 / 5, 10);
+    expect(agg.earlyDirtyOffloadRate).toBeCloseTo(2 / 5, 10);
+    expect(agg.lateOffloadRate).toBeCloseTo(1 / 5, 10);
+    expect(agg.noJitRate).toBeCloseTo(1 / 5, 10);
+    expect(agg.cleanOffloadRate + agg.earlyDirtyOffloadRate + agg.lateOffloadRate + agg.noJitRate).toBeCloseTo(1, 10);
+    expect(agg.avgDuplicatedPipelineCalls).toBe(2); // 只有 earlyDirty1 有定义值（earlyDirty2 为 undefined 被过滤）
+    expect(agg.adoptionRate).toBeCloseTo(4 / 5, 10); // 4/5 尝试过 JIT，无回归
+  });
+});

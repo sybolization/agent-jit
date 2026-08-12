@@ -131,6 +131,17 @@ export function r5ControlSystemPrompt(): string {
 }
 
 /**
+ * Offload 边界策略（--boundary-policy 开启时追加到 treatment 常驻系统提示词）。
+ * 只加两条规则，不写 JIT 教程：
+ * 1. offload 的判断依据是"后续决策规则是否已确定"，不是"运行时数据是否已获得"；
+ * 2. 决定 offload 后，不在同一个 assistant turn 里并行调用该片段涉及的普通业务工具。
+ */
+export const BOUNDARY_POLICY_RULES: readonly string[] = [
+  "判断是否把一段后续工作交给 JIT：依据是这段工作的后续决策规则（过滤阈值、排序键、截取数量等）是否已经由任务确定——只要决策规则已确定，即使数据还没拿到，也可以立即把整段工作一次性程序化；不要在确定可程序化之后，还先用普通工具把数据逐个做一遍。",
+  "一旦决定把某个确定性片段 offload 给 JIT，就不要在同一个 assistant turn 里再并行调用该片段涉及的普通业务工具（包括与 describe / execute 同一轮发出的调用）——那会造成重复工作；先 describe + execute，看到 JIT 结果后再判断是否需要补救。",
+];
+
+/**
  * treatment 臂：普通工具 + Agent JIT；是否 offload 由模型自己决定。
  *
  * 常驻 prompt **极简**（R5 review）：不内嵌 DSL 语法 / 示例 / 使用规则——DSL manual
@@ -138,7 +149,7 @@ export function r5ControlSystemPrompt(): string {
  * src/integrations/pi/dslReference.ts 的 renderDslReference(guidance)（--dsl-guidance 可选 primitive/patterns/full-example，默认 primitive））。
  * 这样 A 型这种完全不用 JIT 的任务基本不承担 DSL context 成本（控制 context tax 的设计意图）。
  */
-export function r5TreatmentSystemPrompt(): string {
+export function r5TreatmentSystemPrompt(options?: { boundaryPolicy?: boolean }): string {
   return [
     "你是一个自主 Agent，需要完成用户交给的任务。你有两类工具：",
     "- 普通业务工具：直接调用（工具名与参数见工具定义），适合单次查询/操作。",
@@ -146,6 +157,9 @@ export function r5TreatmentSystemPrompt(): string {
     "",
     "是否使用 JIT 由你决定：单个查询用普通工具即可；一段后续工作可以确定性程序化（对列表每个元素做同样处理、过滤/排序/合并/取前 N 等）时再考虑 JIT。",
     `完成所有工具调用后，调用 ${SUBMIT_ANSWER_ID}(answer="...") 提交最终答案（最终答案的唯一提交通道，不要只写在普通文本里）。`,
+    ...(options?.boundaryPolicy === true
+      ? ["", "## Offload 边界策略", ...BOUNDARY_POLICY_RULES.map((rule, index) => `${index + 1}. ${rule}`)]
+      : []),
   ].join("\n");
 }
 
@@ -487,6 +501,8 @@ export interface R5RunOptions {
   onReasoningTurns?: (turns: readonly AgentReasoningTurn[]) => void;
   /** stop-after-submit：submit_answer 执行后 agent 直接结束（不再生成最终文本轮）；默认 false = 旧行为 */
   stopAfterSubmit?: boolean;
+  /** boundary-policy：treatment 常驻提示词追加 Offload 边界策略（两条规则）；默认 false = 旧极简提示词 */
+  boundaryPolicy?: boolean;
 }
 
 export async function runR5Run(
@@ -512,7 +528,10 @@ export async function runR5Run(
   let lastProgramDetails: JitExecuteProgramDetails | undefined;
 
   const run = await runPiAgent({
-    systemPrompt: arm === "control" ? r5ControlSystemPrompt() : r5TreatmentSystemPrompt(),
+    systemPrompt:
+      arm === "control"
+        ? r5ControlSystemPrompt()
+        : r5TreatmentSystemPrompt({ ...(options.boundaryPolicy ? { boundaryPolicy: true } : {}) }),
     tools: piTools,
     prompt: task.prompt,
     runtime,
@@ -638,6 +657,16 @@ export interface R5Aggregate {
   timelyOffloadRate: number | undefined;
   /** 不该 offload 却尝试：A 上 jitAttempted 比例（B/C 无意义 → undefined，不入 JSON） */
   unnecessaryOffloadRate: number | undefined;
+  /** cleanOffload 组占比（classifyR5JitGroup 落入 cleanOffload 的 run 数 / 格内总数；Primary Metric） */
+  cleanOffloadRate: number;
+  /** earlyDirtyOffload 组占比 */
+  earlyDirtyOffloadRate: number;
+  /** lateOffload 组占比 */
+  lateOffloadRate: number;
+  /** noJit 组占比（= 1 - adoptionRate，单独列出便于四组对齐） */
+  noJitRate: number;
+  /** B 型：平均 JIT source 内重复执行的 pipeline 工具数（duplicatedPipelineCalls 有定义值的均值；无定义 → undefined） */
+  avgDuplicatedPipelineCalls: number | undefined;
   /** 看到 execute 结果后仍用普通业务工具补救的比例（round > lastExecuteRound） */
   fallbackRate: number;
   /** 跑满轮数比例（独立报告，不再混进路径） */
@@ -683,6 +712,11 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
   const preExecutePipelineValues = cell
     .map((run) => run.preExecutePipelineCalls)
     .filter((value): value is number => value !== undefined);
+  const groupCounts: Record<R5JitGroupId, number> = { cleanOffload: 0, earlyDirtyOffload: 0, lateOffload: 0, noJit: 0 };
+  for (const run of cell) groupCounts[classifyR5JitGroup(run)] += 1;
+  const duplicatedPipelineValues = cell
+    .map((run) => run.duplicatedPipelineCalls)
+    .filter((value): value is number => value !== undefined);
   return {
     arm,
     taskId,
@@ -705,6 +739,11 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
     earlyOffloadDecisionRate: taskId === "B" ? ratio(cell.filter((run) => run.earlyOffloadDecision === true).length) : undefined,
     timelyOffloadRate: taskId === "B" ? ratio(cell.filter((run) => run.timelyOffload === true).length) : undefined,
     unnecessaryOffloadRate: taskId === "A" ? ratio(attempted) : undefined,
+    cleanOffloadRate: ratio(groupCounts.cleanOffload),
+    earlyDirtyOffloadRate: ratio(groupCounts.earlyDirtyOffload),
+    lateOffloadRate: ratio(groupCounts.lateOffload),
+    noJitRate: ratio(groupCounts.noJit),
+    avgDuplicatedPipelineCalls: duplicatedPipelineValues.length > 0 ? avg(duplicatedPipelineValues) : undefined,
     fallbackRate: ratio(cell.filter((run) => run.fallbackUsed).length),
     maxedOutRate: ratio(cell.filter((run) => run.maxedOut).length),
     taskCompletionRate: ratio(cell.filter((run) => run.taskCompleted).length),
@@ -840,6 +879,8 @@ export interface R5ReportConfig {
   dslGuidance?: DslGuidanceMode;
   /** stop-after-submit：submit 后不再进模型 final 轮（协议冗余对照实验） */
   stopAfterSubmit?: boolean;
+  /** boundary-policy：treatment 提示词追加 Offload 边界策略（report 记录用；可选，缺省不写） */
+  boundaryPolicy?: boolean;
 }
 
 /**
@@ -894,10 +935,12 @@ export interface R5CliFlags {
   /** Z/P/F ablation：DSL 参考的渲染模式（默认 primitive = production default） */
   dslGuidance: DslGuidanceMode;
   stopAfterSubmit: boolean;
+  /** boundary-policy：treatment 提示词追加 Offload 边界策略（--boundary-policy 开启） */
+  boundaryPolicy: boolean;
 }
 
 export function parseFlags(argv: readonly string[]): R5CliFlags {
-  const flags: R5CliFlags = { arm: "both", task: "all", samples: 1, rounds: 10, dslGuidance: "primitive", stopAfterSubmit: false };
+  const flags: R5CliFlags = { arm: "both", task: "all", samples: 1, rounds: 10, dslGuidance: "primitive", stopAfterSubmit: false, boundaryPolicy: false };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, "").split("=");
     if (key === "arm" && (value === "control" || value === "treatment" || value === "both")) flags.arm = value;
@@ -910,6 +953,7 @@ export function parseFlags(argv: readonly string[]): R5CliFlags {
       else throw new Error(`--dsl-guidance 必须是 primitive|patterns|full-example（当前：${value}）`);
     }
     if (key === "stop-after-submit" && value === undefined) flags.stopAfterSubmit = true;
+    if (key === "boundary-policy" && value === undefined) flags.boundaryPolicy = true;
   }
   return flags;
 }
@@ -926,7 +970,7 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const { arm, task, samples, rounds, candidates, dslGuidance, stopAfterSubmit } = parseFlags(process.argv.slice(2));
+  const { arm, task, samples, rounds, candidates, dslGuidance, stopAfterSubmit, boundaryPolicy } = parseFlags(process.argv.slice(2));
   const tasks = R5_TASKS.filter((item) => task === "all" || item.id === task).map((item) =>
     candidates !== undefined && item.id === "C" ? createR5CTask(candidates) : item,
   );
@@ -938,8 +982,12 @@ async function main(): Promise<number> {
     for (const currentTask of tasks) {
       for (let i = 1; i <= samples; i += 1) {
         console.log(`\n===== [${currentArm}/${currentTask.id}] ${currentTask.name}（sample ${i}/${samples}）=====`);
-        console.log(`  [mode] stopAfterSubmit=${stopAfterSubmit}`);
-        const run = await runR5Run(currentTask, currentArm, runtime, rounds, { dslGuidance, ...(stopAfterSubmit ? { stopAfterSubmit } : {}) });
+        console.log(`  [mode] stopAfterSubmit=${stopAfterSubmit} boundaryPolicy=${boundaryPolicy}`);
+        const run = await runR5Run(currentTask, currentArm, runtime, rounds, {
+          dslGuidance,
+          ...(stopAfterSubmit ? { stopAfterSubmit } : {}),
+          ...(boundaryPolicy ? { boundaryPolicy } : {}),
+        });
         runs.push(run);
         console.log(
           `→ rounds=${run.rounds} maxedOut=${run.maxedOut} tokens=${run.tokens.total} latency=${run.latencyMs}ms ` +
@@ -992,13 +1040,15 @@ async function main(): Promise<number> {
       const unnecessary = agg.unnecessaryOffloadRate === undefined ? "n/a" : `${(agg.unnecessaryOffloadRate * 100).toFixed(0)}%`;
       const timely = agg.timelyOffloadRate === undefined ? "n/a" : `${(agg.timelyOffloadRate * 100).toFixed(0)}%`;
       const avgPipeline = agg.avgPreOffloadPipelineCalls === undefined ? "n/a" : agg.avgPreOffloadPipelineCalls.toFixed(1);
+      const avgDup = agg.avgDuplicatedPipelineCalls === undefined ? "n/a" : agg.avgDuplicatedPipelineCalls.toFixed(1);
       console.log(
         `  [${taskId}] runs=${agg.runs} ` +
-          `adoption=${(agg.adoptionRate * 100).toFixed(0)}% ` +
+          `clean=${(agg.cleanOffloadRate * 100).toFixed(0)}% earlyDirty=${(agg.earlyDirtyOffloadRate * 100).toFixed(0)}% ` +
+          `late=${(agg.lateOffloadRate * 100).toFixed(0)}% noJit=${(agg.noJitRate * 100).toFixed(0)}% ` +
+          `dupPipeline=${avgDup} ` +
           `execSucceeded=${(agg.jitExecutionSucceededRate * 100).toFixed(0)}% ` +
           `semanticCorrect=${(agg.jitSemanticCorrectRate * 100).toFixed(0)}% ` +
           `jitFinishedWithoutFallback=${(agg.jitFinishedWithoutFallbackRate * 100).toFixed(0)}% ` +
-          `offloadPrecision=${(agg.offloadPrecision * 100).toFixed(0)}% ` +
           `unnecessary=${unnecessary} ` +
           `fallback=${(agg.fallbackRate * 100).toFixed(0)}% ` +
           `maxedOut=${(agg.maxedOutRate * 100).toFixed(0)}% ` +
@@ -1008,7 +1058,8 @@ async function main(): Promise<number> {
           `rounds=${agg.avgRounds.toFixed(1)} tokens=${Math.round(agg.avgTokens)} ` +
           `offloadRound=${agg.avgOffloadDecisionRound.toFixed(1)} ` +
           `pre=${agg.avgPreOffloadBusinessCallCount.toFixed(1)} same=${agg.avgSameRoundBusinessCallCount.toFixed(1)} postExec=${agg.avgPostExecuteBusinessCallCount.toFixed(1)} ` +
-          `preOffloadPipeline=${avgPipeline} timely=${timely}`,
+          `preOffloadPipeline=${avgPipeline} timely=${timely} ` +
+          `adoption=${(agg.adoptionRate * 100).toFixed(0)}% offloadPrecision=${(agg.offloadPrecision * 100).toFixed(0)}%`,
       );
     }
   }
@@ -1021,7 +1072,16 @@ async function main(): Promise<number> {
   );
   const reportPath = writeR5Report(
     outDir,
-    { arm, task, samples, rounds, dslGuidance, ...(stopAfterSubmit ? { stopAfterSubmit } : {}), ...(candidates !== undefined ? { candidates } : {}) },
+    {
+      arm,
+      task,
+      samples,
+      rounds,
+      dslGuidance,
+      ...(stopAfterSubmit ? { stopAfterSubmit } : {}),
+      ...(boundaryPolicy ? { boundaryPolicy } : {}),
+      ...(candidates !== undefined ? { candidates } : {}),
+    },
     tasks,
     runs,
     aggregates,
