@@ -74,6 +74,8 @@ export const R5_B_SPEC: TaskSpec = {
     ],
     convergePredicate: `score >= ${SCORE_THRESHOLD}`,
   },
+  // 执行级语义检查（checkTaskSemantics）：最终输出（仓库对象数组）的身份字段
+  answerField: "full_name",
 };
 
 /** B 型 oracle：确定性 mock 数据上的正确答案（前 3 个仓库完整名称）。 */
@@ -164,6 +166,15 @@ export function r5TaskCOracle(issues: readonly R5Issue[] = R5_ISSUES): string[] 
     .map((issue) => issue.title);
 }
 
+/** C 型执行级 oracle：缺陷 issue 中评分前 2 的 number（与 r5TaskCOracle 同排序口径，只取 number，配合 answerField="number"）。 */
+export function r5TaskCOracleNumbers(issues: readonly R5Issue[] = R5_ISSUES): number[] {
+  return issues
+    .filter(isBugIssue)
+    .sort((left, right) => issueScore(right) - issueScore(left))
+    .slice(0, 2)
+    .map((issue) => issue.number);
+}
+
 /** C 型 DSL 路径的图语义检查 spec。 */
 export const R5_C_SPEC: TaskSpec = {
   sourceTool: "github.get_issues",
@@ -172,6 +183,8 @@ export const R5_C_SPEC: TaskSpec = {
   sortKey: "score",
   sortDesc: true,
   stageTools: ["github.get_issue_score"],
+  // 执行级语义检查（checkTaskSemantics）：最终输出（issue 对象数组）的身份字段
+  answerField: "number",
 };
 
 interface CContracts {

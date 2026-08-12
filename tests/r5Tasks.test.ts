@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
 
 import { compileExecutionDsl } from "../src/compiler/compile.js";
+import type { ExecutionGraph } from "../src/compiler/ir.js";
 import { ToolRegistry } from "../src/tools/registry.js";
-import { checkTaskCorrectness } from "../src/experiments/taskSpec.js";
+import { checkTaskCorrectness, checkTaskSemantics } from "../src/experiments/taskSpec.js";
 import {
   BUG_MARKERS,
   computeR5GroundTruthB,
@@ -14,6 +15,7 @@ import {
   R5_ISSUES,
   R5_TASKS,
   r5TaskCOracle,
+  r5TaskCOracleNumbers,
 } from "../src/experiments/r5Tasks.js";
 import { ADVERSARIAL_REPOS } from "../src/tools/providers/github/mock.js";
 
@@ -193,5 +195,148 @@ describe("规范 DSL 程序通过各任务的图语义检查（spec 与 oracle �
     const check = checkTaskCorrectness(graph, task.spec!);
     expect(check.pass).toBe(true);
     expect(check.failures).toEqual([]);
+  });
+});
+
+describe("checkTaskSemantics — 执行级语义约束（拓扑无关）", () => {
+  const taskB = R5_TASKS.find((item) => item.id === "B")!;
+  const taskC = R5_TASKS.find((item) => item.id === "C")!;
+
+  const B_DSL = [
+    'repos = github.search_repositories(query="agent framework", limit=30)',
+    "details = map(repos, github.get_repository(full_name=_.full_name))",
+    'ratio = compute(details, ratio="forks / stars")',
+    'contrib = select(ratio, "ratio > 0.15")',
+    'commit = select(ratio, "ratio <= 0.15")',
+    "contribs = map(contrib, github.get_contributor_stats(full_name=_.full_name))",
+    "commits = map(commit, github.list_commits(full_name=_.full_name))",
+    'merged = merge_by_key(details, contribs, commits, key="full_name")',
+    'kept = select(merged, "score >= 100")',
+    'ranked = sort(kept, key="score", desc=true)',
+    "top = take(ranked, 3)",
+    "return top",
+  ].join("\n");
+
+  // concat 变体：分支结果直接拼接（不 merge_by_key 重组）——语义等价，必须 pass
+  const B_CONCAT_DSL = B_DSL.replace(
+    'merged = merge_by_key(details, contribs, commits, key="full_name")',
+    "merged = concat(contribs, commits)",
+  );
+
+  // 直接 predicate 变体：不先 compute ratio，谓词里直接写 "forks / stars > 0.15"——语义等价，必须 pass
+  const B_DIRECT_PRED_DSL = B_DSL
+    .replace('ratio = compute(details, ratio="forks / stars")\n', "")
+    .replace('select(ratio, "ratio > 0.15")', 'select(details, "forks / stars > 0.15")')
+    .replace('select(ratio, "ratio <= 0.15")', 'select(details, "forks / stars <= 0.15")');
+
+  // 错误变体：排序键从 score 换成 stars（前 3 名顺序错）→ 必须 fail
+  const B_WRONG_SORT_DSL = B_DSL.replace('ranked = sort(kept, key="score", desc=true)', 'ranked = sort(kept, key="stars", desc=true)');
+
+  // 错误变体：只做单分支（去掉 commit 分支，全部走 contributor_stats）→ 丢 repo-1/repo-17 → 必须 fail
+  const B_SINGLE_BRANCH_DSL = [
+    'repos = github.search_repositories(query="agent framework", limit=30)',
+    "details = map(repos, github.get_repository(full_name=_.full_name))",
+    'ratio = compute(details, ratio="forks / stars")',
+    'contrib = select(ratio, "ratio > 0.15")',
+    "contribs = map(contrib, github.get_contributor_stats(full_name=_.full_name))",
+    'merged = merge_by_key(details, contribs, key="full_name")',
+    'kept = select(merged, "score >= 100")',
+    'ranked = sort(kept, key="score", desc=true)',
+    "top = take(ranked, 3)",
+    "return top",
+  ].join("\n");
+
+  const C_DSL = [
+    "cands = github.get_issues(numbers=[1, 3, 5, 7])",
+    "scores = map(cands, github.get_issue_score(number=_.number))",
+    'ranked = sort(scores, key="score", desc=true)',
+    "top = take(ranked, 2)",
+    "return top",
+  ].join("\n");
+
+  // C 错误变体：take 3 而非 2 → 多出一个非期望 number → 必须 fail
+  const C_WRONG_TAKE_DSL = C_DSL.replace("top = take(ranked, 2)", "top = take(ranked, 3)");
+
+  const compileB = (dsl: string): ExecutionGraph =>
+    compileExecutionDsl(dsl, { tools: new ToolRegistry(taskB.tools) }).graph;
+  const compileC = (dsl: string): ExecutionGraph =>
+    compileExecutionDsl(dsl, { tools: new ToolRegistry(taskC.tools) }).graph;
+
+  test("B 规范 DSL（merge_by_key）→ pass=true", async () => {
+    const result = await checkTaskSemantics(compileB(B_DSL), taskB);
+    expect(result.pass).toBe(true);
+    expect(result.failures).toEqual([]);
+  });
+
+  test("B concat 变体（concat(contribs, commits) 代替 merge_by_key 重组）→ pass=true", async () => {
+    const result = await checkTaskSemantics(compileB(B_CONCAT_DSL), taskB);
+    expect(result.pass).toBe(true);
+    expect(result.failures).toEqual([]);
+  });
+
+  test("B 直接 predicate 变体（select 谓词里写 forks / stars，不先 compute ratio）→ pass=true", async () => {
+    const result = await checkTaskSemantics(compileB(B_DIRECT_PRED_DSL), taskB);
+    expect(result.pass).toBe(true);
+    expect(result.failures).toEqual([]);
+  });
+
+  test("B 错误变体：sort key 换成 stars（顺序错）→ pass=false", async () => {
+    const result = await checkTaskSemantics(compileB(B_WRONG_SORT_DSL), taskB);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("oracle"))).toBe(true);
+  });
+
+  test("B 错误变体：只做单分支（去掉 commit 分支）→ pass=false", async () => {
+    const result = await checkTaskSemantics(compileB(B_SINGLE_BRANCH_DSL), taskB);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("oracle"))).toBe(true);
+  });
+
+  test("C 规范 DSL → pass=true（oracle 用 r5TaskCOracleNumbers 与 answerField=number 对齐）", async () => {
+    const result = await checkTaskSemantics(compileC(C_DSL), {
+      tools: taskC.tools,
+      oracle: r5TaskCOracleNumbers().map(String),
+      spec: taskC.spec,
+    });
+    expect(result.pass).toBe(true);
+    expect(result.failures).toEqual([]);
+  });
+
+  test("C 错误变体：take(ranked, 3) 代替 2 → pass=false", async () => {
+    const result = await checkTaskSemantics(compileC(C_WRONG_TAKE_DSL), {
+      tools: taskC.tools,
+      oracle: r5TaskCOracleNumbers().map(String),
+      spec: taskC.spec,
+    });
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("oracle"))).toBe(true);
+  });
+
+  test("无 return 的手工图 → pass=false 且 failures 含 return", async () => {
+    // compile 强制要求 terminal return，无法用 DSL 构造无 return 的图；手工构造等价图
+    const graph: ExecutionGraph = {
+      schema_version: "1",
+      nodes: [
+        {
+          id: "repos",
+          kind: "tool",
+          tool: "github.search_repositories",
+          args: { query: { kind: "literal", value: "agent framework" }, limit: { kind: "literal", value: 30 } },
+        },
+      ],
+    };
+    const result = await checkTaskSemantics(graph, taskB);
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("return"))).toBe(true);
+  });
+
+  test("无 spec 的任务（spec: undefined）→ pass=false", async () => {
+    const result = await checkTaskSemantics(compileB(B_DSL), {
+      tools: taskB.tools,
+      oracle: taskB.oracle,
+      spec: undefined,
+    });
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((item) => item.includes("spec"))).toBe(true);
   });
 });

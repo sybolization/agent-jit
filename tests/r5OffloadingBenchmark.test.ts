@@ -1248,6 +1248,7 @@ describe("deriveR5Metrics — R6.1 新指标（firstPassCompile / repairRounds /
       jitAttempted: true,
       jitExecutionSucceeded: true,
       firstPassCompileSuccess: true,
+      compileSucceeded: true,
       repairRounds: 0,
       describeFallbackUsed: false,
     });
@@ -1258,6 +1259,7 @@ describe("deriveR5Metrics — R6.1 新指标（firstPassCompile / repairRounds /
       jitAttempted: true,
       jitExecutionSucceeded: false,
       firstPassCompileSuccess: false,
+      compileSucceeded: false,
       repairRounds: 2,
       describeFallbackUsed: true,
       repairTokens: 300,
@@ -1268,8 +1270,147 @@ describe("deriveR5Metrics — R6.1 新指标（firstPassCompile / repairRounds /
     expect(agg.avgRepairRounds).toBe(1);
     expect(agg.describeFallbackRate).toBe(0.5);
     expect(agg.avgRepairTokens).toBe(300);
-    expect(agg.eventualCompileRate).toBe(agg.jitExecutionSucceededRate); // 语义别名
+    // 编译/执行解耦后 eventualCompileRate 是编译层面（compileSucceeded），不再等于 jitExecutionSucceededRate
     expect(agg.eventualCompileRate).toBe(0.5);
+    expect(agg.eventualExecutionRate).toBe(0.5); // = jitExecutionSucceededRate（执行层面）
+  });
+});
+
+describe("deriveR5Metrics — 编译/执行解耦信号（compileSuccess / executionSuccess）", () => {
+  test("首次编译失败：executeCallPhases 首相位 compileSuccess=false → firstPassCompileSuccess=false、firstPassExecutionSuccess=false", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        rounds: 5,
+        toolTimeline: [
+          call("jit_execute_program", 2, true), // 编译失败（tool 层 isError）
+          call("submit_answer", 5),
+        ],
+        executeCalls: 1,
+        executeCallPhases: [{ round: 2, compileSuccess: false, executionSuccess: false }],
+        jitSemanticCorrect: undefined,
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(metrics.firstPassCompileSuccess).toBe(false);
+    expect(metrics.firstPassExecutionSuccess).toBe(false);
+    expect(metrics.compileSucceeded).toBe(false);
+    expect(metrics.repairRounds).toBe(3); // 编译级修复：只失败 → 总轮数 − 首次失败轮（5 − 2）
+  });
+
+  test("首次编译通过但执行失败：firstPassCompileSuccess=true、firstPassExecutionSuccess=false（解耦证明）", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        rounds: 5,
+        toolTimeline: [
+          call("jit_execute_program", 2, true), // 执行失败（tool 层同样 isError）
+          call("submit_answer", 5),
+        ],
+        executeCalls: 1,
+        executeCallPhases: [{ round: 2, compileSuccess: true, executionSuccess: false }],
+        jitSemanticCorrect: undefined,
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    // 旧实现 firstPassCompileSuccess = !firstExecuteCall.isError = false，会混淆编译/执行失败
+    expect(metrics.firstPassCompileSuccess).toBe(true); // 编译层面通过
+    expect(metrics.firstPassExecutionSuccess).toBe(false); // 但执行层面失败
+    expect(metrics.compileSucceeded).toBe(true);
+    expect(metrics.repairRounds).toBe(0); // 编译级修复：首轮编译即通过 → 0（执行失败不算编译修复）
+  });
+
+  test("compileSuccess 单独不构成完成信号：编译成功但 jitSemanticCorrect=undefined → taskCompleted=false", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        rounds: 5,
+        toolTimeline: [
+          call("jit_execute_program", 2, true), // 执行失败 → 无成功执行的语义可判
+          call("submit_answer", 5),
+        ],
+        executeCalls: 1,
+        executeCallPhases: [{ round: 2, compileSuccess: true, executionSuccess: false }],
+        jitSemanticCorrect: undefined,
+        submittedAnswer: "adv/org-repo-0", // 提交答案本身匹配 oracle
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(metrics.jitAttempted).toBe(true);
+    expect(metrics.compileSucceeded).toBe(true); // 编译层面已过
+    expect(metrics.jitSemanticCorrect).toBeUndefined(); // 但语义不可判定（无成功执行）
+    expect(metrics.answerCorrect).toBe(true); // 排除"答案没对"的干扰
+    expect(metrics.taskCompleted).toBe(false); // compile success 单独不构成完成信号
+  });
+
+  test("legacy 回退：无 executeCallPhases → 保持旧 isError 口径（firstPassCompileSuccess = !firstExecuteCall.isError），不输出 executeCallPhases", () => {
+    const ok = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [call("jit_execute_program", 1)],
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(ok.firstPassCompileSuccess).toBe(true);
+    expect(ok.firstPassExecutionSuccess).toBe(true); // legacy 近似：编译/执行不可分，回退旧值
+    expect(ok.compileSucceeded).toBe(true); // legacy 近似：= jitExecutionSucceeded
+    expect(ok.executeCallPhases).toBeUndefined();
+
+    const failed = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [call("jit_execute_program", 1, true)],
+        executeCalls: 1,
+        jitSemanticCorrect: undefined,
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(failed.firstPassCompileSuccess).toBe(false);
+    expect(failed.firstPassExecutionSuccess).toBe(false);
+    expect(failed.compileSucceeded).toBe(false);
+  });
+
+  test("aggregateR5 三信号：firstPassExecutionRate / eventualExecutionRate / eventualSemanticCorrectRate / eventualCompileRate（编译层面）", () => {
+    // run1：编译成功但执行失败；run2：全成功；run3：执行成功但语义错误
+    const run1 = baseMetrics({
+      arm: "treatment", taskId: "B",
+      executeCalls: 1, jitAttempted: true,
+      jitExecutionSucceeded: false,
+      jitSemanticCorrect: undefined,
+      firstPassCompileSuccess: true,
+      firstPassExecutionSuccess: false,
+      compileSucceeded: true,
+    });
+    const run2 = baseMetrics({
+      arm: "treatment", taskId: "B",
+      executeCalls: 1, jitAttempted: true,
+      jitExecutionSucceeded: true,
+      jitSemanticCorrect: true,
+      jitFinishedWithoutFallback: true,
+      firstPassCompileSuccess: true,
+      firstPassExecutionSuccess: true,
+      compileSucceeded: true,
+    });
+    const run3 = baseMetrics({
+      arm: "treatment", taskId: "B",
+      executeCalls: 1, jitAttempted: true,
+      jitExecutionSucceeded: true,
+      jitSemanticCorrect: false,
+      firstPassCompileSuccess: true,
+      firstPassExecutionSuccess: true,
+      compileSucceeded: true,
+    });
+    const agg = aggregateR5([run1, run2, run3], "treatment", "B");
+    expect(agg.firstPassExecutionRate).toBeCloseTo(2 / 3);
+    expect(agg.eventualExecutionRate).toBeCloseTo(2 / 3); // = jitExecutionSucceededRate
+    expect(agg.eventualSemanticCorrectRate).toBeCloseTo(1 / 3); // = jitSemanticCorrectRate
+    expect(agg.eventualCompileRate).toBe(1); // 编译层面 3/3 都成功（≠ eventualExecutionRate，解耦证明）
   });
 });
 

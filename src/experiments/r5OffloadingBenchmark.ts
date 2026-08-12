@@ -57,7 +57,7 @@ import { defineTool, type RegisteredTool } from "../tools/definition.js";
 import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL } from "../tools/jitTools.js";
 import { renderCompactManifest } from "../tools/compactContractRenderer.js";
 import { toolIdAlias, ToolRegistry } from "../tools/registry.js";
-import { checkTaskCorrectness } from "./taskSpec.js";
+import { checkTaskSemantics } from "./taskSpec.js";
 import { runPiAgent, type AgentReasoningTurn, type AgentTokenRound } from "./agentRunner.js";
 import { createR5CTask, R5_TASKS, type R5Task, type R5TaskId } from "./r5Tasks.js";
 
@@ -277,6 +277,19 @@ export interface R5ToolCallRecord {
   arguments: Record<string, unknown>;
 }
 
+/**
+ * 一次 jit_execute_program 调用的编译/执行相位（round 为 1-based Agent round）。
+ * 编译失败与执行失败在 tool 层都表现为 isError，需按错误文本前缀分类：
+ * - 编译失败（renderCompileFailure 以"编译失败："开头）→ compileSuccess=false / executionSuccess=false；
+ * - 执行失败（"执行失败："）→ compileSuccess=true / executionSuccess=false；
+ * - 成功 → 两者皆 true。
+ */
+export interface R5ExecuteCallPhase {
+  round: number;
+  compileSuccess: boolean;
+  executionSuccess: boolean;
+}
+
 export interface R5RunMetrics {
   arm: R5Arm;
   taskId: R5TaskId;
@@ -297,6 +310,12 @@ export interface R5RunMetrics {
   compileAttempts?: number;
   /** R6.1：首次 jit_execute_program 是否编译通过（无 execute 调用 → undefined） */
   firstPassCompileSuccess?: boolean;
+  /** R6.1（编译/执行解耦）：首次 jit_execute_program 是否执行成功（编译失败 / 执行失败 / 无 execute 调用 → 分别 false / false / undefined；legacy 无 executeCallPhases 时回退 firstPassCompileSuccess 近似） */
+  firstPassExecutionSuccess?: boolean;
+  /** R6.1（编译/执行解耦）：是否存在至少一次编译成功的 jit_execute_program（legacy 回退 jitExecutionSucceeded 近似） */
+  compileSucceeded?: boolean;
+  /** R6.1：每次 jit_execute_program 的编译/执行相位（按 round 升序；新 run 由 runR5Run 采集，老报告/rescore 无此字段） */
+  executeCallPhases?: readonly R5ExecuteCallPhase[];
   /** R6.1：首次失败到首次成功的修复轮数（首轮即成功 → 0；从未成功 → 总轮数 − 首次失败轮；无 execute → undefined） */
   repairRounds?: number;
   /** R6.1：是否在首次 execute 失败后才调用 jit_describe_tools（= 编译失败后的 describe 兜底；无 describe 或从未失败 → false；compile-only/manifest 臂不挂 describe 工具，恒 false；deriveR5Metrics 恒返回，声明为可选以兼容既有字面量构造的测试） */
@@ -381,6 +400,8 @@ export interface R5RunDerivationInput {
   executeCalls: number;
   jitSemanticCorrect: boolean | undefined;
   executeErrors: readonly string[];
+  /** 每次 jit_execute_program 的编译/执行相位（按 round 升序；新 run 由 runR5Run 采集，legacy 输入省略时回退旧 isError 口径近似） */
+  executeCallPhases?: readonly R5ExecuteCallPhase[];
   /** 任务中可确定性 offload 的流水线工具 canonical id（B 型有定义；A/C 无 → undefined）。
    *  用于统计 preOffloadPipelineCalls / timelyOffload。 */
   pipelineToolIds?: readonly string[];
@@ -415,8 +436,16 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
 
   // R6.1 新指标：compile-only / manifest 臂的恢复成本
   // （首次编译是否直接通过、失败→成功的修复轮数、describe 兜底频率、repair 区间的 token 成本）
+  //
+  // 编译成功 / 执行成功解耦（P0 修复）：jit_execute_program 编译失败与执行失败都会 throw（isError=true），
+  // 旧实现 firstPassCompileSuccess = !firstExecuteCall.isError 混淆了两者；有 executeCallPhases（新 run 由
+  // runR5Run 按错误文本前缀分类采集）时直接读相位，否则回退旧 isError 口径（legacy 近似，编译/执行不可分）。
+  const phases = input.executeCallPhases;
   const firstExecuteCall = executeCallsInTimeline[0];
-  const firstPassCompileSuccess = firstExecuteCall === undefined ? undefined : !firstExecuteCall.isError;
+  const firstPassCompileSuccess =
+    phases !== undefined ? phases[0]?.compileSuccess : firstExecuteCall === undefined ? undefined : !firstExecuteCall.isError;
+  const firstPassExecutionSuccess = phases !== undefined ? phases[0]?.executionSuccess : firstPassCompileSuccess;
+  const compileSucceeded = phases !== undefined ? phases.some((p) => p.compileSuccess) : jitExecutionSucceeded;
   const firstFailedExecuteRound = executeCallsInTimeline.find((call) => call.isError)?.round;
   const firstSuccessExecuteRound = executeCallsInTimeline.find((call) => !call.isError)?.round;
   // R6.1：describe 兜底语义精化——describeFallbackUsed = "首次 execute 失败之后才调 describe"（fallback 指示），
@@ -434,17 +463,37 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
       ? false
       : undefined;
   let repairRounds: number | undefined;
-  if (firstExecuteCall === undefined) repairRounds = undefined;
+  if (phases !== undefined) {
+    // 编译级修复：首次编译失败轮 → 首次编译成功轮（首轮编译通过 → 0；只失败 → 总轮数 − 首次失败轮；无 execute → undefined）
+    const firstFailedCompileRound = phases.find((p) => !p.compileSuccess)?.round;
+    const firstSuccessCompileRound = phases.find((p) => p.compileSuccess)?.round;
+    if (phases.length === 0) repairRounds = undefined;
+    else if (firstFailedCompileRound === undefined) repairRounds = 0;
+    else if (firstSuccessCompileRound !== undefined) repairRounds = firstSuccessCompileRound - firstFailedCompileRound;
+    else repairRounds = input.rounds - firstFailedCompileRound;
+  } else if (firstExecuteCall === undefined) repairRounds = undefined;
   else if (firstPassCompileSuccess === true) repairRounds = 0;
   else if (firstSuccessExecuteRound !== undefined && firstFailedExecuteRound !== undefined)
     repairRounds = firstSuccessExecuteRound - firstFailedExecuteRound;
   else if (firstFailedExecuteRound !== undefined) repairRounds = input.rounds - firstFailedExecuteRound;
   let repairTokens: number | undefined;
-  if (input.tokenRounds !== undefined && firstFailedExecuteRound !== undefined) {
-    const endRound = firstSuccessExecuteRound ?? input.rounds;
-    repairTokens = input.tokenRounds
-      .filter((item) => item.round >= firstFailedExecuteRound && item.round <= endRound)
-      .reduce((sum, item) => sum + item.total, 0);
+  if (input.tokenRounds !== undefined) {
+    if (phases !== undefined) {
+      // repair 区间同样用编译级轮次（首次编译失败轮 .. 首次编译成功轮/末尾）
+      const firstFailedCompileRound = phases.find((p) => !p.compileSuccess)?.round;
+      if (firstFailedCompileRound !== undefined) {
+        const firstSuccessCompileRound = phases.find((p) => p.compileSuccess)?.round;
+        const endRound = firstSuccessCompileRound ?? input.rounds;
+        repairTokens = input.tokenRounds
+          .filter((item) => item.round >= firstFailedCompileRound && item.round <= endRound)
+          .reduce((sum, item) => sum + item.total, 0);
+      }
+    } else if (firstFailedExecuteRound !== undefined) {
+      const endRound = firstSuccessExecuteRound ?? input.rounds;
+      repairTokens = input.tokenRounds
+        .filter((item) => item.round >= firstFailedExecuteRound && item.round <= endRound)
+        .reduce((sum, item) => sum + item.total, 0);
+    }
   }
   const preOffloadBusinessCalls =
     firstJitRound === undefined
@@ -547,6 +596,9 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
     executeCalls: input.executeCalls,
     compileAttempts: input.executeCalls,
     ...(firstPassCompileSuccess !== undefined ? { firstPassCompileSuccess } : {}),
+    ...(firstPassExecutionSuccess !== undefined ? { firstPassExecutionSuccess } : {}),
+    ...(compileSucceeded !== undefined ? { compileSucceeded } : {}),
+    ...(phases !== undefined && phases.length > 0 ? { executeCallPhases: phases } : {}),
     ...(repairRounds !== undefined ? { repairRounds } : {}),
     describeFallbackUsed: describeAfterFailedExecute,
     ...(preDescribeUsed !== undefined ? { preDescribeUsed } : {}),
@@ -616,6 +668,8 @@ export async function runR5Run(
   let executeCalls = 0;
   const businessCalls: string[] = [];
   const executeErrors: string[] = [];
+  /** 每次 jit_execute_program 的编译/执行相位（push 顺序 = 执行顺序 = round 升序；最后统一排序） */
+  const executeCallPhases: R5ExecuteCallPhase[] = [];
   let submittedAnswer: string | undefined;
   let lastProgramDetails: JitExecuteProgramDetails | undefined;
 
@@ -650,16 +704,27 @@ export async function runR5Run(
       }
       businessCalls.push(name);
     },
-    onToolEnd: ({ name, isError, result }) => {
+    onToolEnd: ({ name, isError, result, round }) => {
       if (name !== EXECUTE_PROGRAM_TOOL.name) return;
       const details = (result as { details?: JitExecuteProgramDetails } | null)?.details;
       if (details && details.status === "success") {
         lastProgramDetails = details;
+        executeCallPhases.push({ round, compileSuccess: true, executionSuccess: true });
         return;
       }
       if (isError) {
         const text =
           (result as { content?: Array<{ text?: string }> } | null)?.content?.map((c) => c.text ?? "").join("") ?? "";
+        // 编译/执行解耦：按错误文本前缀分类（jit.ts 的 renderCompileFailure 以"编译失败："开头、
+        // 执行失败以"执行失败："开头）——编译失败 → 两者皆 false；执行失败 → 编译已过但执行未过；
+        // 其它（如 source 为空）按最保守的"编译未过"计。
+        if (text.includes("编译失败")) {
+          executeCallPhases.push({ round, compileSuccess: false, executionSuccess: false });
+        } else if (text.includes("执行失败")) {
+          executeCallPhases.push({ round, compileSuccess: true, executionSuccess: false });
+        } else {
+          executeCallPhases.push({ round, compileSuccess: false, executionSuccess: false });
+        }
         if (text.trim() && executeErrors.length < 5) executeErrors.push(text.trim().slice(0, 300));
       }
     },
@@ -671,8 +736,10 @@ export async function runR5Run(
   let lastProgram: R5RunMetrics["lastProgram"];
   let jitSemanticCorrect: boolean | undefined;
   if (lastProgramDetails) {
+    // 执行级语义判定：用任务同一套 mock 工具执行程序、按 answerField 与 oracle 比较
+    // （拓扑无关；checkTaskCorrectness 的固定结构检查会误判语义等价的程序，不再用于 R5 语义判定）
     jitSemanticCorrect = task.spec
-      ? checkTaskCorrectness(lastProgramDetails.graph, task.spec).pass
+      ? (await checkTaskSemantics(lastProgramDetails.graph, task)).pass
       : undefined;
     const compressed = compressedPath(lastProgramDetails.graph, lastProgramDetails.trace);
     lastProgram = {
@@ -703,6 +770,8 @@ export async function runR5Run(
     executeCalls,
     jitSemanticCorrect,
     executeErrors,
+    // 按 round 升序（同一 round 内多个 execute 调用的相对顺序不参与语义，排序保证稳定）
+    executeCallPhases: executeCallPhases.sort((a, b) => a.round - b.round),
     pipelineToolIds: task.pipelineToolIds,
     lastProgramSource: lastProgramDetails?.source,
     submittedAnswer,
@@ -714,6 +783,7 @@ export async function runR5Run(
     ...metrics,
     ...(options.contractMode !== undefined ? { contractMode: options.contractMode } : {}),
     ...(lastProgram ? { lastProgram } : {}),
+    ...(executeCallPhases.length > 0 ? { executeCallPhases } : {}),
   };
 }
 
@@ -788,7 +858,13 @@ export interface R5Aggregate {
   firstPassCompileRateOverall: number;
   /** R6.1：首次 execute 编译通过比例（仅统计尝试过 compile 的 run：firstPassCompileSuccess === true / executeCalls > 0；无尝试 → 0） */
   firstPassCompileRateAmongAttempts: number;
-  /** R6.1：最终至少一次 execute 成功的比例（= jitExecutionSucceededRate，语义别名） */
+  /** R6.1（编译/执行解耦）：首次 execute 执行成功比例（firstPassExecutionSuccess === true / 格内总数，含未尝试 compile 的 run 作分母；legacy 无该字段的 run 不计数） */
+  firstPassExecutionRate: number;
+  /** R6.1：最终至少一次执行成功的比例（= jitExecutionSucceededRate，语义别名） */
+  eventualExecutionRate: number;
+  /** R6.1：最终语义正确的比例（= jitSemanticCorrectRate，语义别名） */
+  eventualSemanticCorrectRate: number;
+  /** R6.1（编译/执行解耦，重定义）：最终至少一次编译成功的比例（compileSucceeded === true / 格内总数；原为 jitExecutionSucceededRate 别名，现按编译层面统计） */
   eventualCompileRate: number;
   /** R6.1：平均修复轮数（repairRounds 有定义值的均值） */
   avgRepairRounds: number;
@@ -876,12 +952,15 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
     avgUncachedInputTokens: avg(cell.map((run) => run.tokens.input)),
     avgCacheReadTokens: avg(cell.map((run) => run.tokens.cacheRead)),
     avgOutputTokens: avg(cell.map((run) => run.tokens.output)),
-    // R6.1：compile-only / manifest 臂的汇总（eventualCompileRate = jitExecutionSucceededRate 语义别名）
+    // R6.1：compile-only / manifest 臂的汇总（编译/执行解耦：eventualCompileRate 不再等于 jitExecutionSucceededRate）
     firstPassCompileRateOverall: ratio(cell.filter((run) => run.firstPassCompileSuccess === true).length),
     firstPassCompileRateAmongAttempts: compileAttemptRuns > 0
       ? cell.filter((run) => run.firstPassCompileSuccess === true).length / compileAttemptRuns
       : 0,
-    eventualCompileRate: ratio(cell.filter((run) => run.jitExecutionSucceeded).length),
+    firstPassExecutionRate: ratio(cell.filter((run) => run.firstPassExecutionSuccess === true).length),
+    eventualExecutionRate: ratio(cell.filter((run) => run.jitExecutionSucceeded).length),
+    eventualSemanticCorrectRate: ratio(cell.filter((run) => run.jitSemanticCorrect === true).length),
+    eventualCompileRate: ratio(cell.filter((run) => run.compileSucceeded === true).length),
     avgRepairRounds: avg(repairRoundsValues),
     describeFallbackRate: ratio(cell.filter((run) => run.describeFallbackUsed).length),
     preDescribeUsedRate: ratio(cell.filter((run) => run.preDescribeUsed === true).length),

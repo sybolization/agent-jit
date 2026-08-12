@@ -1,13 +1,14 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { R5_TASKS, type R5TaskId } from "../src/experiments/r5Tasks.js";
 import {
   parseR6Flags,
   buildR6Cells,
   writeR6Report,
+  printR6Comparison,
   R6_ARM_CONTRACT_MODE,
   type R6ReportConfig,
 } from "../src/experiments/r6DescribeBenchmark.js";
@@ -149,6 +150,94 @@ describe("r6DescribeBenchmark — writeR6Report", () => {
       expect(report.runs).toHaveLength(4);
     } finally {
       fs.rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
+  test("compile-only / manifest 格存在 describeCalls>0 的 run → console.warn 冻结校验，且不中断写盘", () => {
+    const runs: R5RunMetrics[] = [
+      baseMetrics({
+        arm: "treatment", taskId: "B", contractMode: "compile-only",
+        describeCalls: 2,
+      }),
+      baseMetrics({
+        arm: "treatment", taskId: "B", contractMode: "compile-only",
+        describeCalls: 0,
+      }),
+      baseMetrics({
+        arm: "treatment", taskId: "B", contractMode: "manifest",
+        describeCalls: 1,
+      }),
+    ];
+    const config: R6ReportConfig = { arm: "all", task: "B", samples: 1, rounds: 10, stopAfterSubmit: false, boundaryPolicy: true };
+    const cells = buildR6Cells(runs, config);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const outDir = path.join(os.tmpdir(), `r6-freeze-check-${Date.now()}`);
+    try {
+      const reportPath = writeR6Report(outDir, config, R5_TASKS, cells, runs);
+      expect(fs.existsSync(reportPath)).toBe(true); // 校验不中断写盘
+      expect(warnSpy).toHaveBeenCalledTimes(2); // B 格 run=0（describeCalls=2）+ C 格 run=0（describeCalls=1）
+      const messages = warnSpy.mock.calls.map((call) => String(call[0])).join("\n");
+      expect(messages).toContain("[R6 冻结校验]");
+      expect(messages).toContain("B 格 run 存在 describeCalls>0：B/run=0 describeCalls=2");
+      expect(messages).toContain("C 格 run 存在 describeCalls>0：B/run=0 describeCalls=1");
+    } finally {
+      warnSpy.mockRestore();
+      fs.rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
+  test("compile-only / manifest 格 describeCalls 全 0 → 不调用 console.warn", () => {
+    const runs: R5RunMetrics[] = [
+      baseMetrics({ arm: "treatment", taskId: "B", contractMode: "compile-only" }),
+      baseMetrics({ arm: "treatment", taskId: "B", contractMode: "manifest" }),
+    ];
+    const config: R6ReportConfig = { arm: "all", task: "B", samples: 1, rounds: 10, stopAfterSubmit: false, boundaryPolicy: true };
+    const cells = buildR6Cells(runs, config);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const outDir = path.join(os.tmpdir(), `r6-freeze-clean-${Date.now()}`);
+    try {
+      const reportPath = writeR6Report(outDir, config, R5_TASKS, cells, runs);
+      expect(fs.existsSync(reportPath)).toBe(true);
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+      fs.rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("r6DescribeBenchmark — printR6Comparison", () => {
+  test("输出 primary metrics（firstPassOverall / firstPassAmongAttempts / eventualSemantic / eventualExec / avgTokens / avgRounds）、次要指标与 jitGroups", () => {
+    const runs: R5RunMetrics[] = [
+      baseMetrics({
+        arm: "treatment", taskId: "B", contractMode: "compile-only",
+        jitAttempted: true, jitExecutionSucceeded: true, jitSemanticCorrect: true,
+        executeCalls: 1, compileAttempts: 1,
+        firstPassCompileSuccess: true, firstPassExecutionSuccess: true, compileSucceeded: true,
+        repairRounds: 0, repairTokens: 0,
+      }),
+    ];
+    const config: R6ReportConfig = { arm: "all", task: "B", samples: 1, rounds: 10, stopAfterSubmit: false, boundaryPolicy: true };
+    const cells = buildR6Cells(runs, config);
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      printR6Comparison(cells);
+      const output = logSpy.mock.calls.map((call) => String(call[0])).join("\n");
+      expect(output).toContain("firstPassOverall=");
+      expect(output).toContain("firstPassAmongAttempts=");
+      expect(output).toContain("eventualSemantic=");
+      expect(output).toContain("eventualExec=");
+      expect(output).toContain("avgTokens=");
+      expect(output).toContain("avgRounds=");
+      expect(output).toContain("eventualCompile=");
+      expect(output).toContain("avgRepairRounds=");
+      expect(output).toContain("preDescribe=");
+      expect(output).toContain("describeFallback=");
+      expect(output).toContain("adoption=");
+      expect(output).toContain("precision=");
+      expect(output).toContain("jitGroups:");
+    } finally {
+      logSpy.mockRestore();
     }
   });
 });

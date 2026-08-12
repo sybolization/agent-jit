@@ -159,6 +159,8 @@ const FIX_HINTS: Record<string, string> = {
   expression_invalid: "期望：compute 表达式 = 字段引用 + 数字 + 四则运算 + 括号；select 谓词 = 顶层比较（> >= < <= == !=）",
   TOO_MANY_POSITIONAL_ARGS: "期望：位置参数数量不超过该关键字定义的槽位（顺序见提示）",
   syntax: "期望：语句形如 <变量> = <调用>(<参数>, ...)，检查标点、引号与参数形式",
+  missing_return: "期望：程序必须包含且仅包含一条 terminal return（最后一行 return <变量>，变量必须已定义）",
+  duplicate_return: "期望：只保留一条 return（最终输出那一条），删除其余 return",
 };
 
 /** 编译诊断 code → JIT 层紧凑 code（R6.1：只映射编译器能给出结构化字段的 4 类）。 */

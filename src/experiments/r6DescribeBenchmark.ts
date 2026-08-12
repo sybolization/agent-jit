@@ -180,6 +180,18 @@ export function writeR6Report(
   cells: Record<R6CellId, R6Cell>,
   runs: readonly R5RunMetrics[],
 ): string {
+  // R6.1 冻结校验：compile-only / manifest 格契约上不挂 describe 工具，run 的 describeCalls 必须为 0。
+  // 违者只告警不中断写盘（不静默放行；R5RunMetrics 顶层无 round 字段，用 run 索引标注）。
+  for (const [id, cell] of Object.entries(cells)) {
+    if (cell.contractMode !== "compile-only" && cell.contractMode !== "manifest") continue;
+    cell.runs.forEach((run, runIndex) => {
+      if (run.describeCalls > 0) {
+        console.warn(
+          `[R6 冻结校验] ${id} 格 run 存在 describeCalls>0：${run.taskId}/run=${runIndex} describeCalls=${run.describeCalls}`,
+        );
+      }
+    });
+  }
   fs.mkdirSync(outDir, { recursive: true });
   const reportPath = path.join(outDir, "report.json");
   fs.writeFileSync(
@@ -221,7 +233,12 @@ export function writeR6Report(
 // CLI 对比打印
 // ---------------------------------------------------------------------------
 
-/** 紧凑打印四格对比表：runs / 编译一次通过率 / 最终编译率 / 平均修复轮数 / describe 兜底率 / adoption / precision / tokens / rounds / jitGroups 分布。 */
+/**
+ * 紧凑打印四格对比表，分两组：
+ * - primary metrics：runs / firstPassOverall / firstPassAmongAttempts / eventualSemantic / eventualExec / avgTokens / avgRounds；
+ * - 次要指标：eventualCompile / avgRepairRounds / preDescribe / describeFallback / adoption / precision；
+ * 末尾 jitGroups 分布不变。
+ */
 export function printR6Comparison(cells: Record<R6CellId, R6Cell>): void {
   const pct = (n: number): string => `${(n * 100).toFixed(0)}%`;
   const cellIds: R6CellId[] = ["control", "A", "B", "C"];
@@ -233,10 +250,13 @@ export function printR6Comparison(cells: Record<R6CellId, R6Cell>): void {
     console.log(
       `runs=${agg.runs} ` +
         `firstPassOverall=${pct(agg.firstPassCompileRateOverall)} firstPassAmongAttempts=${pct(agg.firstPassCompileRateAmongAttempts)} ` +
-        `eventualCompile=${pct(agg.eventualCompileRate)} avgRepairRounds=${agg.avgRepairRounds.toFixed(1)} ` +
-        `preDescribe=${pct(agg.preDescribeUsedRate)} describeFallback=${pct(agg.describeFallbackRate)} ` +
-        `adoption=${pct(agg.adoptionRate)} precision=${pct(agg.offloadPrecision)} ` +
+        `eventualSemantic=${pct(agg.eventualSemanticCorrectRate)} eventualExec=${pct(agg.eventualExecutionRate)} ` +
         `avgTokens=${Math.round(agg.avgTokens)} avgRounds=${agg.avgRounds.toFixed(1)}`,
+    );
+    console.log(
+      `eventualCompile=${pct(agg.eventualCompileRate)} avgRepairRounds=${agg.avgRepairRounds.toFixed(1)} ` +
+        `preDescribe=${pct(agg.preDescribeUsedRate)} describeFallback=${pct(agg.describeFallbackRate)} ` +
+        `adoption=${pct(agg.adoptionRate)} precision=${pct(agg.offloadPrecision)}`,
     );
     console.log(`    jitGroups: ${jitDist}`);
   }
@@ -258,7 +278,9 @@ function logRun(run: R5RunMetrics): void {
       `describe=${run.describeCalls} execute=${run.executeCalls} business=[${run.businessCalls.join(", ") || "无"}]`,
   );
   console.log(
-    `  R6: firstPassCompile=${run.firstPassCompileSuccess === undefined ? "n/a" : run.firstPassCompileSuccess} ` +
+    `  R6: compile=${run.firstPassCompileSuccess === undefined ? "n/a" : run.firstPassCompileSuccess} ` +
+      `exec=${run.firstPassExecutionSuccess === undefined ? "n/a" : run.firstPassExecutionSuccess} ` +
+      `semantic=${run.jitSemanticCorrect === undefined ? "n/a" : run.jitSemanticCorrect} ` +
       `repairRounds=${run.repairRounds === undefined ? "n/a" : run.repairRounds} ` +
       `preDescribe=${run.preDescribeUsed === undefined ? "n/a" : run.preDescribeUsed} describeFallbackUsed=${run.describeFallbackUsed} ` +
       `executeErrors=${(run.executeErrors ?? []).length}`,

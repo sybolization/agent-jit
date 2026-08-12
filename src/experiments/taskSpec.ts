@@ -1,5 +1,19 @@
 import type { ComputeNode, ExecutionGraph, ExecutionNode, ToolNode } from "../compiler/ir.js";
 import { nodeDependencies } from "../runtime/dependencies.js";
+import { execute } from "../runtime/runtime.js";
+import { ToolRegistry } from "../tools/registry.js";
+import type { RegisteredTool } from "../tools/definition.js";
+
+/**
+ * 任务判定双通道分工：
+ * - `checkTaskCorrectness`（结构检查，本文件下方）：从 ExecutionIR 层面检查程序是否
+ *   具备任务要求的固定结构（绑定特定字段名 / 谓词串 / merge IR shape），保留给历史实验
+ *   （R2/R3/D2/D3/R4e 结构测试）。它会误判语义等价的程序（如 concat 代替 merge_by_key、
+ *   直接谓词代替先 compute）为 false——这是**刻意**的结构约束，不是缺陷。
+ * - `checkTaskSemantics`（执行级语义约束，R5/R6 使用）：用任务同一套 mock 工具**执行**
+ *   程序、按 `answerField` 提取最终输出、与任务 oracle 精确有序比较。拓扑无关——
+ *   直接 predicate vs 先 compute ratio、concat vs merge_by_key 重组一律等价。
+ */
 
 /**
  * Task correctness 检查器：从 ExecutionIR 层面判断程序是否真的完成了任务
@@ -60,6 +74,9 @@ export interface TaskSpec {
     /** 汇聚谓词（如 "score >= 100"）：最终 select 必须同时依赖所有分支工具 */
     convergePredicate: string;
   };
+  /** 执行级语义检查（checkTaskSemantics）用：最终输出里用于与 oracle 比较的身份字段
+   *  （如 B="full_name"、C="number"）；未定义时直接对输出元素做 String 比较。 */
+  answerField?: string;
 }
 
 export interface TaskCorrectness {
@@ -370,4 +387,54 @@ export function checkTaskCorrectness(graph: ExecutionGraph, spec: TaskSpec): Tas
     failures,
     ...(bindingPass !== undefined ? { bindingPass, bindingFailures } : {}),
   };
+}
+
+/**
+ * 从最终输出提取与 oracle 比较的文本列表（按 answerField 取身份字段）：
+ * - value 是数组 → 逐元素取 element[answerField]（元素是对象且有 answerField 时；
+ *   answerField 未定义或元素无该字段 → 直接 String(element)）；
+ * - value 不是数组 → [String(value)]。
+ */
+function extractAnswerTexts(value: unknown, field: string | undefined): string[] {
+  if (!Array.isArray(value)) return [String(value)];
+  return value.map((element) => {
+    if (field !== undefined && typeof element === "object" && element !== null && field in element) {
+      return String((element as Record<string, unknown>)[field]);
+    }
+    return String(element);
+  });
+}
+
+/**
+ * 执行级语义约束（R5/R6 使用）：用任务同一套 mock 工具**真实执行**程序，
+ * 按 spec.answerField 提取最终输出、与任务 oracle 精确有序比较——不再用固定 IR topology
+ * 判定程序语义正确性。拓扑无关：直接 predicate vs 先 compute ratio、concat vs
+ * merge_by_key 重组一律等价（只要执行结果与 oracle 一致）。与 checkTaskCorrectness
+ * （固定结构检查）分工见文件顶部注释。
+ */
+export async function checkTaskSemantics(
+  graph: ExecutionGraph,
+  task: { tools: readonly RegisteredTool[]; oracle: readonly (string | RegExp)[]; spec?: TaskSpec },
+): Promise<{ pass: boolean; failures: string[] }> {
+  if (!graph.nodes.some((node) => node.kind === "return")) {
+    return { pass: false, failures: ["缺少 return 节点"] };
+  }
+  if (!task.spec) {
+    return { pass: false, failures: ["任务无 spec，无法做语义检查"] };
+  }
+
+  const execution = await execute(graph, new ToolRegistry(task.tools));
+  if (execution.status === "failed") {
+    return { pass: false, failures: [`执行失败：${execution.error}`] };
+  }
+
+  const actual = extractAnswerTexts(execution.result, task.spec.answerField);
+  const expected = task.oracle.map((item) => String(item));
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    return {
+      pass: false,
+      failures: [`语义结果与 oracle 不一致：期望 ${JSON.stringify(expected)}，实际 ${JSON.stringify(actual)}`],
+    };
+  }
+  return { pass: true, failures: [] };
 }

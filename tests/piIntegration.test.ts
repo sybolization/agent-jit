@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { Type } from "typebox";
 
-import { ExecutionDslCompileError } from "../src/compiler/compile.js";
+import { compileExecutionDsl, ExecutionDslCompileError } from "../src/compiler/compile.js";
 import { adaptRegisteredTool, createPiTools } from "../src/integrations/pi/toolAdapter.js";
 import {
   createJitDescribeTool,
@@ -342,5 +342,41 @@ describe("renderCompileFailure — 结构化诊断渲染", () => {
     expect(output.startsWith("编译失败")).toBe(true);
     expect(output).toContain("L5: syntax");
     expect(output).toContain("期望：语句形如");
+  });
+
+  test("renderCompileFailure：missing_return（无 return 程序）输出含修复指令 return", () => {
+    let caught: unknown;
+    try {
+      compileExecutionDsl('repos = github.search_repositories(query="agent framework", limit=10)', {
+        tools: makeRegistry(),
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ExecutionDslCompileError);
+    const output = renderCompileFailure(caught as ExecutionDslCompileError);
+    expect(output.startsWith("编译失败")).toBe(true);
+    expect(output).toContain("missing_return");
+    expect(output).toContain("期望：程序必须包含且仅包含一条 terminal return");
+  });
+
+  test("renderCompileFailure：duplicate_return（两条 return 程序）输出含“只保留一条”修复指令", () => {
+    const source = [
+      'repos = github.search_repositories(query="agent framework", limit=10)',
+      "return repos",
+      "return repos",
+    ].join("\n");
+    let caught: unknown;
+    try {
+      compileExecutionDsl(source, { tools: makeRegistry() });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ExecutionDslCompileError);
+    const output = renderCompileFailure(caught as ExecutionDslCompileError);
+    expect(output.startsWith("编译失败")).toBe(true);
+    expect(output).toContain("duplicate_return");
+    expect(output).toContain("return"); // 修复指令
+    expect(output).toContain("只保留一条");
   });
 });

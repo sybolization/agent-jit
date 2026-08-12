@@ -372,7 +372,7 @@ describe("runtime — REQ-2/REQ-4 输出 schema 校验与失败模型", () => {
         },
       },
     ]);
-    const graph = compileExecutionDsl('repos = github.search_repositories(query="x")', { tools: new ToolRegistry(githubTools) }).graph;
+    const graph = compileExecutionDsl('repos = github.search_repositories(query="x")\nreturn repos', { tools: new ToolRegistry(githubTools) }).graph;
     const result = await execute(graph, registry);
     // execute() 不向上抛：await 正常返回，status=failed
     expect(result.status).toBe("failed");
@@ -396,7 +396,7 @@ describe("runtime — REQ-2/REQ-4 输出 schema 校验与失败模型", () => {
         execute: async () => ({ full_name: 123 }),
       },
     ]);
-    const graph = compileExecutionDsl('repos = github.search_repositories(query="x")', { tools: new ToolRegistry(githubTools) }).graph;
+    const graph = compileExecutionDsl('repos = github.search_repositories(query="x")\nreturn repos', { tools: new ToolRegistry(githubTools) }).graph;
     const result = await execute(graph, registry);
     expect(result.status).toBe("failed");
     if (result.status === "failed") {

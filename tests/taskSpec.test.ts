@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { compileExecutionDsl } from "../src/compiler/compile.js";
+import type { ExecutionGraph } from "../src/compiler/ir.js";
 import { githubTools } from "../src/tools/providers/github/contracts.js";
 import { mockDomainToolSpecs } from "../src/tools/providers/domain/mock.js";
 import { ToolRegistry } from "../src/tools/registry.js";
@@ -54,8 +55,23 @@ describe("checkTaskCorrectness", () => {
   });
 
   test("缺少 return → 失败", () => {
-    const dsl = CORRECT.split("\n").slice(0, 3).join("\n");
-    const result = checkTaskCorrectness(compile(dsl), SPEC);
+    // compile 现在强制要求 terminal return（missing_return 抛错），无法用它构造无 return 的图；
+    // 手工构造等价的无 return ExecutionGraph，验证 checker 自身仍能判定"缺少 return"。
+    const graph: ExecutionGraph = {
+      schema_version: "1",
+      nodes: [
+        {
+          id: "repos",
+          kind: "tool",
+          tool: "github.search_repositories",
+          args: { query: { kind: "literal", value: "agent framework" }, limit: { kind: "literal", value: 10 } },
+        },
+        { id: "details", kind: "map", source: "repos", tool: "github.get_repository", bindings: { full_name: "full_name" }, concurrency: 5 },
+        { id: "top", kind: "compute", op: "take", source: "details", args: { count: 3 } },
+      ],
+    };
+    const result = checkTaskCorrectness(graph, SPEC);
+    expect(result.pass).toBe(false);
     expect(result.failures.some((item) => item.includes("return"))).toBe(true);
   });
 

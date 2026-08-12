@@ -212,7 +212,7 @@ describe("SchemaView 归一 — catalog 渲染与参数 kind（REQ-5）", () => 
     expect(params.find((p) => p.key === "value")?.kind).toBe("unknown");
     expect(params.find((p) => p.key === "tags")?.kind).toBe("unknown");
     // union 参数值渲染为 "string | null"；unknown 参数写任意字面量均不报 config_type_mismatch
-    const { graph } = compileExecutionDsl('x = demo.union(value="a", tags=123)', { tools: new ToolRegistry([tool]) });
-    expect(graph.nodes).toHaveLength(1);
+    const { graph } = compileExecutionDsl('x = demo.union(value="a", tags=123)\nreturn x', { tools: new ToolRegistry([tool]) });
+    expect(graph.nodes).toHaveLength(2);
   });
 });

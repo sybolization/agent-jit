@@ -25,6 +25,11 @@ describe("renderCompactManifest — compact output manifest", () => {
     expect(manifest).not.toContain("input");
     expect(manifest).not.toContain("schema");
     expect(manifest).not.toContain("# ");
+    // 元数据段也不出现（required / title / $id 是 schema 元数据，boilerplate 是冗余样板串）
+    expect(manifest).not.toContain("required");
+    expect(manifest).not.toContain("title");
+    expect(manifest).not.toContain("$id");
+    expect(manifest).not.toContain("boilerplate");
     for (const line of manifest.split("\n")) {
       expect(line).toMatch(/^[\w.]+ -> /);
     }

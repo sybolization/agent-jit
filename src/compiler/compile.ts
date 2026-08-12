@@ -118,12 +118,23 @@ export function compileExecutionDsl(
 
   for (const statement of parsed.statements) {
     if (defined.has(statement.name)) {
-      diagnostics.push({
-        line: statement.line,
-        code: "duplicate_name",
-        message: `变量名“${statement.name}”重复定义`,
-        suggestion: "变量名必须唯一",
-      });
+      // return 是语言关键字（parser 中 name 占位为 "return"），第二条 return 命中重名检查时
+      // 报专门诊断，而不是含糊的 duplicate_name。
+      if (statement.callee === "return") {
+        diagnostics.push({
+          line: statement.line,
+          code: "duplicate_return",
+          message: "程序包含多条 return 语句，只允许一条 terminal return",
+          suggestion: "删除多余的 return，保留最终输出那一条",
+        });
+      } else {
+        diagnostics.push({
+          line: statement.line,
+          code: "duplicate_name",
+          message: `变量名“${statement.name}”重复定义`,
+          suggestion: "变量名必须唯一",
+        });
+      }
       continue;
     }
     const node = buildNode(statement, options, defined, diagnostics);
@@ -134,6 +145,20 @@ export function compileExecutionDsl(
     nodes.push(node);
     defined.add(statement.name);
     symbols.set(statement.name, nodeElementSchema(node, options.tools, symbols));
+  }
+
+  // 完整性校验：JIT 程序必须以恰好一条 terminal return 结束。
+  // 统计已构建成节点的 return 数（为 0 含空程序）；仅在无其它编译错误时补报
+  // missing_return——unknown_tool 等已 throw 时不再叠加噪声。
+  const returnCount = nodes.filter((node) => node.kind === "return").length;
+  if (returnCount === 0 && diagnostics.length === 0) {
+    const lastStatement = parsed.statements[parsed.statements.length - 1];
+    diagnostics.push({
+      line: lastStatement?.line ?? 0,
+      code: "missing_return",
+      message: "程序缺少 return 语句：JIT 程序必须以一条 terminal return 结束",
+      suggestion: "在最后追加一行：return <最终结果变量>",
+    });
   }
 
   if (diagnostics.length > 0) throw new ExecutionDslCompileError(diagnostics);

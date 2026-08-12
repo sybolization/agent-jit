@@ -136,7 +136,7 @@ describe("compileExecutionDsl — four-line minimal closed loop", () => {
   });
 
   test("map concurrency defaults to 5 when omitted", () => {
-    const source = ['repos = github.search_repositories(query="x")', "details = map(repos, github.get_repository(full_name=_.full_name))"].join("\n");
+    const source = ['repos = github.search_repositories(query="x")', "details = map(repos, github.get_repository(full_name=_.full_name))", "return details"].join("\n");
     const { graph } = compileExecutionDsl(source, { tools: new ToolRegistry(githubTools) });
     expect(graph.nodes.find((node) => node.kind === "map")).toMatchObject({ concurrency: 5 });
   });
@@ -211,6 +211,7 @@ describe("compileExecutionDsl — diagnostics", () => {
     const source = [
       'repos = github_search_repositories(query="x")',
       "details = map(repos, github_get_repository(full_name=_.full_name))",
+      "return details",
     ].join("\n");
     const { graph } = compileExecutionDsl(source, { tools: new ToolRegistry(githubTools) });
     expect(graph.nodes.find((node) => node.kind === "tool")).toMatchObject({ tool: "github.search_repositories" });
@@ -469,6 +470,7 @@ describe("compileExecutionDsl — REQ-5 map 绑定字段校验（符号表）", 
     const dsl = [
       'repos = github.search_repositories(query="a")',
       "details = map(repos, github.get_repository(full_name=_.full_name))",
+      "return details",
     ].join("\n");
     const { diagnostics } = compileR5(dsl);
     expect(diagnostics).toEqual([]);
@@ -478,6 +480,7 @@ describe("compileExecutionDsl — REQ-5 map 绑定字段校验（符号表）", 
     const dsl = [
       'repos = github.search_repositories(query="a")',
       "m = map(repos, github.search_repositories(query=_.full_name, limit=_.stars))",
+      "return m",
     ].join("\n");
     const { graph, diagnostics } = compileR5(dsl);
     expect(diagnostics).toEqual([]);
@@ -492,6 +495,7 @@ describe("compileExecutionDsl — REQ-5 map 绑定字段校验（符号表）", 
       "details = map(repos, github.get_repository(full_name=_.full_name))",
       'ratio = compute(details, ratio="stars / 100")',
       "m = map(ratio, github.get_repository(full_name=_.ratio))",
+      "return m",
     ].join("\n");
     const { diagnostics } = compileR5(dsl);
     expect(diagnostics).toEqual([]);
@@ -591,5 +595,31 @@ describe("结构化诊断 payload（R6.1 error-directed disclosure）", () => {
     expect(diag?.argument).toBe("limit");
     expect(diag?.expected).toBe("int");
     expect(diag?.actual).toBe("string");
+  });
+});
+
+describe("compileExecutionDsl — terminal return 完整性校验", () => {
+  const compileWithGithub = (dsl: string) => compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools) });
+
+  test("无 return 程序（不完整程序）→ missing_return", () => {
+    let caught: unknown;
+    try {
+      compileWithGithub('repos = github.search_repositories(query="x")');
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ExecutionDslCompileError);
+    const diagnostics = (caught as ExecutionDslCompileError).diagnostics;
+    expect(diagnostics.some((item) => item.code === "missing_return")).toBe(true);
+  });
+
+  test("两条 return（第二条因 name 占位 return 重名）→ duplicate_return", () => {
+    const codes = collectCodes(() => compileWithGithub('a = github.search_repositories(query="x")\nreturn a\nreturn a'));
+    expect(codes).toContain("duplicate_return");
+  });
+
+  test("return 引用未定义变量 → undefined_reference", () => {
+    const codes = collectCodes(() => compileWithGithub('a = github.search_repositories(query="x")\nreturn unknown_var'));
+    expect(codes).toContain("undefined_reference");
   });
 });

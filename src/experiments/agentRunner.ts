@@ -50,8 +50,14 @@ export interface PiAgentRunOptions {
   maxRounds?: number;
   /** 工具调用开始时回调（日志 / 计数）。 */
   onToolCall?: (call: { toolCallId: string; name: string; arguments: Record<string, unknown> }) => void;
-  /** 工具执行结束时回调（result 含 details，供 jit_execute_program 的程序/图采集）。 */
-  onToolEnd?: (record: { toolCallId: string; name: string; isError: boolean; result: unknown }) => void;
+  /** 工具执行结束时回调（result 含 details，供 jit_execute_program 的程序/图采集；round 为 1-based Agent round，与 toolCalls 记录的 round 一致）。 */
+  onToolEnd?: (record: {
+    toolCallId: string;
+    name: string;
+    isError: boolean;
+    result: unknown;
+    round: number;
+  }) => void;
   /** 主动终止工具：最后一条 assistant 消息的工具调用全部属于该列表时视为正常提交结束，不判 maxedOut（配合 execute 返回 terminate: true 的 pi-ai 早停）。不传 = 旧行为。 */
   terminatingToolNames?: readonly string[];
 }
@@ -185,7 +191,13 @@ export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRun
       case "tool_execution_end": {
         const record = toolCallById.get(event.toolCallId);
         if (record) record.isError = event.isError;
-        onToolEnd?.({ toolCallId: event.toolCallId, name: event.toolName, isError: event.isError, result: event.result });
+        onToolEnd?.({
+          toolCallId: event.toolCallId,
+          name: event.toolName,
+          isError: event.isError,
+          result: event.result,
+          round: record?.round ?? turns + 1,
+        });
         break;
       }
       case "agent_end": {
