@@ -273,7 +273,17 @@ export interface R5RunMetrics {
   /** B 型：round < firstJitRound 已执行掉的、本可 offload 的流水线调用数（preOffload 业务调用 ∩ pipeline 工具）；
    *  任务无 pipeline 定义（A/C）→ undefined */
   preOffloadPipelineCalls?: number;
-  /** 及时 offload：决定 offload 时还没执行掉任何本可 offload 的流水线工作，且这次 offload 语义正确。
+  /** B 型：round === firstJitRound 的业务调用 ∩ pipeline 工具（= 与 JIT 决策同轮并发发出的可 offload 调用，speculative；无 pipeline 定义 → undefined） */
+  sameRoundPipelineCalls?: readonly string[];
+  sameRoundPipelineCallCount?: number;
+  /** B 型：JIT 真正开始前（决策轮之前 + 同轮）执行掉的、本可 offload 的流水线调用数 = preOffloadPipelineCalls + sameRoundPipelineCallCount */
+  preExecutePipelineCalls?: number;
+  /** B 型：JIT 意图出现得早 = jitAttempted 且 preOffloadPipelineCalls === 0（纯决策时间维度，不含语义与同轮；无 pipeline 定义 → undefined） */
+  earlyOffloadDecision?: boolean;
+  /** B 型：JIT source 内重复执行的已完成 pipeline 工具数（source 中出现 且 host 在 firstJitRound 含同轮前已调用；无成功程序/无 pipeline → undefined） */
+  duplicatedPipelineCalls?: number;
+  /** @deprecated 语义与 earlyOffloadDecision 重叠但额外绑定语义正确性，逐步弃用（保留旧定义）。
+   *  及时 offload：决定 offload 时还没执行掉任何本可 offload 的流水线工作，且这次 offload 语义正确。
    *  B 型 = jitSemanticCorrect === true 且 preOffloadPipelineCalls === 0；A/C 无统一 pipeline 定义 → undefined */
   timelyOffload: boolean | undefined;
   /** submit_answer 的 answer 参数（未提交 → undefined） */
@@ -315,6 +325,8 @@ export interface R5RunDerivationInput {
   /** 任务中可确定性 offload 的流水线工具 canonical id（B 型有定义；A/C 无 → undefined）。
    *  用于统计 preOffloadPipelineCalls / timelyOffload。 */
   pipelineToolIds?: readonly string[];
+  /** 最后一次成功执行 jit_execute_program 的程序源码（duplicatedPipelineCalls 判重用；无成功执行 → undefined） */
+  lastProgramSource?: string;
   submittedAnswer?: string;
   finalText: string;
   oracle: readonly (string | RegExp)[];
@@ -371,6 +383,40 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
         ).length
       : undefined;
 
+  // 同轮 speculative：与第一次 JIT 决策同一轮并发发出的、本可 offload 的流水线调用
+  // （模型尚未看到任何 JIT 结果；B 型）。
+  const sameRoundPipelineCalls =
+    firstJitRound !== undefined && input.pipelineToolIds && input.pipelineToolIds.length > 0
+      ? input.toolTimeline
+          .filter((call) => isBusiness(call.name) && call.round === firstJitRound && pipelineAliases.has(call.name))
+          .map((call) => call.name)
+      : undefined;
+  // JIT 真正开始前（决策前 + 同轮）的重复工作量：真 clean 必须 preExecutePipelineCalls === 0
+  const preExecutePipelineCalls =
+    preOffloadPipelineCalls !== undefined && sameRoundPipelineCalls !== undefined
+      ? preOffloadPipelineCalls + sameRoundPipelineCalls.length
+      : undefined;
+  // 决策时间维度（与语义解耦）：JIT 意图出现得早 = 决策轮之前没有执行掉本可 offload 的流水线工作
+  const earlyOffloadDecision =
+    input.taskId === "B" && preOffloadPipelineCalls !== undefined
+      ? jitAttempted && preOffloadPipelineCalls === 0
+      : undefined;
+  // 重复工作：JIT source 里重新执行的、host 在第一次 JIT 调用（含同轮）前已完成的 pipeline 工具
+  const duplicatedPipelineCalls =
+    input.taskId === "B" &&
+    firstJitRound !== undefined &&
+    input.pipelineToolIds &&
+    input.pipelineToolIds.length > 0 &&
+    input.lastProgramSource
+      ? input.pipelineToolIds.filter(
+          (canonical) =>
+            input.lastProgramSource!.includes(canonical) &&
+            input.toolTimeline.some(
+              (call) => isBusiness(call.name) && call.round <= firstJitRound && toolIdAlias(canonical) === call.name,
+            ),
+        ).length
+      : undefined;
+
   // P0 严格输出协议：答案正确性**只认模型显式提交的 submit_answer**。
   // 未提交 → 不判正确（不再退回 finalText）；程序 result 永不参与答案判定。
   const answerCorrect =
@@ -419,6 +465,12 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
     postExecuteBusinessCalls,
     postExecuteBusinessCallCount: postExecuteBusinessCalls.length,
     ...(preOffloadPipelineCalls !== undefined ? { preOffloadPipelineCalls } : {}),
+    ...(sameRoundPipelineCalls !== undefined
+      ? { sameRoundPipelineCalls, sameRoundPipelineCallCount: sameRoundPipelineCalls.length }
+      : {}),
+    ...(preExecutePipelineCalls !== undefined ? { preExecutePipelineCalls } : {}),
+    ...(earlyOffloadDecision !== undefined ? { earlyOffloadDecision } : {}),
+    ...(duplicatedPipelineCalls !== undefined ? { duplicatedPipelineCalls } : {}),
     timelyOffload,
     ...(input.submittedAnswer !== undefined ? { submittedAnswer: input.submittedAnswer } : {}),
     answerCorrect,
@@ -535,6 +587,7 @@ export async function runR5Run(
     jitSemanticCorrect,
     executeErrors,
     pipelineToolIds: task.pipelineToolIds,
+    lastProgramSource: lastProgramDetails?.source,
     submittedAnswer,
     finalText: run.finalText,
     oracle: task.oracle,
@@ -574,7 +627,14 @@ export interface R5Aggregate {
   avgPostExecuteBusinessCallCount: number;
   /** B 型：平均决策前（round < firstJitRound）已执行掉的流水线调用数（无 pipeline 定义 → undefined） */
   avgPreOffloadPipelineCalls: number | undefined;
-  /** 及时 offload 比例（timelyOffload === true / 总 run 数；B 型有定义，A/C → undefined） */
+  /** B 型：平均与决策同轮发出的 pipeline 调用数（无 pipeline 定义 → undefined） */
+  avgSameRoundPipelineCalls: number | undefined;
+  /** B 型：平均 JIT 开始前（决策前 + 同轮）执行掉的 pipeline 调用数（无 pipeline 定义 → undefined） */
+  avgPreExecutePipelineCalls: number | undefined;
+  /** B 型：earlyOffloadDecision === true 比例（无 pipeline 定义 → undefined） */
+  earlyOffloadDecisionRate: number | undefined;
+  /** @deprecated 与 earlyOffloadDecisionRate 重叠，逐步弃用。
+   *  及时 offload 比例（timelyOffload === true / 总 run 数；B 型有定义，A/C → undefined） */
   timelyOffloadRate: number | undefined;
   /** 不该 offload 却尝试：A 上 jitAttempted 比例（B/C 无意义 → undefined，不入 JSON） */
   unnecessaryOffloadRate: number | undefined;
@@ -617,6 +677,12 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
   const preOffloadPipelineValues = cell
     .map((run) => run.preOffloadPipelineCalls)
     .filter((value): value is number => value !== undefined);
+  const sameRoundPipelineValues = cell
+    .map((run) => run.sameRoundPipelineCallCount)
+    .filter((value): value is number => value !== undefined);
+  const preExecutePipelineValues = cell
+    .map((run) => run.preExecutePipelineCalls)
+    .filter((value): value is number => value !== undefined);
   return {
     arm,
     taskId,
@@ -634,6 +700,9 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
     // 无 pipeline 定义（A/C）→ undefined，不入 JSON
     avgPreOffloadPipelineCalls:
       preOffloadPipelineValues.length > 0 ? avg(preOffloadPipelineValues) : undefined,
+    avgSameRoundPipelineCalls: sameRoundPipelineValues.length > 0 ? avg(sameRoundPipelineValues) : undefined,
+    avgPreExecutePipelineCalls: preExecutePipelineValues.length > 0 ? avg(preExecutePipelineValues) : undefined,
+    earlyOffloadDecisionRate: taskId === "B" ? ratio(cell.filter((run) => run.earlyOffloadDecision === true).length) : undefined,
     timelyOffloadRate: taskId === "B" ? ratio(cell.filter((run) => run.timelyOffload === true).length) : undefined,
     unnecessaryOffloadRate: taskId === "A" ? ratio(attempted) : undefined,
     fallbackRate: ratio(cell.filter((run) => run.fallbackUsed).length),
@@ -671,7 +740,7 @@ export function buildR5Aggregates(runs: readonly R5RunMetrics[]): R5Aggregates {
 // clean / late JIT 分组：token 花在干净 offload 还是 late offload / 没 offload
 // ---------------------------------------------------------------------------
 
-export type R5JitGroupId = "cleanOffload" | "lateOffload" | "noJit";
+export type R5JitGroupId = "cleanOffload" | "earlyDirtyOffload" | "lateOffload" | "noJit";
 
 export interface R5JitGroup {
   group: R5JitGroupId;
@@ -684,13 +753,27 @@ export interface R5JitGroup {
 }
 
 /**
- * 按 offload 质量分组（不重不漏）：
+ * 按 offload 质量分组（不重不漏，每个 run 恰属一组）：
  * - noJit：未尝试 JIT；
- * - cleanOffload：尝试且语义正确且无 fallback（B 型再要求 timelyOffload === true，
- *   即没把本可 offload 的流水线先手工做掉）；
- * - lateOffload：尝试过 JIT 但不满足 clean（语义错 / fallback / 决定太晚）。
+ * - lateOffload：决策晚（earlyOffloadDecision === false，即决策轮之前已执行掉本可 offload 的流水线工作）；
+ * - cleanOffload：严格干净 = jitFinishedWithoutFallback 且 preExecutePipelineCalls === 0
+ *   （决策前 + 同轮都没有执行掉本可 offload 的流水线工作；A/C 无 pipeline 定义时保持旧 clean 语义）；
+ * - earlyDirtyOffload：决策早但执行边界不干净（同轮 speculative pipeline / 语义错 / fallback）。
  * token 分项统计基于 run 级 tokens（老报告无 tokenRounds 也可用）。
  */
+/** 单个 run 的 offload 分组判定（不重不漏；buildR5JitGroups 与 r5TokenProfile 共用）。 */
+export function classifyR5JitGroup(run: R5RunMetrics): R5JitGroupId {
+  if (!run.jitAttempted) return "noJit";
+  if (run.earlyOffloadDecision === false) return "lateOffload";
+  if (
+    run.jitFinishedWithoutFallback &&
+    (run.preExecutePipelineCalls === undefined || run.preExecutePipelineCalls === 0)
+  ) {
+    return "cleanOffload";
+  }
+  return "earlyDirtyOffload";
+}
+
 export function buildR5JitGroups(
   runs: readonly R5RunMetrics[],
   arm: R5Arm,
@@ -699,21 +782,16 @@ export function buildR5JitGroups(
   const cell = runs.filter((run) => run.arm === arm && run.taskId === taskId);
   const buckets: Record<R5JitGroupId, R5RunMetrics[]> = {
     cleanOffload: [],
+    earlyDirtyOffload: [],
     lateOffload: [],
     noJit: [],
   };
   for (const run of cell) {
-    if (!run.jitAttempted) {
-      buckets.noJit.push(run);
-    } else if (run.jitFinishedWithoutFallback && run.timelyOffload !== false) {
-      buckets.cleanOffload.push(run);
-    } else {
-      buckets.lateOffload.push(run);
-    }
+    buckets[classifyR5JitGroup(run)].push(run);
   }
   const avg = (bucket: readonly R5RunMetrics[], pick: (run: R5RunMetrics) => number): number =>
     bucket.length > 0 ? bucket.reduce((sum, run) => sum + pick(run), 0) / bucket.length : 0;
-  const ids: R5JitGroupId[] = ["cleanOffload", "lateOffload", "noJit"];
+  const ids: R5JitGroupId[] = ["cleanOffload", "earlyDirtyOffload", "lateOffload", "noJit"];
   return ids.map((group) => {
     const bucket = buckets[group];
     return {

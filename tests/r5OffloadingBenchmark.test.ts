@@ -846,19 +846,19 @@ describe("aggregateR5 — 分项 token 均值", () => {
   });
 });
 
-describe("buildR5JitGroups — clean / late / noJit 不重不漏", () => {
+describe("buildR5JitGroups — clean / earlyDirty / late / noJit 不重不漏", () => {
   test("三种边界 case 分到正确组，count 之和等于格内总数", () => {
     const clean = baseMetrics({
       arm: "treatment", taskId: "B",
       jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: true,
       timelyOffload: true, tokens: { input: 10, output: 10, cacheRead: 0, total: 20 }, rounds: 3,
     });
-    const lateSemanticWrong = baseMetrics({
+    const dirtySemanticWrong = baseMetrics({
       arm: "treatment", taskId: "B",
       jitAttempted: true, jitSemanticCorrect: false, jitFinishedWithoutFallback: false,
       timelyOffload: false, tokens: { input: 100, output: 100, cacheRead: 0, total: 200 }, rounds: 8,
     });
-    const lateFallback = baseMetrics({
+    const dirtyFallback = baseMetrics({
       arm: "treatment", taskId: "B",
       jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: false, fallbackUsed: true,
       timelyOffload: false, tokens: { input: 50, output: 50, cacheRead: 0, total: 100 }, rounds: 6,
@@ -867,15 +867,43 @@ describe("buildR5JitGroups — clean / late / noJit 不重不漏", () => {
       arm: "treatment", taskId: "B", jitAttempted: false,
       tokens: { input: 30, output: 30, cacheRead: 0, total: 60 }, rounds: 2,
     });
-    const groups = buildR5JitGroups([clean, lateSemanticWrong, lateFallback, noJit], "treatment", "B");
+    const groups = buildR5JitGroups([clean, dirtySemanticWrong, dirtyFallback, noJit], "treatment", "B");
     const byGroup = Object.fromEntries(groups.map((g) => [g.group, g])) as Record<string, (typeof groups)[number]>;
     expect(groups.reduce((s, g) => s + g.runs, 0)).toBe(4);
     expect(byGroup.cleanOffload.runs).toBe(1);
-    expect(byGroup.lateOffload.runs).toBe(2);
+    expect(byGroup.earlyDirtyOffload.runs).toBe(2); // 语义错 + fallback（老字段缺失时归早脏）
+    expect(byGroup.lateOffload.runs).toBe(0);
     expect(byGroup.noJit.runs).toBe(1);
     expect(byGroup.cleanOffload.avgTokens).toBe(20);
-    expect(byGroup.lateOffload.avgTokens).toBe(150); // (200 + 100) / 2
+    expect(byGroup.earlyDirtyOffload.avgTokens).toBe(150); // (200 + 100) / 2
     expect(byGroup.noJit.avgTokens).toBe(60);
+  });
+
+  test("lateOffload：earlyOffloadDecision === false（决策晚）单独成组", () => {
+    const late = baseMetrics({
+      arm: "treatment", taskId: "B",
+      jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: true,
+      timelyOffload: false, earlyOffloadDecision: false, preExecutePipelineCalls: 3,
+      tokens: { input: 10, output: 10, cacheRead: 0, total: 20 }, rounds: 7,
+    });
+    const groups = buildR5JitGroups([late], "treatment", "B");
+    const byGroup = Object.fromEntries(groups.map((g) => [g.group, g])) as Record<string, (typeof groups)[number]>;
+    expect(byGroup.lateOffload.runs).toBe(1);
+    expect(byGroup.cleanOffload.runs).toBe(0);
+    expect(byGroup.earlyDirtyOffload.runs).toBe(0);
+  });
+
+  test("严格 clean：同轮 pipeline 重复（preExecutePipelineCalls > 0）→ earlyDirtyOffload", () => {
+    const dirty = baseMetrics({
+      arm: "treatment", taskId: "B",
+      jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: true,
+      timelyOffload: true, earlyOffloadDecision: true, preExecutePipelineCalls: 1,
+      tokens: { input: 10, output: 10, cacheRead: 0, total: 20 }, rounds: 4,
+    });
+    const groups = buildR5JitGroups([dirty], "treatment", "B");
+    const byGroup = Object.fromEntries(groups.map((g) => [g.group, g])) as Record<string, (typeof groups)[number]>;
+    expect(byGroup.earlyDirtyOffload.runs).toBe(1); // 决策早但执行不干净
+    expect(byGroup.cleanOffload.runs).toBe(0);
   });
 
   test("A 型 clean：jitFinishedWithoutFallback 且 timelyOffload 非 false → clean", () => {
@@ -914,7 +942,7 @@ describe("writeR5Report — tokenRounds 与 jitGroups", () => {
       expect(report.runs[0]!.tokenRounds).toHaveLength(2);
       expect(report.runs[0]!.tokenRounds![0]).toMatchObject({ round: 1, input: 100, toolCalls: ["jit_describe_tools"] });
       expect(report.runs[1]!.tokenRounds).toBeUndefined();
-      expect(report.jitGroups.treatment.B).toHaveLength(3);
+      expect(report.jitGroups.treatment.B).toHaveLength(4); // clean / earlyDirty / late / noJit
       expect(report.jitGroups.treatment.B.reduce((s, g) => s + g.runs, 0)).toBe(1);
       expect(report.jitGroups.treatment.B.find((g) => g.group === "cleanOffload")!.runs).toBe(1);
       expect(report.jitGroups.control.B.reduce((s, g) => s + g.runs, 0)).toBe(1);
@@ -953,5 +981,88 @@ describe("stopAfterSubmit — createR5SubmitTool / parseFlags / report config", 
     } finally {
       fs.rmSync(outDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("deriveR5Metrics — 新 pipeline 指标（sameRound / preExecute / early / duplicated）", () => {
+  test("describe + search 同轮：sameRoundPipelineCallCount=1、preExecutePipelineCalls=1、earlyOffloadDecision=true", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [
+          call("github_search_repositories", 1),
+          call("jit_describe_tools", 1),
+          call("jit_execute_program", 2),
+          call("submit_answer", 3),
+        ],
+        businessCalls: ["github_search_repositories"],
+        describeCalls: 1,
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(metrics.preOffloadPipelineCalls).toBe(0); // round < firstJitRound 无 pipeline
+    expect(metrics.sameRoundPipelineCallCount).toBe(1); // 同轮 search 被识别为 pipeline call
+    expect(metrics.preExecutePipelineCalls).toBe(1);
+    expect(metrics.earlyOffloadDecision).toBe(true); // 决策早（纯时间维度）
+    expect(metrics.timelyOffload).toBe(true); // 旧定义保留（deprecated）
+  });
+
+  test("duplicatedPipelineCalls：host 已 search，JIT source 又 search → 1", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [
+          call("github_search_repositories", 1),
+          call("jit_describe_tools", 2),
+          call("jit_execute_program", 3),
+        ],
+        businessCalls: ["github_search_repositories"],
+        describeCalls: 1,
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        lastProgramSource: 'repos = github.search_repositories(query="agent framework", limit=30)',
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(metrics.duplicatedPipelineCalls).toBe(1); // search 在 JIT 内重复
+  });
+
+  test("duplicatedPipelineCalls：host 未执行过 pipeline → 0", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [call("jit_execute_program", 1)],
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        lastProgramSource: 'repos = github.search_repositories(query="agent framework", limit=30)',
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(metrics.duplicatedPipelineCalls).toBe(0);
+  });
+});
+
+describe("aggregateR5 — 新 pipeline 汇总字段", () => {
+  test("avgSameRoundPipelineCalls / avgPreExecutePipelineCalls / earlyOffloadDecisionRate", () => {
+    const runA = baseMetrics({
+      arm: "treatment", taskId: "B",
+      jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: true,
+      earlyOffloadDecision: true, preExecutePipelineCalls: 0, sameRoundPipelineCallCount: 0,
+    });
+    const runB = baseMetrics({
+      arm: "treatment", taskId: "B",
+      jitAttempted: true, jitSemanticCorrect: false, jitFinishedWithoutFallback: false,
+      earlyOffloadDecision: false, preExecutePipelineCalls: 3, sameRoundPipelineCallCount: 1,
+    });
+    const agg = aggregateR5([runA, runB], "treatment", "B");
+    expect(agg.avgSameRoundPipelineCalls).toBe(0.5);
+    expect(agg.avgPreExecutePipelineCalls).toBe(1.5);
+    expect(agg.earlyOffloadDecisionRate).toBe(0.5);
+    expect(agg.avgPreOffloadPipelineCalls).toBeUndefined(); // 未设置 preOffload 值
   });
 });

@@ -18,8 +18,20 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { sumTokenRoundsByPhase, type TokenRoundPhase } from "./tokenAccounting.js";
-import { buildR5JitGroups, type R5Arm, type R5RunMetrics } from "./r5OffloadingBenchmark.js";
+import {
+  sumAtomicStagesByStage,
+  sumTokenRoundsByPhase,
+  type AtomicStage,
+  type TokenRoundPhase,
+  type TokenTotals,
+} from "./tokenAccounting.js";
+import {
+  buildR5JitGroups,
+  classifyR5JitGroup,
+  type R5Arm,
+  type R5JitGroupId,
+  type R5RunMetrics,
+} from "./r5OffloadingBenchmark.js";
 import type { R5TaskId } from "./r5Tasks.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -41,6 +53,8 @@ export interface ProfileStoredRun {
   }[];
   jitAttempted?: boolean;
   jitFinishedWithoutFallback?: boolean;
+  earlyOffloadDecision?: boolean | null;
+  preExecutePipelineCalls?: number | null;
   timelyOffload?: boolean | null;
 }
 
@@ -68,6 +82,11 @@ const PHASE_ORDER: TokenRoundPhase[] = [
   "finalization",
   "mixed",
 ];
+const ARM_LABEL: Record<R5Arm, string> = {
+  control: "Control（普通 Agent）",
+  treatment: "Treatment（+ JIT）",
+};
+const GROUP_IDS: R5JitGroupId[] = ["cleanOffload", "earlyDirtyOffload", "lateOffload", "noJit"];
 
 const avg = (values: number[]): number =>
   values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
@@ -103,44 +122,99 @@ export function runProfile(reportPath: string): number {
     }
   }
 
-  // 2) phase 分解（仅对含 tokenRounds 的 run）
-  console.log("\n===== 2) phase 分解（每 run 均值；需 round-level tokenRounds）=====");
+  // 2) phase 分解（三重口径：presenceRate / avgWhenPresent / avgPerAllRuns）
+  console.log("\n===== 2) phase 分解（presenceRate / avgWhenPresent / avgPerAllRuns；需 tokenRounds）=====");
   const runsWithRounds = runs.filter((run) => Array.isArray(run.tokenRounds) && run.tokenRounds!.length > 0);
   if (runsWithRounds.length === 0) {
     console.log("  该报告所有 run 均无 tokenRounds（本轮改造前的报告）→ 无 round-level 数据，phase 分解不可用。");
   } else {
-    console.log("  arm        phase              runs  uncachedInput  cacheRead   output     total");
     for (const arm of ARMS) {
       const armRuns = runsWithRounds.filter((run) => run.arm === arm);
       if (armRuns.length === 0) continue;
+      console.log(`  [${ARM_LABEL[arm]}] runs=${armRuns.length}`);
+      console.log("    phase             present  presenceRate  avgWhenPresent  avgPerAllRuns");
       for (const phase of PHASE_ORDER) {
         const totals = armRuns.map((run) => sumTokenRoundsByPhase(run.tokenRounds!)[phase]);
-        const withData = totals.filter((t) => t.total > 0);
+        const present = totals.filter((t) => t.total > 0);
         console.log(
-          `  ${arm.padEnd(9)} ${phase.padEnd(16)} ${String(withData.length).padStart(4)}  ` +
-            `${formatTokens(avg(withData.map((t) => t.input))).padStart(9)}   ` +
-            `${formatTokens(avg(withData.map((t) => t.cacheRead))).padStart(9)}   ` +
-            `${formatTokens(avg(withData.map((t) => t.output))).padStart(9)}   ` +
-            `${formatTokens(avg(withData.map((t) => t.total))).padStart(9)}`,
+          `    ${phase.padEnd(16)} ${String(present.length).padStart(5)}  ` +
+            `${((present.length / armRuns.length) * 100).toFixed(0).padStart(4)}%  ` +
+            `${formatTokens(avg(present.map((t) => t.total))).padStart(9)}   ` +
+            `${formatTokens(avg(totals.map((t) => t.total))).padStart(9)}`,
         );
       }
     }
   }
 
-  // 3) treatment 的 clean/late/noJit 分组
-  console.log("\n===== 3) Treatment：clean / late JIT 分组 token =====");
+  // 3) treatment 的 4 组分组（clean / earlyDirty / late / noJit）
+  console.log("\n===== 3) Treatment：clean / earlyDirty / late / noJit 分组 token =====");
   for (const taskId of TASK_IDS) {
     const groups = buildR5JitGroups(runs as readonly R5RunMetrics[], "treatment", taskId);
     console.log(`  [${taskId}] runs=${groups.reduce((sum, g) => sum + g.runs, 0)}`);
-    console.log("    group         runs  uncachedInput  cacheRead   output     total   avgRounds");
+    console.log("    group              runs  uncachedInput  cacheRead   output     total   avgRounds");
     for (const group of groups) {
       console.log(
-        `    ${group.group.padEnd(13)} ${String(group.runs).padStart(4)}  ` +
+        `    ${group.group.padEnd(18)} ${String(group.runs).padStart(4)}  ` +
           `${formatTokens(group.avgUncachedInput).padStart(9)}   ` +
           `${formatTokens(group.avgCacheRead).padStart(9)}   ` +
           `${formatTokens(group.avgOutput).padStart(9)}   ` +
           `${formatTokens(group.avgTokens).padStart(9)}   ` +
           group.avgRounds.toFixed(1),
+      );
+    }
+  }
+
+  // 4) treatment group × phase 交叉（avgPerAllRuns，四维度）
+  console.log("\n===== 4) Treatment：group × phase（avgPerAllRuns，四维度 token）=====");
+  const treatmentRounds = runs.filter(
+    (run) => run.arm === "treatment" && Array.isArray(run.tokenRounds) && run.tokenRounds!.length > 0,
+  );
+  if (treatmentRounds.length === 0) {
+    console.log("  无含 tokenRounds 的 treatment run。");
+  } else {
+    for (const taskId of TASK_IDS) {
+      const cell = treatmentRounds.filter((run) => run.taskId === taskId);
+      if (cell.length === 0) continue;
+      console.log(`  [${taskId}] runs=${cell.length}`);
+      console.log("    group              phase              uncachedInput  cacheRead   output     total");
+      for (const group of GROUP_IDS) {
+        const groupRuns = cell.filter(
+          (run) => classifyR5JitGroup(run as unknown as R5RunMetrics) === group,
+        );
+        if (groupRuns.length === 0) continue;
+        for (const phase of PHASE_ORDER) {
+          const totals = groupRuns.map((run) => sumTokenRoundsByPhase(run.tokenRounds!)[phase]);
+          const dim = (pick: (t: TokenTotals) => number): number => avg(totals.map(pick));
+          console.log(
+            `    ${group.padEnd(18)} ${phase.padEnd(16)} ` +
+              `${formatTokens(dim((t) => t.input)).padStart(9)}   ` +
+              `${formatTokens(dim((t) => t.cacheRead)).padStart(9)}   ` +
+              `${formatTokens(dim((t) => t.output)).padStart(9)}   ` +
+              `${formatTokens(dim((t) => t.total)).padStart(9)}`,
+          );
+        }
+      }
+    }
+  }
+
+  // 5) control：atomic stage 聚合
+  console.log("\n===== 5) Control：atomic stage 聚合（avgPerAllRuns，四维度 token）=====");
+  const controlRounds = runs.filter(
+    (run) => run.arm === "control" && Array.isArray(run.tokenRounds) && run.tokenRounds!.length > 0,
+  );
+  if (controlRounds.length === 0) {
+    console.log("  无含 tokenRounds 的 control run。");
+  } else {
+    const stages: AtomicStage[] = ["search", "details", "scoring", "other"];
+    console.log("    stage    uncachedInput  cacheRead   output     total");
+    for (const stage of stages) {
+      const perRun = controlRounds.map((run) => sumAtomicStagesByStage(run.tokenRounds!)[stage]);
+      console.log(
+        `    ${stage.padEnd(8)} ` +
+          `${formatTokens(avg(perRun.map((t) => t.input))).padStart(9)}   ` +
+          `${formatTokens(avg(perRun.map((t) => t.cacheRead))).padStart(9)}   ` +
+          `${formatTokens(avg(perRun.map((t) => t.output))).padStart(9)}   ` +
+          `${formatTokens(avg(perRun.map((t) => t.total))).padStart(9)}`,
       );
     }
   }

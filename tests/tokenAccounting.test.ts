@@ -2,7 +2,9 @@ import { describe, expect, test } from "vitest";
 
 import type { AgentTokenRound } from "../src/experiments/agentRunner.js";
 import {
+  classifyAtomicStage,
   classifyTokenRound,
+  sumAtomicStagesByStage,
   sumTokenRoundsByPhase,
 } from "../src/experiments/tokenAccounting.js";
 
@@ -56,5 +58,29 @@ describe("sumTokenRoundsByPhase — 按 phase 累计 token 分项", () => {
     const sums = sumTokenRoundsByPhase([]);
     expect(sums["atomic-execution"]).toEqual({ input: 0, cacheRead: 0, output: 0, total: 0 });
     expect(sums.mixed).toEqual({ input: 0, cacheRead: 0, output: 0, total: 0 });
+  });
+});
+
+describe("Atomic stage 分类（Control 成本结构）", () => {
+  test("classifyAtomicStage 各映射 + other 兜底", () => {
+    expect(classifyAtomicStage("github_search_repositories")).toBe("search");
+    expect(classifyAtomicStage("github_get_repository")).toBe("details");
+    expect(classifyAtomicStage("github_get_contributor_stats")).toBe("scoring");
+    expect(classifyAtomicStage("github_list_commits")).toBe("scoring");
+    expect(classifyAtomicStage("unknown_tool")).toBe("other");
+  });
+
+  test("sumAtomicStagesByStage：atomic 轮按首个业务工具唯一归类", () => {
+    const tokenRounds: AgentTokenRound[] = [
+      { round: 1, input: 10, cacheRead: 100, output: 5, total: 115, toolCalls: ["github_search_repositories"] },
+      { round: 2, input: 20, cacheRead: 200, output: 10, total: 230, toolCalls: ["github_get_repository", "github_get_repository"] },
+      { round: 3, input: 30, cacheRead: 0, output: 15, total: 45, toolCalls: ["jit_execute_program"] }, // 非 atomic，跳过
+      { round: 4, input: 40, cacheRead: 0, output: 20, total: 60, toolCalls: ["github_list_commits"] },
+    ];
+    const sums = sumAtomicStagesByStage(tokenRounds);
+    expect(sums.search.total).toBe(115);
+    expect(sums.details.total).toBe(230);
+    expect(sums.scoring.total).toBe(60);
+    expect(sums.other.total).toBe(0);
   });
 });

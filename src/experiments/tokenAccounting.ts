@@ -66,3 +66,41 @@ export function sumTokenRoundsByPhase(
   }
   return sums;
 }
+
+/**
+ * atomic-execution 轮的 stage 归类（P1：让 Control 的成本结构可见）。
+ * B 型流水线的三个阶段：search（搜索 root）→ details（fanout 拉详情）→ scoring（分支打分）；
+ * 其余工具归 other（generic atomic stage 兜底）。
+ */
+export type AtomicStage = "search" | "details" | "scoring" | "other";
+
+export function classifyAtomicStage(toolName: string): AtomicStage {
+  if (toolName === "github_search_repositories") return "search";
+  if (toolName === "github_get_repository") return "details";
+  if (toolName === "github_get_contributor_stats" || toolName === "github_list_commits") return "scoring";
+  return "other";
+}
+
+/**
+ * 只统计 atomic-execution phase 的轮，按"首个业务工具"归 stage，每轮唯一归类（token 不重复分配）。
+ * atomic 轮的定义（classifyTokenRound === "atomic-execution"）已保证全部工具都是业务工具。
+ */
+export function sumAtomicStagesByStage(
+  tokenRounds: readonly AgentTokenRound[],
+): Record<AtomicStage, TokenTotals> {
+  const sums: Record<AtomicStage, TokenTotals> = {
+    search: { input: 0, cacheRead: 0, output: 0, total: 0 },
+    details: { input: 0, cacheRead: 0, output: 0, total: 0 },
+    scoring: { input: 0, cacheRead: 0, output: 0, total: 0 },
+    other: { input: 0, cacheRead: 0, output: 0, total: 0 },
+  };
+  for (const round of tokenRounds) {
+    if (classifyTokenRound(round.toolCalls) !== "atomic-execution") continue;
+    const stage = classifyAtomicStage(round.toolCalls[0] ?? "");
+    sums[stage].input += round.input;
+    sums[stage].cacheRead += round.cacheRead;
+    sums[stage].output += round.output;
+    sums[stage].total += round.total;
+  }
+  return sums;
+}
