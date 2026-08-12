@@ -56,7 +56,7 @@ import { defineTool, type RegisteredTool } from "../tools/definition.js";
 import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL } from "../tools/jitTools.js";
 import { toolIdAlias, ToolRegistry } from "../tools/registry.js";
 import { checkTaskCorrectness } from "./taskSpec.js";
-import { runPiAgent, type AgentReasoningTurn } from "./agentRunner.js";
+import { runPiAgent, type AgentReasoningTurn, type AgentTokenRound } from "./agentRunner.js";
 import { createR5CTask, R5_TASKS, type R5Task, type R5TaskId } from "./r5Tasks.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -219,6 +219,8 @@ export interface R5RunMetrics {
   /** 独立字段：是否跑满最大轮数（不再被 executeCalls 掩盖） */
   maxedOut: boolean;
   tokens: { input: number; output: number; cacheRead: number; total: number };
+  /** 每轮 token usage（round-level 观测；新 run 由 runPiAgent 透传；老报告无此字段） */
+  tokenRounds?: readonly AgentTokenRound[];
   latencyMs: number;
   /** 完整工具时间线（业务 / jit_describe_tools / jit_execute_program / submit_answer，按序） */
   toolTimeline: readonly R5ToolCallRecord[];
@@ -282,6 +284,7 @@ export interface R5RunDerivationInput {
   rounds: number;
   maxedOut: boolean;
   tokens: R5RunMetrics["tokens"];
+  tokenRounds?: readonly AgentTokenRound[];
   latencyMs: number;
   toolTimeline: readonly R5ToolCallRecord[];
   businessCalls: readonly string[];
@@ -377,6 +380,7 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
     rounds: input.rounds,
     maxedOut: input.maxedOut,
     tokens: input.tokens,
+    ...(input.tokenRounds !== undefined ? { tokenRounds: input.tokenRounds } : {}),
     latencyMs: input.latencyMs,
     toolTimeline: input.toolTimeline,
     businessCalls: input.businessCalls,
@@ -494,6 +498,7 @@ export async function runR5Run(
     rounds: run.rounds,
     maxedOut: run.maxedOut,
     tokens: run.tokens,
+    tokenRounds: run.tokenRounds,
     latencyMs: run.latencyMs,
     toolTimeline: run.toolCalls.map((call) => ({
       name: call.name,
@@ -562,6 +567,12 @@ export interface R5Aggregate {
   avgCorrectlyCompressedOps: number;
   avgRounds: number;
   avgTokens: number;
+  /** 平均 uncached input token（与 avgTokens 并列，回答"JIT 省的是 cache traffic 还是 output"） */
+  avgUncachedInputTokens: number;
+  /** 平均 cache read token */
+  avgCacheReadTokens: number;
+  /** 平均 output token */
+  avgOutputTokens: number;
 }
 
 export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R5TaskId): R5Aggregate {
@@ -609,6 +620,9 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
     avgCorrectlyCompressedOps: avg(correctlyCompressedOps),
     avgRounds: avg(cell.map((run) => run.rounds)),
     avgTokens: avg(cell.map((run) => run.tokens.total)),
+    avgUncachedInputTokens: avg(cell.map((run) => run.tokens.input)),
+    avgCacheReadTokens: avg(cell.map((run) => run.tokens.cacheRead)),
+    avgOutputTokens: avg(cell.map((run) => run.tokens.output)),
   };
 }
 
@@ -626,6 +640,85 @@ export function buildR5Aggregates(runs: readonly R5RunMetrics[]): R5Aggregates {
       A: aggregateR5(runs, "treatment", "A"),
       B: aggregateR5(runs, "treatment", "B"),
       C: aggregateR5(runs, "treatment", "C"),
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// clean / late JIT 分组：token 花在干净 offload 还是 late offload / 没 offload
+// ---------------------------------------------------------------------------
+
+export type R5JitGroupId = "cleanOffload" | "lateOffload" | "noJit";
+
+export interface R5JitGroup {
+  group: R5JitGroupId;
+  runs: number;
+  avgTokens: number;
+  avgUncachedInput: number;
+  avgCacheRead: number;
+  avgOutput: number;
+  avgRounds: number;
+}
+
+/**
+ * 按 offload 质量分组（不重不漏）：
+ * - noJit：未尝试 JIT；
+ * - cleanOffload：尝试且语义正确且无 fallback（B 型再要求 timelyOffload === true，
+ *   即没把本可 offload 的流水线先手工做掉）；
+ * - lateOffload：尝试过 JIT 但不满足 clean（语义错 / fallback / 决定太晚）。
+ * token 分项统计基于 run 级 tokens（老报告无 tokenRounds 也可用）。
+ */
+export function buildR5JitGroups(
+  runs: readonly R5RunMetrics[],
+  arm: R5Arm,
+  taskId: R5TaskId,
+): R5JitGroup[] {
+  const cell = runs.filter((run) => run.arm === arm && run.taskId === taskId);
+  const buckets: Record<R5JitGroupId, R5RunMetrics[]> = {
+    cleanOffload: [],
+    lateOffload: [],
+    noJit: [],
+  };
+  for (const run of cell) {
+    if (!run.jitAttempted) {
+      buckets.noJit.push(run);
+    } else if (run.jitFinishedWithoutFallback && run.timelyOffload !== false) {
+      buckets.cleanOffload.push(run);
+    } else {
+      buckets.lateOffload.push(run);
+    }
+  }
+  const avg = (bucket: readonly R5RunMetrics[], pick: (run: R5RunMetrics) => number): number =>
+    bucket.length > 0 ? bucket.reduce((sum, run) => sum + pick(run), 0) / bucket.length : 0;
+  const ids: R5JitGroupId[] = ["cleanOffload", "lateOffload", "noJit"];
+  return ids.map((group) => {
+    const bucket = buckets[group];
+    return {
+      group,
+      runs: bucket.length,
+      avgTokens: avg(bucket, (run) => run.tokens.total),
+      avgUncachedInput: avg(bucket, (run) => run.tokens.input),
+      avgCacheRead: avg(bucket, (run) => run.tokens.cacheRead),
+      avgOutput: avg(bucket, (run) => run.tokens.output),
+      avgRounds: avg(bucket, (run) => run.rounds),
+    };
+  });
+}
+
+/** 报告里的分组结构：arm → task → R5JitGroup[]（全部 6 格，保持 schema 稳定）。 */
+export type R5JitGroups = Record<R5Arm, Record<R5TaskId, R5JitGroup[]>>;
+
+export function buildAllR5JitGroups(runs: readonly R5RunMetrics[]): R5JitGroups {
+  return {
+    control: {
+      A: buildR5JitGroups(runs, "control", "A"),
+      B: buildR5JitGroups(runs, "control", "B"),
+      C: buildR5JitGroups(runs, "control", "C"),
+    },
+    treatment: {
+      A: buildR5JitGroups(runs, "treatment", "A"),
+      B: buildR5JitGroups(runs, "treatment", "B"),
+      C: buildR5JitGroups(runs, "treatment", "C"),
     },
   };
 }
@@ -675,6 +768,7 @@ export function writeR5Report(
           oracle: task.oracle.map(String),
         })),
         aggregates,
+        jitGroups: buildAllR5JitGroups(runs),
         runs,
       },
       null,

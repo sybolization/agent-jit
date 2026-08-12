@@ -12,7 +12,8 @@
     "experiment": "tsx src/experiments/dslGenerationExperiment.ts",
     "experiment:r5": "tsx src/experiments/r5OffloadingBenchmark.ts",
     "experiment:r5-reasoning": "tsx src/experiments/r5ReasoningBenchmark.ts",
-    "experiment:r5-reasoning-validity": "tsx src/experiments/r5ReasoningBenchmark.ts --mode=validity"
+    "experiment:r5-reasoning-validity": "tsx src/experiments/r5ReasoningBenchmark.ts --mode=validity",
+    "experiment:r5-token-profile": "tsx src/experiments/r5TokenProfile.ts"
   },
   "engines": {
     "node": ">=20"

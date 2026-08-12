@@ -31,6 +31,17 @@ export interface AgentReasoningTurn {
   text: string;
 }
 
+/** 单个 assistant 轮（decision）的 token usage 观测（直接读 message.usage，不估算）。 */
+export interface AgentTokenRound {
+  round: number;
+  input: number;
+  cacheRead: number;
+  output: number;
+  total: number;
+  /** 同一 assistant decision 中选择的工具名（按序） */
+  toolCalls: readonly string[];
+}
+
 export interface PiAgentRunOptions {
   systemPrompt: string;
   tools: readonly AgentTool<any>[];
@@ -47,6 +58,8 @@ export interface PiAgentRunResult {
   /** turn 数（一次 LLM 调用 + 其工具执行为一个 turn） */
   rounds: number;
   tokens: { input: number; output: number; cacheRead: number; total: number };
+  /** 每轮 token usage（与 reasoningTurns 一一对应，round 从 1 递增；始终返回数组） */
+  tokenRounds: readonly AgentTokenRound[];
   latencyMs: number;
   /** 工具调用记录（按首次出现顺序；isError 在执行结束时回填） */
   toolCalls: readonly AgentToolCallRecord[];
@@ -94,6 +107,7 @@ export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRun
   const toolCallOrder: string[] = [];
   const toolCallById = new Map<string, AgentToolCallRecord>();
   const reasoningTurns: AgentReasoningTurn[] = [];
+  const tokenRounds: AgentTokenRound[] = [];
   let finalText = "";
   let lastAssistantHasToolCalls = false;
   const tokens = { input: 0, output: 0, cacheRead: 0, total: 0 };
@@ -134,6 +148,20 @@ export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRun
             turns + 1,
           ),
         );
+        // token 观测：直接读该 assistant message 的 usage（与 agent_end 累加同一来源），缺失按 0；
+        // tool names 从 toolCall block 取。
+        tokenRounds.push({
+          round: turns + 1,
+          input: message.usage.input ?? 0,
+          cacheRead: message.usage.cacheRead ?? 0,
+          output: message.usage.output ?? 0,
+          total: message.usage.totalTokens ?? 0,
+          toolCalls: message.content
+            .filter(
+              (block): block is Extract<typeof block, { type: "toolCall" }> => block.type === "toolCall",
+            )
+            .map((block) => block.name),
+        });
         break;
       }
       case "tool_execution_start": {
@@ -187,6 +215,7 @@ export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRun
     latencyMs: Math.round(performance.now() - started),
     toolCalls: toolCallOrder.map((id) => toolCallById.get(id)!),
     reasoningTurns,
+    tokenRounds,
     finalText,
     maxedOut: lastAssistantHasToolCalls,
     ...(error !== undefined ? { error } : {}),

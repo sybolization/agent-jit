@@ -13,6 +13,7 @@ import {
   parseFlags,
   aggregateR5,
   buildR5Aggregates,
+  buildR5JitGroups,
   compressedPath,
   deriveR5Metrics,
   r5ControlSystemPrompt,
@@ -829,5 +830,95 @@ describe("parseFlags — --dsl-guidance（Z/P/F ablation）", () => {
   test("与其他 flag 共存解析", () => {
     const flags = parseFlags(["--arm=treatment", "--task=B", "--samples=10", "--dsl-guidance=primitive"]);
     expect(flags).toMatchObject({ arm: "treatment", task: "B", samples: 10, dslGuidance: "primitive" });
+  });
+});
+
+describe("aggregateR5 — 分项 token 均值", () => {
+  test("avgUncachedInput / avgCacheRead / avgOutput / avgTokens 分别统计", () => {
+    const runA = baseMetrics({ arm: "treatment", taskId: "B", tokens: { input: 100, output: 50, cacheRead: 200, total: 350 } });
+    const runB = baseMetrics({ arm: "treatment", taskId: "B", tokens: { input: 300, output: 150, cacheRead: 400, total: 850 } });
+    const agg = aggregateR5([runA, runB], "treatment", "B");
+    expect(agg.avgUncachedInputTokens).toBe(200);
+    expect(agg.avgCacheReadTokens).toBe(300);
+    expect(agg.avgOutputTokens).toBe(100);
+    expect(agg.avgTokens).toBe(600);
+  });
+});
+
+describe("buildR5JitGroups — clean / late / noJit 不重不漏", () => {
+  test("三种边界 case 分到正确组，count 之和等于格内总数", () => {
+    const clean = baseMetrics({
+      arm: "treatment", taskId: "B",
+      jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: true,
+      timelyOffload: true, tokens: { input: 10, output: 10, cacheRead: 0, total: 20 }, rounds: 3,
+    });
+    const lateSemanticWrong = baseMetrics({
+      arm: "treatment", taskId: "B",
+      jitAttempted: true, jitSemanticCorrect: false, jitFinishedWithoutFallback: false,
+      timelyOffload: false, tokens: { input: 100, output: 100, cacheRead: 0, total: 200 }, rounds: 8,
+    });
+    const lateFallback = baseMetrics({
+      arm: "treatment", taskId: "B",
+      jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: false, fallbackUsed: true,
+      timelyOffload: false, tokens: { input: 50, output: 50, cacheRead: 0, total: 100 }, rounds: 6,
+    });
+    const noJit = baseMetrics({
+      arm: "treatment", taskId: "B", jitAttempted: false,
+      tokens: { input: 30, output: 30, cacheRead: 0, total: 60 }, rounds: 2,
+    });
+    const groups = buildR5JitGroups([clean, lateSemanticWrong, lateFallback, noJit], "treatment", "B");
+    const byGroup = Object.fromEntries(groups.map((g) => [g.group, g])) as Record<string, (typeof groups)[number]>;
+    expect(groups.reduce((s, g) => s + g.runs, 0)).toBe(4);
+    expect(byGroup.cleanOffload.runs).toBe(1);
+    expect(byGroup.lateOffload.runs).toBe(2);
+    expect(byGroup.noJit.runs).toBe(1);
+    expect(byGroup.cleanOffload.avgTokens).toBe(20);
+    expect(byGroup.lateOffload.avgTokens).toBe(150); // (200 + 100) / 2
+    expect(byGroup.noJit.avgTokens).toBe(60);
+  });
+
+  test("A 型 clean：jitFinishedWithoutFallback 且 timelyOffload 非 false → clean", () => {
+    const a = baseMetrics({
+      arm: "treatment", taskId: "A",
+      jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: true,
+      timelyOffload: undefined, tokens: { input: 1, output: 1, cacheRead: 0, total: 2 }, rounds: 4,
+    });
+    const groups = buildR5JitGroups([a], "treatment", "A");
+    expect(groups.find((g) => g.group === "cleanOffload")!.runs).toBe(1);
+    expect(groups.find((g) => g.group === "noJit")!.runs).toBe(0);
+  });
+});
+
+describe("writeR5Report — tokenRounds 与 jitGroups", () => {
+  test("新 run 写入 tokenRounds；顶层输出 jitGroups；无 tokenRounds 的 run 不写该字段", () => {
+    const runs: R5RunMetrics[] = [
+      baseMetrics({
+        arm: "treatment", taskId: "B",
+        jitAttempted: true, jitSemanticCorrect: true, jitFinishedWithoutFallback: true,
+        timelyOffload: true, tokens: { input: 100, output: 50, cacheRead: 0, total: 150 },
+        tokenRounds: [
+          { round: 1, input: 100, cacheRead: 0, output: 30, total: 130, toolCalls: ["jit_describe_tools"] },
+          { round: 2, input: 0, cacheRead: 100, output: 20, total: 120, toolCalls: ["jit_execute_program"] },
+        ],
+      }),
+      baseMetrics({ arm: "control", taskId: "B", tokens: { input: 200, output: 100, cacheRead: 0, total: 300 } }),
+    ];
+    const outDir = path.join(os.tmpdir(), `r5-token-report-${Date.now()}`);
+    const reportPath = writeR5Report(outDir, { arm: "both", task: "B", samples: 1, rounds: 10 }, R5_TASKS, runs, buildR5Aggregates(runs));
+    try {
+      const report = JSON.parse(fs.readFileSync(reportPath, "utf8")) as {
+        runs: Array<{ tokenRounds?: Array<{ round: number; input: number; total: number; toolCalls: string[] }> }>;
+        jitGroups: Record<string, Record<string, Array<{ group: string; runs: number; avgTokens: number }>>>;
+      };
+      expect(report.runs[0]!.tokenRounds).toHaveLength(2);
+      expect(report.runs[0]!.tokenRounds![0]).toMatchObject({ round: 1, input: 100, toolCalls: ["jit_describe_tools"] });
+      expect(report.runs[1]!.tokenRounds).toBeUndefined();
+      expect(report.jitGroups.treatment.B).toHaveLength(3);
+      expect(report.jitGroups.treatment.B.reduce((s, g) => s + g.runs, 0)).toBe(1);
+      expect(report.jitGroups.treatment.B.find((g) => g.group === "cleanOffload")!.runs).toBe(1);
+      expect(report.jitGroups.control.B.reduce((s, g) => s + g.runs, 0)).toBe(1);
+    } finally {
+      fs.rmSync(outDir, { recursive: true, force: true });
+    }
   });
 });
