@@ -6,11 +6,12 @@ import { adaptRegisteredTool, createPiTools } from "../src/integrations/pi/toolA
 import {
   createJitDescribeTool,
   createJitExecuteProgramTool,
+  createJitTools,
   renderCompileFailure,
   toJitCompileFailure,
   type JitExecuteProgramDetails,
 } from "../src/integrations/pi/jit.js";
-import { renderDslReference } from "../src/integrations/pi/dslReference.js";
+import { renderDslReference, renderDslReferenceWithSource } from "../src/integrations/pi/dslReference.js";
 import { defineTool, type RegisteredTool } from "../src/tools/definition.js";
 import { ToolRegistry } from "../src/tools/registry.js";
 import { createMockGithubTools } from "../src/tools/providers/github/mock.js";
@@ -68,6 +69,27 @@ describe("createPiTools — ToolRegistry → Pi AgentTool（JIT 变成真正的 
     const [search] = registry.all();
     const adapted = adaptRegisteredTool(registry, search!);
     expect(adapted.name).toBe("github_search_repositories");
+  });
+});
+
+describe("createJitTools / createPiTools — describeTools 开关", () => {
+  test("createJitTools(registry) 默认挂 jit_describe_tools + jit_execute_program", () => {
+    const tools = createJitTools(makeRegistry());
+    expect(tools.map((tool) => tool.name)).toEqual(["jit_describe_tools", "jit_execute_program"]);
+  });
+
+  test("createJitTools(registry, { describeTools: false })：不挂 jit_describe_tools，仍保留 jit_execute_program", () => {
+    const tools = createJitTools(makeRegistry(), { describeTools: false });
+    expect(tools.map((tool) => tool.name)).toEqual(["jit_execute_program"]);
+  });
+
+  test("createPiTools(registry, { describeTools: false })：业务工具 + jit_execute_program，无 describe 工具（compile-only/manifest 臂形态）", () => {
+    const tools = createPiTools(makeRegistry(), { describeTools: false });
+    expect(tools.map((tool) => tool.name)).toEqual([
+      "github_search_repositories",
+      "github_get_repository",
+      "jit_execute_program",
+    ]);
   });
 });
 
@@ -152,6 +174,16 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     expect(full).toContain("github.get_contributor_stats");
     expect(full).toContain("github.list_commits");
     expect(full).toContain("return top");
+  });
+
+  test("renderDslReferenceWithSource definitions 变体：Tool calls 段不提 jit_describe_tools（compile-only/manifest 臂）", () => {
+    // definitions：core 的 Tool calls 行被替换为中性表述；默认（describe）与 renderDslReference 逐字节一致
+    const definitions = renderDslReferenceWithSource("primitive", { toolContractSource: "definitions" });
+    expect(definitions).not.toContain("jit_describe_tools");
+    expect(definitions).toContain("遵循工具定义（Tool Contract）中的参数名与类型");
+    expect(definitions).toContain("## 1. Tool calls");
+    expect(definitions).toContain("## 2. Array dataflow operators");
+    expect(renderDslReferenceWithSource("primitive")).toBe(renderDslReference("primitive"));
   });
 
   test("四段式输出：manual + # Requested Tool Contracts + ## Compatible bindings（patterns 模式每次返回）", async () => {

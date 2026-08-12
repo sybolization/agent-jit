@@ -3,18 +3,19 @@
 /**
  * R6.1 — Contract Acquisition 三臂实验：测量"拿到编程契约"这一动作的必要性。
  *
- * 实验问题：现状 baseline 要求模型先 jit_describe_tools 拿契约再 execute（eager-describe）。
+ * 实验问题：现状 baseline 要求模型先 jit_describe_tools 拿契约再 execute（eager）。
  * 如果直接让模型写程序、用编译的结构化诊断兜底，契约获取成本（describe 轮次 + 上下文）能不能省下来？
- * 三臂（都是 treatment 形态、JIT 可用，差异只在 contract acquisition）：
- * - A = eager-describe（baseline）：先 describe 拿完整契约，再 execute；
- * - B = compile-first：无前置 describe，直接 jit_execute_program，编译失败按结构化诊断修正，
- *   describe 仅作为 escape hatch（兜底）；
- * - C = compact-manifest：compile-first + 在常驻提示词里补紧凑 output manifest（只含工具输出形状）。
+ * 三臂（都是 treatment 形态，协议完全统一：reasoning OFF + boundaryPolicy ON + stopAfterSubmit ON + Task B，
+ * 差异只在 contract acquisition）：
+ * - A = eager：先 describe 拿完整契约，再 execute；
+ * - B = compile-only：不注册 jit_describe_tools，无 describe，仅 atomic inputs + DSL，
+ *   编译失败按结构化诊断修正；
+ * - C = manifest：同 B（也不注册 jit_describe_tools），另在常驻提示词里补紧凑 output manifest（只含工具输出形状）。
  * 外加恒跑的 control 臂（无 JIT 的普通 Agent）作为外部基线。
  *
- * 报告指标（沿用 R5 的 R5Aggregate 新字段）：firstPassCompileRate / eventualCompileRate /
- * avgRepairRounds / describeFallbackRate，加上 adoption / precision / token / rounds /
- * jitGroups 分布（clean / earlyDirty / late / noJit）。
+ * 报告指标（沿用 R5 的 R5Aggregate 新字段）：firstPassCompileRateOverall / firstPassCompileRateAmongAttempts /
+ * eventualCompileRate / avgRepairRounds / preDescribeUsedRate / describeFallbackRate，加上 adoption / precision /
+ * token / rounds / jitGroups 分布（clean / earlyDirty / late / noJit）。
  *
  * 运行：npx tsx src/experiments/r6DescribeBenchmark.ts [--arm=A|B|C|all] [--task=A|B|C|all] [--samples=1] [--rounds=10] [--stop-after-submit]
  * 环境：DEEPSEEK_API_KEY（.env，已被 gitignore）
@@ -43,16 +44,16 @@ export type R6Arm = "A" | "B" | "C";
 
 export const R6_ARM_LABEL: Record<R6Arm | "control", string> = {
   control: "Control（无 JIT）",
-  A: "A: eager-describe（现状 baseline）",
-  B: "B: compile-first（无前置 describe）",
-  C: "C: compact-manifest（只补输出形状）",
+  A: "A: eager（describe 拿完整契约）",
+  B: "B: compile-only（无 describe，仅 atomic inputs + DSL）",
+  C: "C: manifest（+ compact output shapes）",
 };
 
 /** arm → contractMode 映射（A/B/C 都是 treatment 形态，差异只在 contract acquisition）。 */
 export const R6_ARM_CONTRACT_MODE: Record<R6Arm, R6ContractMode> = {
-  A: "eager-describe",
-  B: "compile-first",
-  C: "compact-manifest",
+  A: "eager",
+  B: "compile-only",
+  C: "manifest",
 };
 
 /** 从 .env 加载环境变量（只补未设置项；r5OffloadingBenchmark 的 loadEnv 是模块私有，这里本地复制）。 */
@@ -128,6 +129,8 @@ export interface R6ReportConfig {
   samples: number;
   rounds: number;
   stopAfterSubmit: boolean;
+  /** 统一协议固定 Boundary Policy ON（可选：仅报告元数据，buildR6Cells/writeR6Report 不消费）。 */
+  boundaryPolicy?: boolean;
 }
 
 /**
@@ -159,9 +162,9 @@ export function buildR6Cells(runs: readonly R5RunMetrics[], config: R6ReportConf
   };
   return {
     control: makeCell("control", R6_ARM_LABEL.control, "none", "control", () => true),
-    A: makeCell("A", R6_ARM_LABEL.A, R6_ARM_CONTRACT_MODE.A, "treatment", (run) => run.contractMode === "eager-describe"),
-    B: makeCell("B", R6_ARM_LABEL.B, R6_ARM_CONTRACT_MODE.B, "treatment", (run) => run.contractMode === "compile-first"),
-    C: makeCell("C", R6_ARM_LABEL.C, R6_ARM_CONTRACT_MODE.C, "treatment", (run) => run.contractMode === "compact-manifest"),
+    A: makeCell("A", R6_ARM_LABEL.A, R6_ARM_CONTRACT_MODE.A, "treatment", (run) => run.contractMode === "eager"),
+    B: makeCell("B", R6_ARM_LABEL.B, R6_ARM_CONTRACT_MODE.B, "treatment", (run) => run.contractMode === "compile-only"),
+    C: makeCell("C", R6_ARM_LABEL.C, R6_ARM_CONTRACT_MODE.C, "treatment", (run) => run.contractMode === "manifest"),
   };
 }
 
@@ -228,9 +231,10 @@ export function printR6Comparison(cells: Record<R6CellId, R6Cell>): void {
     const jitDist = cell.jitGroups.map((group) => `${group.group}=${group.runs}`).join(" ");
     console.log(`  [${id}] ${cell.label}`);
     console.log(
-      `    runs=${agg.runs} ` +
-        `firstPassCompile=${pct(agg.firstPassCompileRate)} eventualCompile=${pct(agg.eventualCompileRate)} ` +
-        `avgRepairRounds=${agg.avgRepairRounds.toFixed(1)} describeFallback=${pct(agg.describeFallbackRate)} ` +
+      `runs=${agg.runs} ` +
+        `firstPassOverall=${pct(agg.firstPassCompileRateOverall)} firstPassAmongAttempts=${pct(agg.firstPassCompileRateAmongAttempts)} ` +
+        `eventualCompile=${pct(agg.eventualCompileRate)} avgRepairRounds=${agg.avgRepairRounds.toFixed(1)} ` +
+        `preDescribe=${pct(agg.preDescribeUsedRate)} describeFallback=${pct(agg.describeFallbackRate)} ` +
         `adoption=${pct(agg.adoptionRate)} precision=${pct(agg.offloadPrecision)} ` +
         `avgTokens=${Math.round(agg.avgTokens)} avgRounds=${agg.avgRounds.toFixed(1)}`,
     );
@@ -256,7 +260,8 @@ function logRun(run: R5RunMetrics): void {
   console.log(
     `  R6: firstPassCompile=${run.firstPassCompileSuccess === undefined ? "n/a" : run.firstPassCompileSuccess} ` +
       `repairRounds=${run.repairRounds === undefined ? "n/a" : run.repairRounds} ` +
-      `describeFallbackUsed=${run.describeFallbackUsed} executeErrors=${(run.executeErrors ?? []).length}`,
+      `preDescribe=${run.preDescribeUsed === undefined ? "n/a" : run.preDescribeUsed} describeFallbackUsed=${run.describeFallbackUsed} ` +
+      `executeErrors=${(run.executeErrors ?? []).length}`,
   );
   if (run.submittedAnswer !== undefined) console.log(`  submit_answer：${run.submittedAnswer.slice(0, 300)}`);
   if (run.lastProgram) {
@@ -298,6 +303,7 @@ async function main(): Promise<number> {
         console.log(`\n===== [${R6_ARM_LABEL[currentArm]}] ${currentTask.name}（sample ${i}/${samples}）=====`);
         const run = await runR5Run(currentTask, "treatment", runtime, rounds, {
           ...(stopAfterSubmit ? { stopAfterSubmit } : {}),
+          boundaryPolicy: true,
           contractMode: R6_ARM_CONTRACT_MODE[currentArm],
         });
         runs.push(run);
@@ -307,7 +313,7 @@ async function main(): Promise<number> {
   }
 
   console.log("\n\n===== R6.1 三臂对比 =====");
-  const cells = buildR6Cells(runs, { arm, task, samples, rounds, stopAfterSubmit });
+  const cells = buildR6Cells(runs, { arm, task, samples, rounds, stopAfterSubmit, boundaryPolicy: true });
   printR6Comparison(cells);
 
   const outDir = path.join(
@@ -318,7 +324,7 @@ async function main(): Promise<number> {
   );
   const reportPath = writeR6Report(
     outDir,
-    { arm, task, samples, rounds, stopAfterSubmit },
+    { arm, task, samples, rounds, stopAfterSubmit, boundaryPolicy: true },
     tasks,
     cells,
     runs,

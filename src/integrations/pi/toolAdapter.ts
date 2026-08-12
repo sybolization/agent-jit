@@ -43,14 +43,16 @@ export function adaptRegisteredTool(registry: ToolRegistry<RegisteredTool>, tool
 /**
  * 把整个 registry 变成 Pi Agent 的工具集：普通业务工具（host alias 名）+ JIT 元工具。
  * Agent/agent loop 负责工具调用循环——harness 不需要再对 jit_* 做特殊 dispatch。
+ * describeTools 缺省 true（挂 jit_describe_tools）；compile-only / manifest 臂传
+ * describeTools:false——模型没有 describe 工具可用，只能直接写程序、靠编译诊断兜底。
  */
 export function createPiTools(
   registry: ToolRegistry<RegisteredTool>,
-  options: { guidance?: DslGuidanceMode } = {},
+  options: { guidance?: DslGuidanceMode; describeTools?: boolean } = {},
 ): AgentTool<any>[] {
   return [
     ...registry.all().map((tool) => adaptRegisteredTool(registry, tool)),
-    createJitDescribeTool(registry, options),
+    ...(options.describeTools === false ? [] : [createJitDescribeTool(registry, options)]),
     createJitExecuteProgramTool(registry),
   ];
 }

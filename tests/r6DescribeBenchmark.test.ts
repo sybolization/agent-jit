@@ -9,6 +9,7 @@ import {
   buildR6Cells,
   writeR6Report,
   R6_ARM_CONTRACT_MODE,
+  type R6ReportConfig,
 } from "../src/experiments/r6DescribeBenchmark.js";
 import type { R5Arm, R5RunMetrics } from "../src/experiments/r5OffloadingBenchmark.js";
 
@@ -69,15 +70,15 @@ describe("r6DescribeBenchmark — buildR6Cells 三臂 + control 分区", () => {
   const runs: R5RunMetrics[] = [
     baseMetrics({ arm: "control", taskId: "B", tokens: { input: 100, output: 50, cacheRead: 0, total: 150 } }),
     baseMetrics({
-      arm: "treatment", taskId: "B", contractMode: "eager-describe",
+      arm: "treatment", taskId: "B", contractMode: "eager",
       tokens: { input: 100, output: 50, cacheRead: 0, total: 400 },
     }),
     baseMetrics({
-      arm: "treatment", taskId: "B", contractMode: "compile-first",
+      arm: "treatment", taskId: "B", contractMode: "compile-only",
       tokens: { input: 200, output: 100, cacheRead: 0, total: 2000 },
     }),
     baseMetrics({
-      arm: "treatment", taskId: "B", contractMode: "compact-manifest",
+      arm: "treatment", taskId: "B", contractMode: "manifest",
       tokens: { input: 300, output: 150, cacheRead: 0, total: 5000 },
     }),
   ];
@@ -89,12 +90,12 @@ describe("r6DescribeBenchmark — buildR6Cells 三臂 + control 分区", () => {
     expect(cells.A.runs).toHaveLength(1);
     expect(cells.B.runs).toHaveLength(1);
     expect(cells.C.runs).toHaveLength(1);
-    expect(cells.A.runs[0]!.contractMode).toBe("eager-describe");
-    expect(cells.B.runs[0]!.contractMode).toBe("compile-first");
-    expect(cells.C.runs[0]!.contractMode).toBe("compact-manifest");
-    expect(R6_ARM_CONTRACT_MODE.A).toBe("eager-describe");
-    expect(R6_ARM_CONTRACT_MODE.B).toBe("compile-first");
-    expect(R6_ARM_CONTRACT_MODE.C).toBe("compact-manifest");
+    expect(cells.A.runs[0]!.contractMode).toBe("eager");
+    expect(cells.B.runs[0]!.contractMode).toBe("compile-only");
+    expect(cells.C.runs[0]!.contractMode).toBe("manifest");
+    expect(R6_ARM_CONTRACT_MODE.A).toBe("eager");
+    expect(R6_ARM_CONTRACT_MODE.B).toBe("compile-only");
+    expect(R6_ARM_CONTRACT_MODE.C).toBe("manifest");
   });
 
   test("每格用自己格内 runs 独立聚合：A 格 aggregate.runs=1；B 格 avgTokens 等于该 run 的 tokens.total", () => {
@@ -112,41 +113,38 @@ describe("r6DescribeBenchmark — writeR6Report", () => {
     const runs: R5RunMetrics[] = [
       baseMetrics({ arm: "control", taskId: "B", tokens: { input: 100, output: 50, cacheRead: 0, total: 150 } }),
       baseMetrics({
-        arm: "treatment", taskId: "B", contractMode: "eager-describe",
+        arm: "treatment", taskId: "B", contractMode: "eager",
         tokens: { input: 100, output: 50, cacheRead: 0, total: 400 },
       }),
       baseMetrics({
-        arm: "treatment", taskId: "B", contractMode: "compile-first",
+        arm: "treatment", taskId: "B", contractMode: "compile-only",
         tokens: { input: 200, output: 100, cacheRead: 0, total: 2000 },
       }),
       baseMetrics({
-        arm: "treatment", taskId: "B", contractMode: "compact-manifest",
+        arm: "treatment", taskId: "B", contractMode: "manifest",
         tokens: { input: 300, output: 150, cacheRead: 0, total: 5000 },
       }),
     ];
-    const cells = buildR6Cells(runs, { arm: "all", task: "B", samples: 1, rounds: 10, stopAfterSubmit: false });
+    // 统一协议：三臂都固定 Boundary Policy ON（main() 恒传 boundaryPolicy: true）
+    const config: R6ReportConfig = { arm: "all", task: "B", samples: 1, rounds: 10, stopAfterSubmit: false, boundaryPolicy: true };
+    const cells = buildR6Cells(runs, config);
     const outDir = path.join(os.tmpdir(), `r6-report-test-${Date.now()}`);
-    const reportPath = writeR6Report(
-      outDir,
-      { arm: "all", task: "B", samples: 1, rounds: 10, stopAfterSubmit: false },
-      R5_TASKS,
-      cells,
-      runs,
-    );
+    const reportPath = writeR6Report(outDir, config, R5_TASKS, cells, runs);
     try {
       expect(fs.existsSync(reportPath)).toBe(true);
       const report = JSON.parse(fs.readFileSync(reportPath, "utf8")) as {
         mode: string;
-        config: { arm: string; task: string };
+        config: { arm: string; task: string; boundaryPolicy?: boolean };
         cells: Record<string, { contractMode: string; aggregate: { runs: number } }>;
         runs: unknown[];
       };
       expect(report.mode).toBe("r6-contract-discovery");
       expect(report.config).toMatchObject({ arm: "all", task: "B" });
+      expect(report.config.boundaryPolicy).toBe(true);
       expect(Object.keys(report.cells)).toEqual(["control", "A", "B", "C"]);
-      expect(report.cells.A.contractMode).toBe("eager-describe");
-      expect(report.cells.B.contractMode).toBe("compile-first");
-      expect(report.cells.C.contractMode).toBe("compact-manifest");
+      expect(report.cells.A.contractMode).toBe("eager");
+      expect(report.cells.B.contractMode).toBe("compile-only");
+      expect(report.cells.C.contractMode).toBe("manifest");
       expect(report.cells.control.aggregate.runs).toBe(1);
       expect(report.runs).toHaveLength(4);
     } finally {

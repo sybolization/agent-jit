@@ -1240,10 +1240,11 @@ describe("deriveR5Metrics — R6.1 新指标（firstPassCompile / repairRounds /
     expect(metrics.compileAttempts).toBe(0);
   });
 
-  test("aggregateR5：firstPassCompileRate / avgRepairRounds / describeFallbackRate / avgRepairTokens / eventualCompileRate", () => {
+  test("aggregateR5：firstPassCompileRateOverall / firstPassCompileRateAmongAttempts / avgRepairRounds / describeFallbackRate / avgRepairTokens / eventualCompileRate", () => {
     const runOk = baseMetrics({
       arm: "treatment", taskId: "B",
-      contractMode: "compile-first",
+      contractMode: "compile-only",
+      executeCalls: 1,
       jitAttempted: true,
       jitExecutionSucceeded: true,
       firstPassCompileSuccess: true,
@@ -1252,7 +1253,8 @@ describe("deriveR5Metrics — R6.1 新指标（firstPassCompile / repairRounds /
     });
     const runRepaired = baseMetrics({
       arm: "treatment", taskId: "B",
-      contractMode: "compile-first",
+      contractMode: "compile-only",
+      executeCalls: 1,
       jitAttempted: true,
       jitExecutionSucceeded: false,
       firstPassCompileSuccess: false,
@@ -1261,7 +1263,8 @@ describe("deriveR5Metrics — R6.1 新指标（firstPassCompile / repairRounds /
       repairTokens: 300,
     });
     const agg = aggregateR5([runOk, runRepaired], "treatment", "B");
-    expect(agg.firstPassCompileRate).toBe(0.5);
+    expect(agg.firstPassCompileRateOverall).toBe(0.5); // 全部 run 作分母
+    expect(agg.firstPassCompileRateAmongAttempts).toBe(0.5); // 仅 executeCalls > 0 的 run 作分母
     expect(agg.avgRepairRounds).toBe(1);
     expect(agg.describeFallbackRate).toBe(0.5);
     expect(agg.avgRepairTokens).toBe(300);
@@ -1270,32 +1273,115 @@ describe("deriveR5Metrics — R6.1 新指标（firstPassCompile / repairRounds /
   });
 });
 
+describe("deriveR5Metrics — preDescribeUsed / describeFallbackUsed 顺序语义（R6.1）", () => {
+  test("先 describe 后 execute（eager 正常流程）：preDescribeUsed=true、describeFallbackUsed=false（正常先拿契约不被误判为兜底）", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        rounds: 3,
+        toolTimeline: [
+          call("jit_describe_tools", 1),
+          call("jit_execute_program", 2),
+          call("submit_answer", 3),
+        ],
+        describeCalls: 1,
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(metrics.preDescribeUsed).toBe(true);
+    expect(metrics.describeFallbackUsed).toBe(false);
+  });
+
+  test("describe → execute 失败 → describe 兜底 → execute 成功：preDescribeUsed=true、describeFallbackUsed=true、repairRounds=2", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        rounds: 5,
+        toolTimeline: [
+          call("jit_describe_tools", 1),
+          call("jit_execute_program", 2, true), // 首次编译失败
+          call("jit_describe_tools", 3), // 失败后的 describe 兜底
+          call("jit_execute_program", 4),
+          call("submit_answer", 5),
+        ],
+        describeCalls: 2,
+        executeCalls: 2,
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(metrics.preDescribeUsed).toBe(true);
+    expect(metrics.describeFallbackUsed).toBe(true);
+    expect(metrics.repairRounds).toBe(2);
+  });
+
+  test("全程无 describe：preDescribeUsed 省略为 undefined、describeFallbackUsed=false", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [
+          call("jit_execute_program", 1),
+          call("submit_answer", 2),
+        ],
+        describeCalls: 0,
+        executeCalls: 1,
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(metrics.preDescribeUsed).toBeUndefined();
+    expect(metrics.describeFallbackUsed).toBe(false);
+  });
+
+  test("aggregateR5 双分母：firstPassCompileRateOverall 用全部 run、AmongAttempts 用 executeCalls>0 的 run、preDescribeUsedRate 用全部 run", () => {
+    const runs: R5RunMetrics[] = [
+      baseMetrics({ arm: "treatment", taskId: "B", executeCalls: 1, firstPassCompileSuccess: true, preDescribeUsed: true }),
+      baseMetrics({ arm: "treatment", taskId: "B", executeCalls: 1, firstPassCompileSuccess: true, preDescribeUsed: true }),
+      baseMetrics({ arm: "treatment", taskId: "B", executeCalls: 1, firstPassCompileSuccess: true, preDescribeUsed: true }),
+      baseMetrics({ arm: "treatment", taskId: "B", executeCalls: 0 }), // 无 compile 尝试：计入 Overall 分母但不计入 AmongAttempts 分母
+    ];
+    const agg = aggregateR5(runs, "treatment", "B");
+    expect(agg.firstPassCompileRateOverall).toBe(0.75);
+    expect(agg.firstPassCompileRateAmongAttempts).toBe(1.0);
+    expect(agg.preDescribeUsedRate).toBe(0.75);
+  });
+});
+
 describe("r5TreatmentSystemPrompt — contractMode 三臂", () => {
-  test("默认 = eager-describe：与显式传入输出逐字节相同，无 Output manifest / DSL 参考", () => {
+  test("默认 = eager：与显式传入输出逐字节相同，无 Output manifest / DSL 参考", () => {
     const defaultPrompt = r5TreatmentSystemPrompt();
-    const eagerPrompt = r5TreatmentSystemPrompt({ contractMode: "eager-describe" });
+    const eagerPrompt = r5TreatmentSystemPrompt({ contractMode: "eager" });
     expect(eagerPrompt).toBe(defaultPrompt);
     expect(defaultPrompt).not.toContain("Output manifest");
     expect(defaultPrompt).not.toContain("## 1. Tool calls");
   });
 
-  test("compile-first：直接 execute + 结构化诊断兜底，无“先 describe”约束，追加 DSL 参考", () => {
-    const prompt = r5TreatmentSystemPrompt({ contractMode: "compile-first" });
+  test("compile-only：直接 execute + 结构化诊断兜底，全文不含 jit_describe_tools（manual 用 definitions 变体），追加澄清行与 DSL 参考", () => {
+    const prompt = r5TreatmentSystemPrompt({ contractMode: "compile-only" });
     expect(prompt).toContain("jit_execute_program");
     expect(prompt).toContain("结构化诊断");
+    expect(prompt).toContain("输出字段在编译前未知");
     expect(prompt).not.toContain("需要时先用");
+    // compile-only 臂不提供 describe 工具——全文（含 DSL 参考）不得出现 jit_describe_tools
+    expect(prompt).not.toContain("jit_describe_tools");
     expect(prompt).toContain("## Agent Execution DSL 参考");
     expect(prompt).toContain("## 1. Tool calls");
+    expect(prompt).toContain("遵循工具定义");
   });
 
-  test("compact-manifest：追加 ## Output manifest 与 manifest 行（仍无“先 describe”约束）", () => {
+  test("manifest：追加 ## Output manifest 与 manifest 行（JIT 说明仍不含 jit_describe_tools）", () => {
     const prompt = r5TreatmentSystemPrompt({
-      contractMode: "compact-manifest",
+      contractMode: "manifest",
       manifest: "github.search_repositories -> [{full_name}]",
     });
     expect(prompt).toContain("## Output manifest");
     expect(prompt).toContain("github.search_repositories -> [{full_name}]");
     expect(prompt).toContain("结构化诊断");
-    expect(prompt).not.toContain("需要时先用");
+    expect(prompt.split("\n## Agent Execution DSL 参考")[0]).not.toContain("jit_describe_tools");
   });
 });

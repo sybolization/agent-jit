@@ -262,10 +262,13 @@ export function renderCompileFailure(error: ExecutionDslCompileError): string {
   ].join("\n");
 }
 
-/** 创建 JIT 元工具集（jit_describe_tools / jit_execute_program）。 */
+/** 创建 JIT 元工具集（jit_describe_tools / jit_execute_program；describeTools:false 时不挂 describe 工具）。 */
 export function createJitTools(
   registry: RuntimeRegistry,
-  options: { guidance?: DslGuidanceMode } = {},
+  options: { guidance?: DslGuidanceMode; describeTools?: boolean } = {},
 ): readonly AgentTool[] {
-  return [createJitDescribeTool(registry, options), createJitExecuteProgramTool(registry)];
+  return [
+    ...(options.describeTools === false ? [] : [createJitDescribeTool(registry, options)]),
+    createJitExecuteProgramTool(registry),
+  ];
 }

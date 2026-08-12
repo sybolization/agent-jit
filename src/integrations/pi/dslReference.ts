@@ -150,3 +150,35 @@ export function renderDslReference(mode: DslGuidanceMode): string {
       return `${DSL_CORE_REFERENCE}\n\n${DSL_FULL_EXAMPLE}`;
   }
 }
+
+/**
+ * compile-only / manifest 臂（R6.1 修正版）：`jit_describe_tools` 未注册，
+ * 核心参考的 Tool calls 段不能再说"遵循 jit_describe_tools 返回的 Tool Contract"，
+ * 否则模型会在程序里误用该工具。此选项把该行替换为中性表述（契约来自模型可见的工具定义），
+ * eager / R5 缺省行为不变。
+ */
+export type DslToolContractSource = "describe" | "definitions";
+
+const DESCRIBE_TOOL_CALLS_LINE =
+  "普通工具调用遵循 jit_describe_tools 返回的 Tool Contract：参数名、参数类型与返回类型由契约决定，不得自创参数。";
+
+const DEFINITIONS_TOOL_CALLS_LINE =
+  "普通工具调用遵循工具定义（Tool Contract）中的参数名与类型，不得自创参数名。";
+
+export function renderDslReferenceWithSource(
+  mode: DslGuidanceMode,
+  options: { toolContractSource?: DslToolContractSource } = {},
+): string {
+  const core =
+    options.toolContractSource === "definitions"
+      ? DSL_CORE_REFERENCE.replace(DESCRIBE_TOOL_CALLS_LINE, DEFINITIONS_TOOL_CALLS_LINE)
+      : DSL_CORE_REFERENCE;
+  switch (mode) {
+    case "primitive":
+      return core;
+    case "patterns":
+      return `${core}\n\n${DSL_MICRO_PATTERNS}`;
+    case "full-example":
+      return `${core}\n\n${DSL_FULL_EXAMPLE}`;
+  }
+}
