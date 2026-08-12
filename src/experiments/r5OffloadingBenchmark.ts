@@ -49,12 +49,13 @@ import { Type } from "typebox";
 
 import { createDeepSeekPiRuntime, type PiRuntime } from "../llm/gateway.js";
 import { adaptRegisteredTool, createPiTools } from "../integrations/pi/toolAdapter.js";
-import { type DslGuidanceMode } from "../integrations/pi/dslReference.js";
+import { DSL_CORE_REFERENCE, type DslGuidanceMode } from "../integrations/pi/dslReference.js";
 import type { JitExecuteProgramDetails } from "../integrations/pi/jit.js";
 import type { ExecutionGraph } from "../compiler/ir.js";
 import type { TraceEntry } from "../runtime/trace.js";
 import { defineTool, type RegisteredTool } from "../tools/definition.js";
 import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL } from "../tools/jitTools.js";
+import { renderCompactManifest } from "../tools/compactContractRenderer.js";
 import { toolIdAlias, ToolRegistry } from "../tools/registry.js";
 import { checkTaskCorrectness } from "./taskSpec.js";
 import { runPiAgent, type AgentReasoningTurn, type AgentTokenRound } from "./agentRunner.js";
@@ -62,6 +63,9 @@ import { createR5CTask, R5_TASKS, type R5Task, type R5TaskId } from "./r5Tasks.j
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
+
+/** R6.1 contract acquisition 模式（三臂）：eager-describe = 现状 baseline；compile-first = 无前置 describe，直接写程序，编译诊断兜底；compact-manifest = compile-first + 紧凑 output manifest。 */
+export type R6ContractMode = "eager-describe" | "compile-first" | "compact-manifest";
 
 /**
  * submit_answer：双 arm 完全同标准的最终答案提交通道。
@@ -149,14 +153,33 @@ export const BOUNDARY_POLICY_RULES: readonly string[] = [
  * src/integrations/pi/dslReference.ts 的 renderDslReference(guidance)（--dsl-guidance 可选 primitive/patterns/full-example，默认 primitive））。
  * 这样 A 型这种完全不用 JIT 的任务基本不承担 DSL context 成本（控制 context tax 的设计意图）。
  */
-export function r5TreatmentSystemPrompt(options?: { boundaryPolicy?: boolean }): string {
+export function r5TreatmentSystemPrompt(options?: {
+  boundaryPolicy?: boolean;
+  contractMode?: R6ContractMode;
+  manifest?: string;
+}): string {
+  const contractMode = options?.contractMode ?? "eager-describe";
+  // 三臂的 JIT 说明行：
+  // - eager-describe（现状）：先 describe 拿契约，再 execute；
+  // - compile-first / compact-manifest：直接 execute，编译失败按结构化诊断修正，describe 仅兜底。
+  const jitLine =
+    contractMode === "eager-describe"
+      ? `- Agent JIT：将已经确定的多步工具操作编译执行——需要时先用 ${DESCRIBE_TOOLS_TOOL.name} 获取编程契约（返回 DSL 语法极简参考 + 你要编排工具的契约），再用 ${EXECUTE_PROGRAM_TOOL.name} 提交程序。`
+      : `- Agent JIT：将已经确定的多步工具操作编译执行——直接调用 ${EXECUTE_PROGRAM_TOOL.name} 提交程序；编译失败会返回结构化诊断，按诊断修正后重试即可。${DESCRIBE_TOOLS_TOOL.name} 仅在你需要更多契约信息时作为兜底。`;
   return [
     "你是一个自主 Agent，需要完成用户交给的任务。你有两类工具：",
     "- 普通业务工具：直接调用（工具名与参数见工具定义），适合单次查询/操作。",
-    `- Agent JIT：将已经确定的多步工具操作编译执行——需要时先用 ${DESCRIBE_TOOLS_TOOL.name} 获取编程契约（返回 DSL 语法极简参考 + 你要编排工具的契约），再用 ${EXECUTE_PROGRAM_TOOL.name} 提交程序。`,
+    jitLine,
     "",
     "是否使用 JIT 由你决定：单个查询用普通工具即可；一段后续工作可以确定性程序化（对列表每个元素做同样处理、过滤/排序/合并/取前 N 等）时再考虑 JIT。",
     `完成所有工具调用后，调用 ${SUBMIT_ANSWER_ID}(answer="...") 提交最终答案（最终答案的唯一提交通道，不要只写在普通文本里）。`,
+    // 无前置 describe 的臂（compile-first / compact-manifest）：DSL 语言语义（无任何工具契约）常驻提示词
+    ...(contractMode === "compile-first" || contractMode === "compact-manifest" ? ["", DSL_CORE_REFERENCE] : []),
+    // compact-manifest：再追加紧凑 output manifest（只含工具输出形状）
+    ...(contractMode === "compact-manifest" && options?.manifest !== undefined && options.manifest.length > 0
+      ? ["", "## Output manifest", options.manifest]
+      : []),
+    // 边界策略段最后追加（eager-describe 下为空数组，顺序与现状一致 → 输出逐字节不变）
     ...(options?.boundaryPolicy === true
       ? ["", "## Offload 边界策略", ...BOUNDARY_POLICY_RULES.map((rule, index) => `${index + 1}. ${rule}`)]
       : []),
@@ -262,6 +285,18 @@ export interface R5RunMetrics {
   businessCalls: readonly string[];
   describeCalls: number;
   executeCalls: number;
+  /** R6.1：jit_execute_program 调用次数（= executeCalls，compile-first 的编译尝试数；deriveR5Metrics 恒返回，声明为可选以兼容既有字面量构造的测试） */
+  compileAttempts?: number;
+  /** R6.1：首次 jit_execute_program 是否编译通过（无 execute 调用 → undefined） */
+  firstPassCompileSuccess?: boolean;
+  /** R6.1：首次失败到首次成功的修复轮数（首轮即成功 → 0；从未成功 → 总轮数 − 首次失败轮；无 execute → undefined） */
+  repairRounds?: number;
+  /** R6.1：是否调用过 jit_describe_tools（compile-first/compact-manifest 臂 = fallback 指示；deriveR5Metrics 恒返回，声明为可选以兼容既有字面量构造的测试） */
+  describeFallbackUsed?: boolean;
+  /** R6.1：repair 区间（首次失败轮 .. 首次成功轮/末尾）轮次的 tokenRounds total 之和（无 tokenRounds → undefined） */
+  repairTokens?: number;
+  /** R6.1：该 run 的 contract acquisition 模式（runR5Run 透传；R6 三臂分臂聚合的事实源） */
+  contractMode?: R6ContractMode;
   // JIT 行为（R5 review：拆分代替单一 path = "dsl"）
   /** 是否调用过 jit_describe_tools / jit_execute_program（愿不愿意尝试） */
   jitAttempted: boolean;
@@ -367,6 +402,26 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
   const executeCallsInTimeline = input.toolTimeline.filter((call) => call.name === EXECUTE_PROGRAM_TOOL.name);
   const lastExecuteRound =
     executeCallsInTimeline.length > 0 ? executeCallsInTimeline[executeCallsInTimeline.length - 1]!.round : undefined;
+
+  // R6.1 新指标：compile-first / compact-manifest 臂的恢复成本
+  // （首次编译是否直接通过、失败→成功的修复轮数、describe 兜底频率、repair 区间的 token 成本）
+  const firstExecuteCall = executeCallsInTimeline[0];
+  const firstPassCompileSuccess = firstExecuteCall === undefined ? undefined : !firstExecuteCall.isError;
+  const firstFailedExecuteRound = executeCallsInTimeline.find((call) => call.isError)?.round;
+  const firstSuccessExecuteRound = executeCallsInTimeline.find((call) => !call.isError)?.round;
+  let repairRounds: number | undefined;
+  if (firstExecuteCall === undefined) repairRounds = undefined;
+  else if (firstPassCompileSuccess === true) repairRounds = 0;
+  else if (firstSuccessExecuteRound !== undefined && firstFailedExecuteRound !== undefined)
+    repairRounds = firstSuccessExecuteRound - firstFailedExecuteRound;
+  else if (firstFailedExecuteRound !== undefined) repairRounds = input.rounds - firstFailedExecuteRound;
+  let repairTokens: number | undefined;
+  if (input.tokenRounds !== undefined && firstFailedExecuteRound !== undefined) {
+    const endRound = firstSuccessExecuteRound ?? input.rounds;
+    repairTokens = input.tokenRounds
+      .filter((item) => item.round >= firstFailedExecuteRound && item.round <= endRound)
+      .reduce((sum, item) => sum + item.total, 0);
+  }
   const preOffloadBusinessCalls =
     firstJitRound === undefined
       ? []
@@ -466,6 +521,11 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
     businessCalls: input.businessCalls,
     describeCalls: input.describeCalls,
     executeCalls: input.executeCalls,
+    compileAttempts: input.executeCalls,
+    ...(firstPassCompileSuccess !== undefined ? { firstPassCompileSuccess } : {}),
+    ...(repairRounds !== undefined ? { repairRounds } : {}),
+    describeFallbackUsed: input.describeCalls > 0,
+    ...(repairTokens !== undefined ? { repairTokens } : {}),
     jitAttempted,
     jitExecutionSucceeded,
     jitSemanticCorrect: input.jitSemanticCorrect,
@@ -503,6 +563,8 @@ export interface R5RunOptions {
   stopAfterSubmit?: boolean;
   /** boundary-policy：treatment 常驻提示词追加 Offload 边界策略（两条规则）；默认 false = 旧极简提示词 */
   boundaryPolicy?: boolean;
+  /** R6.1 contract acquisition 模式：缺省 eager-describe = 现状（先 describe 拿契约再 execute）；compile-first / compact-manifest = 直接 execute + 结构化诊断兜底 */
+  contractMode?: R6ContractMode;
 }
 
 export async function runR5Run(
@@ -531,7 +593,13 @@ export async function runR5Run(
     systemPrompt:
       arm === "control"
         ? r5ControlSystemPrompt()
-        : r5TreatmentSystemPrompt({ ...(options.boundaryPolicy ? { boundaryPolicy: true } : {}) }),
+        : r5TreatmentSystemPrompt({
+            ...(options.boundaryPolicy ? { boundaryPolicy: true } : {}),
+            ...(options.contractMode !== undefined && options.contractMode !== "eager-describe"
+              ? { contractMode: options.contractMode }
+              : {}),
+            ...(options.contractMode === "compact-manifest" ? { manifest: renderCompactManifest(registry) } : {}),
+          }),
     tools: piTools,
     prompt: task.prompt,
     runtime,
@@ -614,6 +682,7 @@ export async function runR5Run(
   });
   return {
     ...metrics,
+    ...(options.contractMode !== undefined ? { contractMode: options.contractMode } : {}),
     ...(lastProgram ? { lastProgram } : {}),
   };
 }
@@ -685,6 +754,16 @@ export interface R5Aggregate {
   avgCacheReadTokens: number;
   /** 平均 output token */
   avgOutputTokens: number;
+  /** R6.1：首次 execute 编译通过比例（firstPassCompileSuccess === true / 格内总数） */
+  firstPassCompileRate: number;
+  /** R6.1：最终至少一次 execute 成功的比例（= jitExecutionSucceededRate，语义别名） */
+  eventualCompileRate: number;
+  /** R6.1：平均修复轮数（repairRounds 有定义值的均值） */
+  avgRepairRounds: number;
+  /** R6.1：describeFallbackUsed === true 比例（compile-first/compact-manifest 臂的 fallback 频率） */
+  describeFallbackRate: number;
+  /** R6.1：平均 repairTokens（有定义值的均值；无 → undefined） */
+  avgRepairTokens: number | undefined;
 }
 
 export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R5TaskId): R5Aggregate {
@@ -716,6 +795,13 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
   for (const run of cell) groupCounts[classifyR5JitGroup(run)] += 1;
   const duplicatedPipelineValues = cell
     .map((run) => run.duplicatedPipelineCalls)
+    .filter((value): value is number => value !== undefined);
+  // R6.1：compile-first / compact-manifest 臂的汇总（repair 指标只统计有定义值的 run）
+  const repairRoundsValues = cell
+    .map((run) => run.repairRounds)
+    .filter((value): value is number => value !== undefined);
+  const repairTokenValues = cell
+    .map((run) => run.repairTokens)
     .filter((value): value is number => value !== undefined);
   return {
     arm,
@@ -754,6 +840,12 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
     avgUncachedInputTokens: avg(cell.map((run) => run.tokens.input)),
     avgCacheReadTokens: avg(cell.map((run) => run.tokens.cacheRead)),
     avgOutputTokens: avg(cell.map((run) => run.tokens.output)),
+    // R6.1：compile-first / compact-manifest 臂的汇总（eventualCompileRate = jitExecutionSucceededRate 语义别名）
+    firstPassCompileRate: ratio(cell.filter((run) => run.firstPassCompileSuccess === true).length),
+    eventualCompileRate: ratio(cell.filter((run) => run.jitExecutionSucceeded).length),
+    avgRepairRounds: avg(repairRoundsValues),
+    describeFallbackRate: ratio(cell.filter((run) => run.describeFallbackUsed).length),
+    avgRepairTokens: repairTokenValues.length > 0 ? avg(repairTokenValues) : undefined,
   };
 }
 
@@ -881,6 +973,8 @@ export interface R5ReportConfig {
   stopAfterSubmit?: boolean;
   /** boundary-policy：treatment 提示词追加 Offload 边界策略（report 记录用；可选，缺省不写） */
   boundaryPolicy?: boolean;
+  /** R6.1 contract acquisition 模式（report 记录用；可选，缺省不写 = eager-describe） */
+  contractMode?: R6ContractMode;
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { ExecutionGraph } from "../../compiler/ir.js";
 import { compileExecutionDsl, ExecutionDslCompileError } from "../../compiler/compile.js";
+import type { DslDiagnostic } from "../../language/diagnostics.js";
 import { execute, type RuntimeRegistry } from "../../runtime/runtime.js";
 import type { TraceEntry } from "../../runtime/trace.js";
 import { DESCRIBE_TOOLS_TOOL, EXECUTE_PROGRAM_TOOL, describeToolContracts } from "../../tools/jitTools.js";
@@ -24,6 +25,30 @@ import { renderCompositionBindings } from "../../tools/compositionHints.js";
  * 失败（未知工具 / 编译失败 / 执行失败）一律 **throw**，由 Agent 转成 isError toolResult
  * 回填给模型——严格语义（不允许 partial success）因此天然成立。
  */
+
+/**
+ * R6.1：error-directed disclosure 的 JIT 层诊断形态——编译诊断（DslDiagnostic）
+ * 中可被机器利用的结构化字段映射为大写 code 的紧凑诊断（供模型一次修复）。
+ */
+export type JitDiagnosticCode = "UNKNOWN_TOOL" | "UNKNOWN_ARGUMENT" | "UNKNOWN_OUTPUT_FIELD" | "TYPE_MISMATCH";
+
+export interface JitDiagnostic {
+  code: JitDiagnosticCode;
+  line: number;
+  tool?: string;
+  argument?: string;
+  field?: string;
+  availableFields?: readonly string[];
+  legalArguments?: readonly string[];
+  suggestions?: readonly string[];
+  expected?: string;
+  actual?: string;
+}
+
+export interface JitCompileFailure {
+  status: "compile_error";
+  diagnostics: readonly JitDiagnostic[];
+}
 
 /** jit_execute_program 成功执行后的结构化记录（供 benchmark 测量，不进模型上下文）。 */
 export interface JitExecuteProgramDetails {
@@ -98,7 +123,7 @@ export function createJitExecuteProgramTool(registry: RuntimeRegistry): AgentToo
       try {
         ({ graph } = compileExecutionDsl(source, { tools: registry }));
       } catch (error) {
-        if (error instanceof ExecutionDslCompileError) throw new Error(compileErrorFeedback(error));
+        if (error instanceof ExecutionDslCompileError) throw new Error(renderCompileFailure(error));
         throw error;
       }
       const execution = await execute(graph, registry);
@@ -136,17 +161,104 @@ const FIX_HINTS: Record<string, string> = {
   syntax: "期望：语句形如 <变量> = <调用>(<参数>, ...)，检查标点、引号与参数形式",
 };
 
+/** 编译诊断 code → JIT 层紧凑 code（R6.1：只映射编译器能给出结构化字段的 4 类）。 */
+const MAPPED_COMPILE_CODES: Record<string, JitDiagnosticCode> = {
+  unknown_tool: "UNKNOWN_TOOL",
+  unknown_parameter: "UNKNOWN_ARGUMENT",
+  UNKNOWN_FIELD: "UNKNOWN_OUTPUT_FIELD",
+  config_type_mismatch: "TYPE_MISMATCH",
+};
+
+/**
+ * R6.1：把编译诊断拆为可结构化渲染的 mapped 与需 prose 回退的 unmapped。
+ * mapped 携带 line + 编译器确定的结构化字段（tool/argument/field/...），
+ * unmapped 原样保留（编译器拿不出结构化字段的 code）。
+ */
+export function toJitDiagnostics(
+  diagnostics: readonly DslDiagnostic[],
+): { mapped: JitDiagnostic[]; unmapped: readonly DslDiagnostic[] } {
+  const mapped: JitDiagnostic[] = [];
+  const unmapped: DslDiagnostic[] = [];
+  for (const item of diagnostics) {
+    const code = MAPPED_COMPILE_CODES[item.code];
+    if (!code) {
+      unmapped.push(item);
+      continue;
+    }
+    mapped.push({
+      code,
+      line: item.line,
+      tool: item.tool,
+      argument: item.argument,
+      field: item.field,
+      availableFields: item.availableFields,
+      legalArguments: item.legalArguments,
+      suggestions: item.suggestions,
+      expected: item.expected,
+      actual: item.actual,
+    });
+  }
+  return { mapped, unmapped };
+}
+
+/** 供测试/调用方直接构造 JitCompileFailure（只含可结构化渲染的诊断）。 */
+export function toJitCompileFailure(diagnostics: readonly DslDiagnostic[]): JitCompileFailure {
+  return { status: "compile_error", diagnostics: toJitDiagnostics(diagnostics).mapped };
+}
+
+/** 单条诊断的旧 prose 行（unmapped 回退渲染与 compileErrorFeedback 共用）。 */
+function diagnosticProseLine(item: DslDiagnostic): string {
+  const hint = FIX_HINTS[item.code];
+  const parts = [`L${item.line}: ${item.code}: ${item.message}`];
+  if (item.suggestion) parts.push(`（${item.suggestion}）`);
+  if (hint) parts.push(`——${hint}`);
+  return parts.join("");
+}
+
 /** 编译失败的诊断反馈（模型据此一次修复；每条附"期望语义"）。 */
 export function compileErrorFeedback(error: ExecutionDslCompileError): string {
   return [
     "编译失败，请根据以下诊断修正 DSL 后再次调用 jit_execute_program 重新提交：",
-    ...error.diagnostics.map((item) => {
-      const hint = FIX_HINTS[item.code];
-      const parts = [`L${item.line}: ${item.code}: ${item.message}`];
-      if (item.suggestion) parts.push(`（${item.suggestion}）`);
-      if (hint) parts.push(`——${hint}`);
-      return parts.join("");
-    }),
+    ...error.diagnostics.map(diagnosticProseLine),
+  ].join("\n");
+}
+
+/** R6.1：mapped 诊断的紧凑行（机器可解析，供模型一次修复）。 */
+function renderMappedDiagnosticLine(item: JitDiagnostic): string {
+  const prefix = `L${item.line}`;
+  switch (item.code) {
+    case "UNKNOWN_OUTPUT_FIELD": {
+      const target = item.field !== undefined ? `_.${item.field}` : "_";
+      const available = item.availableFields?.length ? `[${item.availableFields.join(", ")}]` : "[]";
+      return `${prefix} UNKNOWN_OUTPUT_FIELD: ${target} → 可用字段: ${available}`;
+    }
+    case "UNKNOWN_ARGUMENT": {
+      const legal = item.legalArguments?.length ? `[${item.legalArguments.join(", ")}]` : "[]";
+      return `${prefix} UNKNOWN_ARGUMENT: ${item.argument ?? ""} → 合法参数: ${legal}`;
+    }
+    case "UNKNOWN_TOOL": {
+      const suggestions = item.suggestions ? item.suggestions.slice(0, 2) : [];
+      const list = suggestions.length ? `[${suggestions.join(", ")}]` : "[]";
+      return `${prefix} UNKNOWN_TOOL: ${item.tool ?? ""} → 建议: ${list}`;
+    }
+    case "TYPE_MISMATCH": {
+      const target = item.argument ?? item.field ?? "";
+      return `${prefix} TYPE_MISMATCH: ${target} 期望 ${item.expected ?? "unknown"}，实际 ${item.actual ?? "unknown"}`;
+    }
+  }
+}
+
+/**
+ * R6.1：编译失败的紧凑反馈——mapped 诊断输出结构化行，unmapped 保留 prose；
+ * 头部固定以“编译失败”开头（测试依赖此前缀），尾部给出一行修复指令。
+ */
+export function renderCompileFailure(error: ExecutionDslCompileError): string {
+  const { mapped, unmapped } = toJitDiagnostics(error.diagnostics);
+  return [
+    "编译失败：",
+    ...mapped.map(renderMappedDiagnosticLine),
+    ...unmapped.map(diagnosticProseLine),
+    "请根据上述诊断修正 DSL 后再次调用 jit_execute_program 重新提交。",
   ].join("\n");
 }
 

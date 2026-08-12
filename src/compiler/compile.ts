@@ -89,6 +89,8 @@ function buildNode(
       suggestion:
         suggestion ??
         "使用已注册工具 id，或语言关键字 map / take / filter / sort / compute / select / merge_by_key / concat / return",
+      tool: statement.callee,
+      suggestions: suggestion ? [suggestion] : [],
     });
     return undefined;
   }

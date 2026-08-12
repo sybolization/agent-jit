@@ -1,4 +1,4 @@
-import type { ParsedArg, ParsedStatement } from "../language/ast.js";
+import type { LiteralValue, ParsedArg, ParsedStatement } from "../language/ast.js";
 import type { DslDiagnostic } from "../language/diagnostics.js";
 import type { ToolContract } from "../tools/definition.js";
 import type { ToolCatalog } from "../tools/registry.js";
@@ -48,6 +48,9 @@ export function mapCallBindings(
         code: "unknown_parameter",
         message: `工具“${call.callee}”未声明参数“${arg.key}”`,
         suggestion: `使用该工具声明的参数名：${[...parameterKeys].join(" / ")}`,
+        tool: call.callee,
+        argument: arg.key,
+        legalArguments: [...parameterKeys],
       });
       ok = false;
       continue;
@@ -108,6 +111,9 @@ export function buildToolNode(
         code: "unknown_parameter",
         message: `工具“${tool.id}”未声明参数“${arg.key}”`,
         suggestion: `使用该工具声明的参数名：${[...parameterByKey.keys()].join(" / ")}`,
+        tool: tool.id,
+        argument: arg.key,
+        legalArguments: [...parameterByKey.keys()],
       });
       continue;
     }
@@ -136,6 +142,10 @@ export function buildToolNode(
         code: "config_type_mismatch",
         message: error,
         suggestion: `检查字面量类型与声明 kind（${parameter.kind}）是否匹配`,
+        tool: tool.id,
+        argument: key,
+        expected: parameter.kind,
+        actual: literalKindText(normalized),
       });
       continue;
     }
@@ -182,6 +192,9 @@ export function validateMapBindings(
         code: "UNKNOWN_FIELD",
         message: `map 绑定引用了元素上不存在的字段“${field}”（参数 ${param}）`,
         suggestion: `可用字段：${available}`,
+        tool: node.tool,
+        field,
+        availableFields: Object.keys(elementSchema.properties).sort(),
       });
       continue;
     }
@@ -193,6 +206,10 @@ export function validateMapBindings(
         code: "config_type_mismatch",
         message: `map 绑定字段 _.${field}（类型 ${schemaViewText(prop)}）与参数 ${param}（期望 ${paramSpec.kind}）类型不匹配`,
         suggestion: `改绑一个 ${paramSpec.kind} 类型的字段`,
+        tool: node.tool,
+        field,
+        expected: paramSpec.kind,
+        actual: schemaViewText(prop),
       });
     }
   }
@@ -206,4 +223,19 @@ function fieldCompatibleWithParam(view: SchemaView, kind: ToolParamSpec["kind"])
     kind === "int" || kind === "number" ? numeric.has(candidate.kind) : candidate.kind === kind;
   if (view.kind === "union") return view.members.some(matches);
   return matches(view);
+}
+
+/** 字面量值的简短类型文本（R6.1 TYPE_MISMATCH 的 actual，best-effort）。 */
+function literalKindText(value: LiteralValue): string {
+  if (value === null) return "null";
+  switch (typeof value) {
+    case "number":
+      return Number.isInteger(value) ? "integer" : "number";
+    case "string":
+      return "string";
+    case "boolean":
+      return "boolean";
+    default:
+      return "unknown"; // 数组等复合字面量
+  }
 }

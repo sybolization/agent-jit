@@ -1173,3 +1173,129 @@ describe("aggregateR5 — 四组占比与 avgDuplicatedPipelineCalls（Primary M
     expect(agg.adoptionRate).toBeCloseTo(4 / 5, 10); // 4/5 尝试过 JIT，无回归
   });
 });
+
+describe("deriveR5Metrics — R6.1 新指标（firstPassCompile / repairRounds / repairTokens / describeFallback）", () => {
+  test("首次编译即通过：firstPassCompileSuccess=true、repairRounds=0、compileAttempts=1、无 describe 兜底、repairTokens 无定义", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        rounds: 2,
+        toolTimeline: [
+          call("jit_execute_program", 1),
+          call("submit_answer", 2),
+        ],
+        executeCalls: 1,
+        tokenRounds: [
+          { round: 1, input: 1, cacheRead: 0, output: 1, total: 2, toolCalls: ["jit_execute_program"] },
+          { round: 2, input: 1, cacheRead: 0, output: 1, total: 2, toolCalls: ["submit_answer"] },
+        ],
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(metrics.firstPassCompileSuccess).toBe(true);
+    expect(metrics.repairRounds).toBe(0);
+    expect(metrics.compileAttempts).toBe(1);
+    expect(metrics.describeFallbackUsed).toBe(false);
+    expect(metrics.repairTokens).toBeUndefined(); // 无失败轮 → repair 区间不存在
+  });
+
+  test("先失败后成功：repairRounds=1、repairTokens = 失败轮到成功轮区间内各轮 total 之和", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        rounds: 3,
+        toolTimeline: [
+          call("jit_execute_program", 1, true),
+          call("jit_execute_program", 2),
+          call("submit_answer", 3),
+        ],
+        executeCalls: 2,
+        tokenRounds: [
+          { round: 1, input: 100, cacheRead: 0, output: 100, total: 200, toolCalls: ["jit_execute_program"] },
+          { round: 2, input: 100, cacheRead: 100, output: 100, total: 300, toolCalls: ["jit_execute_program"] },
+          { round: 3, input: 50, cacheRead: 200, output: 50, total: 300, toolCalls: ["submit_answer"] },
+        ],
+        jitSemanticCorrect: true,
+        submittedAnswer: "adv/org-repo-0",
+        oracle: ["adv/org-repo-0"],
+      }),
+    );
+    expect(metrics.firstPassCompileSuccess).toBe(false);
+    expect(metrics.repairRounds).toBe(1);
+    expect(metrics.repairTokens).toBe(500); // 区间 [1, 2]：round 1（200）+ round 2（300）
+  });
+
+  test("从未 execute：firstPassCompileSuccess / repairRounds / repairTokens 无定义，compileAttempts=0", () => {
+    const metrics = deriveR5Metrics(
+      deriveInput({
+        taskId: "B",
+        toolTimeline: [call("submit_answer", 1)],
+        executeCalls: 0,
+      }),
+    );
+    expect(metrics.firstPassCompileSuccess).toBeUndefined();
+    expect(metrics.repairRounds).toBeUndefined();
+    expect(metrics.compileAttempts).toBe(0);
+  });
+
+  test("aggregateR5：firstPassCompileRate / avgRepairRounds / describeFallbackRate / avgRepairTokens / eventualCompileRate", () => {
+    const runOk = baseMetrics({
+      arm: "treatment", taskId: "B",
+      contractMode: "compile-first",
+      jitAttempted: true,
+      jitExecutionSucceeded: true,
+      firstPassCompileSuccess: true,
+      repairRounds: 0,
+      describeFallbackUsed: false,
+    });
+    const runRepaired = baseMetrics({
+      arm: "treatment", taskId: "B",
+      contractMode: "compile-first",
+      jitAttempted: true,
+      jitExecutionSucceeded: false,
+      firstPassCompileSuccess: false,
+      repairRounds: 2,
+      describeFallbackUsed: true,
+      repairTokens: 300,
+    });
+    const agg = aggregateR5([runOk, runRepaired], "treatment", "B");
+    expect(agg.firstPassCompileRate).toBe(0.5);
+    expect(agg.avgRepairRounds).toBe(1);
+    expect(agg.describeFallbackRate).toBe(0.5);
+    expect(agg.avgRepairTokens).toBe(300);
+    expect(agg.eventualCompileRate).toBe(agg.jitExecutionSucceededRate); // 语义别名
+    expect(agg.eventualCompileRate).toBe(0.5);
+  });
+});
+
+describe("r5TreatmentSystemPrompt — contractMode 三臂", () => {
+  test("默认 = eager-describe：与显式传入输出逐字节相同，无 Output manifest / DSL 参考", () => {
+    const defaultPrompt = r5TreatmentSystemPrompt();
+    const eagerPrompt = r5TreatmentSystemPrompt({ contractMode: "eager-describe" });
+    expect(eagerPrompt).toBe(defaultPrompt);
+    expect(defaultPrompt).not.toContain("Output manifest");
+    expect(defaultPrompt).not.toContain("## 1. Tool calls");
+  });
+
+  test("compile-first：直接 execute + 结构化诊断兜底，无“先 describe”约束，追加 DSL 参考", () => {
+    const prompt = r5TreatmentSystemPrompt({ contractMode: "compile-first" });
+    expect(prompt).toContain("jit_execute_program");
+    expect(prompt).toContain("结构化诊断");
+    expect(prompt).not.toContain("需要时先用");
+    expect(prompt).toContain("## Agent Execution DSL 参考");
+    expect(prompt).toContain("## 1. Tool calls");
+  });
+
+  test("compact-manifest：追加 ## Output manifest 与 manifest 行（仍无“先 describe”约束）", () => {
+    const prompt = r5TreatmentSystemPrompt({
+      contractMode: "compact-manifest",
+      manifest: "github.search_repositories -> [{full_name}]",
+    });
+    expect(prompt).toContain("## Output manifest");
+    expect(prompt).toContain("github.search_repositories -> [{full_name}]");
+    expect(prompt).toContain("结构化诊断");
+    expect(prompt).not.toContain("需要时先用");
+  });
+});

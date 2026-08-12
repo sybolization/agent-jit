@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { Type } from "typebox";
 
+import { ExecutionDslCompileError } from "../src/compiler/compile.js";
 import { adaptRegisteredTool, createPiTools } from "../src/integrations/pi/toolAdapter.js";
 import {
   createJitDescribeTool,
   createJitExecuteProgramTool,
+  renderCompileFailure,
+  toJitCompileFailure,
   type JitExecuteProgramDetails,
 } from "../src/integrations/pi/jit.js";
 import { renderDslReference } from "../src/integrations/pi/dslReference.js";
@@ -231,8 +234,8 @@ describe("jit_execute_program（AgentTool）— 编译 + 同一 registry 执行"
 
   test("编译失败 → throw（含诊断反馈 + 期望语义提示，模型据此一次修复）", async () => {
     await expect(tool.execute("c2", { source: 'x = github.nope(query="a")' })).rejects.toThrow(/编译失败/);
-    await expect(tool.execute("c2", { source: 'x = github.nope(query="a")' })).rejects.toThrow(/unknown_tool/);
-    await expect(tool.execute("c2", { source: 'x = github.nope(query="a")' })).rejects.toThrow(/期望/);
+    await expect(tool.execute("c2", { source: 'x = github.nope(query="a")' })).rejects.toThrow(/UNKNOWN_TOOL: github\.nope/);
+    await expect(tool.execute("c2", { source: 'x = github.nope(query="a")' })).rejects.toThrow(/建议/);
   });
 
   test("执行失败（运行时错误）→ throw", async () => {
@@ -247,5 +250,65 @@ describe("jit_execute_program（AgentTool）— 编译 + 同一 registry 执行"
 
   test("source 为空 → 报错", async () => {
     await expect(tool.execute("c4", { source: "   " })).rejects.toThrow(/source 为空/);
+  });
+});
+
+describe("renderCompileFailure — 结构化诊断渲染", () => {
+  const error = new ExecutionDslCompileError([
+    { line: 1, code: "unknown_tool", message: "m", tool: "github.nope", suggestions: [] },
+    { line: 2, code: "unknown_parameter", message: "m", tool: "github.get_repository", argument: "fullname", legalArguments: ["full_name"] },
+    { line: 3, code: "UNKNOWN_FIELD", message: "m", tool: "github.get_repository", field: "repo_name", availableFields: ["full_name"] },
+    { line: 4, code: "config_type_mismatch", message: "m", tool: "github.search_repositories", argument: "limit", expected: "integer", actual: "string" },
+  ]);
+
+  test("toJitCompileFailure：4 类编译诊断映射为紧凑大写 code 并保留结构化字段", () => {
+    const failure = toJitCompileFailure(error.diagnostics);
+    expect(failure.status).toBe("compile_error");
+    expect(failure.diagnostics.map((item) => item.code)).toEqual([
+      "UNKNOWN_TOOL",
+      "UNKNOWN_ARGUMENT",
+      "UNKNOWN_OUTPUT_FIELD",
+      "TYPE_MISMATCH",
+    ]);
+    expect(failure.diagnostics[0]).toMatchObject({ line: 1, tool: "github.nope", suggestions: [] });
+    expect(failure.diagnostics[1]).toMatchObject({
+      line: 2,
+      tool: "github.get_repository",
+      argument: "fullname",
+      legalArguments: ["full_name"],
+    });
+    expect(failure.diagnostics[2]).toMatchObject({
+      line: 3,
+      tool: "github.get_repository",
+      field: "repo_name",
+      availableFields: ["full_name"],
+    });
+    expect(failure.diagnostics[3]).toMatchObject({
+      line: 4,
+      tool: "github.search_repositories",
+      argument: "limit",
+      expected: "integer",
+      actual: "string",
+    });
+  });
+
+  test("renderCompileFailure：mapped 诊断渲染为紧凑行，前缀“编译失败”，不含旧 prose 提示", () => {
+    const output = renderCompileFailure(error);
+    expect(output.startsWith("编译失败")).toBe(true);
+    expect(output).toContain("UNKNOWN_TOOL: github.nope → 建议: []");
+    expect(output).toContain("UNKNOWN_ARGUMENT: fullname → 合法参数: [full_name]");
+    expect(output).toContain("UNKNOWN_OUTPUT_FIELD: _.repo_name → 可用字段: [full_name]");
+    expect(output).toContain("TYPE_MISMATCH: limit 期望 integer，实际 string");
+    expect(output).not.toContain("期望："); // 不输出旧 FIX_HINTS 的 prose 提示
+  });
+
+  test("renderCompileFailure：unmapped 诊断回退 prose 行，仍以“编译失败”开头", () => {
+    const unmapped = new ExecutionDslCompileError([
+      { line: 5, code: "syntax", message: "语句缺少 = 赋值", suggestion: "检查语句形式" },
+    ]);
+    const output = renderCompileFailure(unmapped);
+    expect(output.startsWith("编译失败")).toBe(true);
+    expect(output).toContain("L5: syntax");
+    expect(output).toContain("期望：语句形如");
   });
 });

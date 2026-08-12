@@ -9,4 +9,13 @@ export interface DslDiagnostic {
   code: string;
   message: string;
   suggestion?: string;
+  /** R6.1：error-directed disclosure 结构化 payload（编译器能确定的字段才填） */
+  tool?: string;
+  argument?: string;
+  field?: string;
+  availableFields?: readonly string[];
+  legalArguments?: readonly string[];
+  suggestions?: readonly string[];
+  expected?: string;
+  actual?: string;
 }

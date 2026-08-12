@@ -519,3 +519,77 @@ describe("compileExecutionDsl — canonical 冻结（REQ-7）", () => {
     expect(codes).toContain("MAP_BINDING_EXPECTED_CALL");
   });
 });
+
+describe("结构化诊断 payload（R6.1 error-directed disclosure）", () => {
+  test("unknown_tool：未注册 callee → tool + suggestions 结构化字段", () => {
+    let caught: unknown;
+    try {
+      compileExecutionDsl('x = github.nope(query="a")', { tools: new ToolRegistry(githubTools) });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ExecutionDslCompileError);
+    const diagnostics = (caught as ExecutionDslCompileError).diagnostics;
+    const diag = diagnostics[0]!;
+    expect(diag.code).toBe("unknown_tool");
+    expect(diag.tool).toBe("github.nope");
+    expect(Array.isArray(diag.suggestions)).toBe(true);
+  });
+
+  test("unknown_parameter：幻觉参数名 → tool + argument + legalArguments", () => {
+    let caught: unknown;
+    try {
+      compileExecutionDsl('x = github.get_repository(fullname="adv/org-repo-0")', {
+        tools: new ToolRegistry(githubTools),
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ExecutionDslCompileError);
+    const diagnostics = (caught as ExecutionDslCompileError).diagnostics;
+    const diag = diagnostics.find((item) => item.code === "unknown_parameter");
+    expect(diag).toBeDefined();
+    expect(diag?.tool).toBe("github.get_repository");
+    expect(diag?.argument).toBe("fullname");
+    expect(diag?.legalArguments).toContain("full_name");
+  });
+
+  test("UNKNOWN_FIELD：map 绑定字段不在 source 元素 schema → tool + field + availableFields", () => {
+    const dsl = [
+      'repos = github.search_repositories(query="agent framework", limit=30)',
+      "details = map(repos, github.get_repository(full_name=_.repo_name))",
+    ].join("\n");
+    let caught: unknown;
+    try {
+      compileExecutionDsl(dsl, { tools: new ToolRegistry(githubTools) });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ExecutionDslCompileError);
+    const diagnostics = (caught as ExecutionDslCompileError).diagnostics;
+    const diag = diagnostics.find((item) => item.code === "UNKNOWN_FIELD");
+    expect(diag).toBeDefined();
+    expect(diag?.tool).toBe("github.get_repository");
+    expect(diag?.field).toBe("repo_name");
+    expect(diag?.availableFields).toContain("full_name");
+  });
+
+  test("config_type_mismatch：字面量类型错误 → tool + argument + expected + actual", () => {
+    let caught: unknown;
+    try {
+      compileExecutionDsl('x = github.search_repositories(query="q", limit="thirty")', {
+        tools: new ToolRegistry(githubTools),
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ExecutionDslCompileError);
+    const diagnostics = (caught as ExecutionDslCompileError).diagnostics;
+    const diag = diagnostics.find((item) => item.code === "config_type_mismatch");
+    expect(diag).toBeDefined();
+    expect(diag?.tool).toBe("github.search_repositories");
+    expect(diag?.argument).toBe("limit");
+    expect(diag?.expected).toBe("int");
+    expect(diag?.actual).toBe("string");
+  });
+});
