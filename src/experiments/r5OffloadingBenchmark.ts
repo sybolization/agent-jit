@@ -44,6 +44,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { Type } from "typebox";
 
 import { createDeepSeekPiRuntime, type PiRuntime } from "../llm/gateway.js";
@@ -83,6 +84,25 @@ const submitAnswerTool: RegisteredTool = {
   }),
   execute: async () => ({ ok: true }),
 };
+
+/**
+ * submit_answer 的 AgentTool 版本。stopAfterSubmit=true 时 execute 返回 terminate: true，
+ * pi-ai agent loop 会在该批工具执行完后直接结束（不再进模型 final 轮）——用于去掉
+ * "submit 后仍生成最终文本" 的协议冗余；false 时行为与 adaptRegisteredTool 一致。
+ */
+export function createR5SubmitTool(stopAfterSubmit: boolean): AgentTool<any> {
+  return {
+    name: SUBMIT_ANSWER_ID,
+    label: submitAnswerTool.label,
+    description: submitAnswerTool.description ?? submitAnswerTool.label,
+    parameters: submitAnswerTool.inputSchema,
+    execute: async () => ({
+      content: [{ type: "text", text: '{"ok":true}' }],
+      details: {},
+      ...(stopAfterSubmit ? { terminate: true } : {}),
+    }),
+  };
+}
 
 function loadEnv(root: string): void {
   const envPath = path.join(root, ".env");
@@ -413,6 +433,8 @@ export interface R5RunOptions {
   dslGuidance?: DslGuidanceMode;
   /** reasoning observation：runPiAgent 完成后回调该 run 的全部 reasoningTurns（附加式，不进 R5RunMetrics/report） */
   onReasoningTurns?: (turns: readonly AgentReasoningTurn[]) => void;
+  /** stop-after-submit：submit_answer 执行后 agent 直接结束（不再生成最终文本轮）；默认 false = 旧行为 */
+  stopAfterSubmit?: boolean;
 }
 
 export async function runR5Run(
@@ -425,10 +447,10 @@ export async function runR5Run(
   const registry = new ToolRegistry<RegisteredTool>([...task.tools, submitAnswerTool]);
   // 双 arm 唯一差异：control 只有 atomic tools（含 submit_answer）；treatment 再挂上 jit_* 元工具。
   // dslGuidance 只影响 treatment 臂（jit_describe_tools 的 manual/bindings 渲染），control 臂无 JIT 不受影响。
-  const piTools =
-    arm === "control"
-      ? registry.all().map((tool) => adaptRegisteredTool(registry, tool))
-      : createPiTools(registry, { guidance: options.dslGuidance });
+  const piTools = (arm === "control"
+    ? registry.all().map((tool) => adaptRegisteredTool(registry, tool))
+    : createPiTools(registry, { guidance: options.dslGuidance })
+  ).map((tool) => (tool.name === SUBMIT_ANSWER_ID && options.stopAfterSubmit ? createR5SubmitTool(true) : tool));
 
   let describeCalls = 0;
   let executeCalls = 0;
@@ -443,6 +465,7 @@ export async function runR5Run(
     prompt: task.prompt,
     runtime,
     maxRounds,
+    ...(options.stopAfterSubmit ? { terminatingToolNames: [SUBMIT_ANSWER_ID] } : {}),
     onToolCall: ({ name, arguments: args }) => {
       if (name === SUBMIT_ANSWER_ID) {
         submittedAnswer = String((args as { answer?: string }).answer ?? "");
@@ -737,6 +760,8 @@ export interface R5ReportConfig {
   candidates?: number;
   /** Z/P/F ablation：DSL 参考渲染模式（report 记录用；可选，缺省不写） */
   dslGuidance?: DslGuidanceMode;
+  /** stop-after-submit：submit 后不再进模型 final 轮（协议冗余对照实验） */
+  stopAfterSubmit?: boolean;
 }
 
 /**
@@ -790,10 +815,11 @@ export interface R5CliFlags {
   candidates?: number;
   /** Z/P/F ablation：DSL 参考的渲染模式（默认 primitive = production default） */
   dslGuidance: DslGuidanceMode;
+  stopAfterSubmit: boolean;
 }
 
 export function parseFlags(argv: readonly string[]): R5CliFlags {
-  const flags: R5CliFlags = { arm: "both", task: "all", samples: 1, rounds: 10, dslGuidance: "primitive" };
+  const flags: R5CliFlags = { arm: "both", task: "all", samples: 1, rounds: 10, dslGuidance: "primitive", stopAfterSubmit: false };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, "").split("=");
     if (key === "arm" && (value === "control" || value === "treatment" || value === "both")) flags.arm = value;
@@ -805,6 +831,7 @@ export function parseFlags(argv: readonly string[]): R5CliFlags {
       if (value === "primitive" || value === "patterns" || value === "full-example") flags.dslGuidance = value;
       else throw new Error(`--dsl-guidance 必须是 primitive|patterns|full-example（当前：${value}）`);
     }
+    if (key === "stop-after-submit" && value === undefined) flags.stopAfterSubmit = true;
   }
   return flags;
 }
@@ -821,7 +848,7 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const { arm, task, samples, rounds, candidates, dslGuidance } = parseFlags(process.argv.slice(2));
+  const { arm, task, samples, rounds, candidates, dslGuidance, stopAfterSubmit } = parseFlags(process.argv.slice(2));
   const tasks = R5_TASKS.filter((item) => task === "all" || item.id === task).map((item) =>
     candidates !== undefined && item.id === "C" ? createR5CTask(candidates) : item,
   );
@@ -833,7 +860,8 @@ async function main(): Promise<number> {
     for (const currentTask of tasks) {
       for (let i = 1; i <= samples; i += 1) {
         console.log(`\n===== [${currentArm}/${currentTask.id}] ${currentTask.name}（sample ${i}/${samples}）=====`);
-        const run = await runR5Run(currentTask, currentArm, runtime, rounds, { dslGuidance });
+        console.log(`  [mode] stopAfterSubmit=${stopAfterSubmit}`);
+        const run = await runR5Run(currentTask, currentArm, runtime, rounds, { dslGuidance, ...(stopAfterSubmit ? { stopAfterSubmit } : {}) });
         runs.push(run);
         console.log(
           `→ rounds=${run.rounds} maxedOut=${run.maxedOut} tokens=${run.tokens.total} latency=${run.latencyMs}ms ` +
@@ -915,7 +943,7 @@ async function main(): Promise<number> {
   );
   const reportPath = writeR5Report(
     outDir,
-    { arm, task, samples, rounds, dslGuidance, ...(candidates !== undefined ? { candidates } : {}) },
+    { arm, task, samples, rounds, dslGuidance, ...(stopAfterSubmit ? { stopAfterSubmit } : {}), ...(candidates !== undefined ? { candidates } : {}) },
     tasks,
     runs,
     aggregates,

@@ -52,6 +52,8 @@ export interface PiAgentRunOptions {
   onToolCall?: (call: { toolCallId: string; name: string; arguments: Record<string, unknown> }) => void;
   /** 工具执行结束时回调（result 含 details，供 jit_execute_program 的程序/图采集）。 */
   onToolEnd?: (record: { toolCallId: string; name: string; isError: boolean; result: unknown }) => void;
+  /** 主动终止工具：最后一条 assistant 消息的工具调用全部属于该列表时视为正常提交结束，不判 maxedOut（配合 execute 返回 terminate: true 的 pi-ai 早停）。不传 = 旧行为。 */
+  terminatingToolNames?: readonly string[];
 }
 
 export interface PiAgentRunResult {
@@ -110,6 +112,8 @@ export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRun
   const tokenRounds: AgentTokenRound[] = [];
   let finalText = "";
   let lastAssistantHasToolCalls = false;
+  /** 最后一条 assistant 消息的工具名（agent_end 遍历时逐条覆盖，最终为最后一条） */
+  let lastToolCallNames: string[] = [];
   const tokens = { input: 0, output: 0, cacheRead: 0, total: 0 };
   let error: string | undefined;
 
@@ -191,8 +195,14 @@ export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRun
           tokens.output += message.usage.output ?? 0;
           tokens.cacheRead += message.usage.cacheRead ?? 0;
           tokens.total += message.usage.totalTokens ?? 0;
-          const hasToolCalls = message.content.some((block) => block.type === "toolCall");
+          const toolNames = message.content
+            .filter(
+              (block): block is Extract<typeof block, { type: "toolCall" }> => block.type === "toolCall",
+            )
+            .map((block) => block.name);
+          const hasToolCalls = toolNames.length > 0;
           lastAssistantHasToolCalls = hasToolCalls;
+          lastToolCallNames = toolNames;
           if (!hasToolCalls) {
             const text = message.content
               .filter((block): block is { type: "text"; text: string } => block.type === "text")
@@ -217,7 +227,15 @@ export async function runPiAgent(options: PiAgentRunOptions): Promise<PiAgentRun
     reasoningTurns,
     tokenRounds,
     finalText,
-    maxedOut: lastAssistantHasToolCalls,
+    // submit 等主动终止工具的最后一轮带 toolCall 但并非 maxRounds 截断：不判 maxedOut。
+    // 守卫 terminatingToolNames 非空，避免空数组时 [].every() 恒真的误判。
+    maxedOut:
+      lastAssistantHasToolCalls &&
+      !(
+        lastToolCallNames.length > 0 &&
+        (options.terminatingToolNames ?? []).length > 0 &&
+        lastToolCallNames.every((name) => (options.terminatingToolNames ?? []).includes(name))
+      ),
     ...(error !== undefined ? { error } : {}),
   };
 }

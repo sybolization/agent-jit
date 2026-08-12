@@ -14,6 +14,7 @@ import {
   aggregateR5,
   buildR5Aggregates,
   buildR5JitGroups,
+  createR5SubmitTool,
   compressedPath,
   deriveR5Metrics,
   r5ControlSystemPrompt,
@@ -917,6 +918,38 @@ describe("writeR5Report — tokenRounds 与 jitGroups", () => {
       expect(report.jitGroups.treatment.B.reduce((s, g) => s + g.runs, 0)).toBe(1);
       expect(report.jitGroups.treatment.B.find((g) => g.group === "cleanOffload")!.runs).toBe(1);
       expect(report.jitGroups.control.B.reduce((s, g) => s + g.runs, 0)).toBe(1);
+    } finally {
+      fs.rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("stopAfterSubmit — createR5SubmitTool / parseFlags / report config", () => {
+  test("createR5SubmitTool(true) 的 execute 结果含 terminate:true；false 不含", async () => {
+    const withStop = await createR5SubmitTool(true).execute("id", { answer: "x" });
+    expect(withStop.terminate).toBe(true);
+    const withoutStop = await createR5SubmitTool(false).execute("id", { answer: "x" });
+    expect(withoutStop.terminate).toBeUndefined();
+  });
+
+  test("parseFlags：--stop-after-submit → true；默认 false", () => {
+    expect(parseFlags([]).stopAfterSubmit).toBe(false);
+    expect(parseFlags(["--stop-after-submit"]).stopAfterSubmit).toBe(true);
+  });
+
+  test("writeR5Report：config 记录 stopAfterSubmit", () => {
+    const runs: R5RunMetrics[] = [baseMetrics({ arm: "control", taskId: "B" })];
+    const outDir = path.join(os.tmpdir(), `r5-stop-report-${Date.now()}`);
+    const reportPath = writeR5Report(
+      outDir,
+      { arm: "control", task: "B", samples: 1, rounds: 10, stopAfterSubmit: true },
+      R5_TASKS,
+      runs,
+      buildR5Aggregates(runs),
+    );
+    try {
+      const report = JSON.parse(fs.readFileSync(reportPath, "utf8")) as { config: { stopAfterSubmit?: boolean } };
+      expect(report.config.stopAfterSubmit).toBe(true);
     } finally {
       fs.rmSync(outDir, { recursive: true, force: true });
     }

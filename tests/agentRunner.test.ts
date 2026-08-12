@@ -84,3 +84,42 @@ describe("runPiAgent — 每轮 token 捕获（AgentTokenRound）", () => {
     expect(result.tokenRounds[0]!.toolCalls).toEqual(["demo_lookup", "demo_lookup"]);
   });
 });
+
+describe("runPiAgent — terminate 早停与 maxedOut 修正（terminatingToolNames）", () => {
+  const submitTool = (): AgentTool => ({
+    name: "submit_answer",
+    label: "Submit Final Answer",
+    description: "提交最终答案",
+    parameters: Type.Object({ answer: Type.String() }),
+    execute: async () => ({ content: [{ type: "text", text: "ok" }], details: {}, terminate: true }),
+  });
+
+  test("submit 早停：terminate:true + terminatingToolNames → 无多余轮、maxedOut=false", async () => {
+    const runtime = makeRuntime([fauxAssistantMessage([fauxToolCall("submit_answer", { answer: "done" })])]);
+    const result = await runPiAgent({
+      systemPrompt: "t",
+      tools: [submitTool()],
+      prompt: "q",
+      runtime,
+      terminatingToolNames: ["submit_answer"],
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.rounds).toBe(1); // 不再进模型 final 轮
+    expect(result.tokenRounds).toHaveLength(1);
+    expect(result.reasoningTurns).toHaveLength(1);
+    expect(result.tokenRounds[0]!.toolCalls).toEqual(["submit_answer"]);
+    expect(result.maxedOut).toBe(false); // submit 主动结束，非截断
+  });
+
+  test("对照组：不带 terminatingToolNames 时 submit 早停仍按旧逻辑判 maxedOut（默认行为不变）", async () => {
+    const runtime = makeRuntime([fauxAssistantMessage([fauxToolCall("submit_answer", { answer: "done" })])]);
+    const result = await runPiAgent({
+      systemPrompt: "t",
+      tools: [submitTool()],
+      prompt: "q",
+      runtime,
+    });
+    expect(result.rounds).toBe(1); // pi-ai terminate 早停仍生效
+    expect(result.maxedOut).toBe(true); // 旧逻辑：最后一条 assistant 带 toolCall
+  });
+});
