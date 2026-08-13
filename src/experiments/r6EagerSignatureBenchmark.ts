@@ -1,23 +1,25 @@
 #!/usr/bin/env node
 
 /**
- * R6.3 — Eager DSL Signatures 对照实验（两臂）。
+ * R6.3 — Eager DSL Signatures 对照实验（2×2：Task × contract delivery）。
  *
  * 实验问题：去掉 describe round、用 eager-loaded 函数式 DSL 签名直接 execute，
- * 质量是否保持、成本是否下降。
+ * 质量是否保持、成本是否下降；以及把 DSL 签名常驻到每个 active tool 上，对
+ * 不使用 JIT 的 A 型任务带来多少 token 税。
  *
- * 两臂（都是 treatment、Task B、boundaryPolicy ON、stopAfterSubmit ON、
- * 同 reasoning/model/tools/DSL，唯一变量是 contract acquisition）：
- * - A = compact describe（eager）：Agent → describe → Agent → execute；
- * - B = eager DSL signatures（eager-signatures）：active tools 已带 DSL 签名，
- *   Agent → execute（不挂 describe、不追加 manifest）。
+ * 2×2 格（都是 treatment、boundaryPolicy ON、stopAfterSubmit ON、同 reasoning/model/tools/DSL，
+ * 唯一变量是 task 与 contract delivery）：
+ * - A-eager：Task A（不 JIT）× 无签名（普通 Agent baseline）；
+ * - A-sig：  Task A × eager signature（测常驻 signature tax）；
+ * - B-eager：Task B（明显值得 JIT）× describe（当前 JIT baseline）；
+ * - B-sig：  Task B × eager signature（测省掉 describe round 的收益）。
  *
- * 报告指标聚焦：eventualSemanticCorrectRate / firstPassSemanticSuccessRate /
- * cleanOffloadRate / avgRounds / avgTokens / avgLatencyMs，附 jitGroups 分布。
+ * Primary：
+ * - A signature tax = A-sig.avgTokens - A-eager.avgTokens；
+ * - B token savings = B-eager.avgTokens - B-sig.avgTokens；
+ * - B rounds / correctness / cleanOffload。
  *
- * 注：A Task 的 token overhead（不 JIT 的 eager signature tax）留作后续对照。
- *
- * 运行：npx tsx src/experiments/r6EagerSignatureBenchmark.ts [--arm=A|B|all] [--samples=1] [--rounds=10]
+ * 运行：npx tsx src/experiments/r6EagerSignatureBenchmark.ts [--cell=A-eager|A-sig|B-eager|B-sig|all] [--samples=1] [--rounds=10]
  * 环境：DEEPSEEK_API_KEY（.env，已被 gitignore）
  */
 
@@ -26,7 +28,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createDeepSeekPiRuntime } from "../llm/gateway.js";
-import { R5_TASKS, type R5Task } from "./r5Tasks.js";
+import { R5_TASKS, type R5Task, type R5TaskId } from "./r5Tasks.js";
 import {
   aggregateR5,
   buildR5JitGroups,
@@ -40,17 +42,19 @@ import {
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
 
-export type R6EagerArm = "A" | "B";
+export type R6EagerCellId = "A-eager" | "A-sig" | "B-eager" | "B-sig";
 
-export const R6_EAGER_ARM_LABEL: Record<R6EagerArm, string> = {
-  A: "A: compact describe（eager：Agent → describe → Agent → execute）",
-  B: "B: eager DSL signatures（active tools 带签名：Agent → execute）",
-};
+interface CellDef {
+  taskId: R5TaskId;
+  contractMode: R6ContractMode;
+  label: string;
+}
 
-/** arm → contractMode 映射（两臂都是 treatment 形态，唯一变量是 contract acquisition）。 */
-export const R6_EAGER_CONTRACT_MODE: Record<R6EagerArm, R6ContractMode> = {
-  A: "eager",
-  B: "eager-signatures",
+export const R6_EAGER_CELLS: Record<R6EagerCellId, CellDef> = {
+  "A-eager": { taskId: "A", contractMode: "eager", label: "A no-signature（普通 Agent baseline）" },
+  "A-sig": { taskId: "A", contractMode: "eager-signatures", label: "A eager-signature（常驻 signature tax）" },
+  "B-eager": { taskId: "B", contractMode: "eager", label: "B describe（当前 JIT baseline）" },
+  "B-sig": { taskId: "B", contractMode: "eager-signatures", label: "B eager-signature（省 describe round）" },
 };
 
 /** 从 .env 加载环境变量（只补未设置项；与 r6DescribeBenchmark 的 loadEnv 同语义）。 */
@@ -72,18 +76,21 @@ function loadEnv(root: string): void {
 // ---------------------------------------------------------------------------
 
 export interface R6EagerFlags {
-  arm: R6EagerArm | "all";
+  cell: R6EagerCellId | "all";
   samples: number;
   rounds: number;
 }
 
 export function parseR6EagerFlags(argv: readonly string[]): R6EagerFlags {
-  const flags: R6EagerFlags = { arm: "all", samples: 1, rounds: 10 };
+  const flags: R6EagerFlags = { cell: "all", samples: 1, rounds: 10 };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, "").split("=");
-    if (key === "arm") {
-      if (value === "A" || value === "B" || value === "all") flags.arm = value;
-      else throw new Error(`--arm 必须是 A|B|all（当前：${value}）`);
+    if (key === "cell") {
+      if (value === "A-eager" || value === "A-sig" || value === "B-eager" || value === "B-sig" || value === "all") {
+        flags.cell = value;
+      } else {
+        throw new Error(`--cell 必须是 A-eager|A-sig|B-eager|B-sig|all（当前：${value}）`);
+      }
     }
     if (key === "samples") flags.samples = Math.max(1, Number(value) || 1);
     if (key === "rounds") flags.rounds = Math.max(2, Number(value) || 10);
@@ -92,11 +99,11 @@ export function parseR6EagerFlags(argv: readonly string[]): R6EagerFlags {
 }
 
 // ---------------------------------------------------------------------------
-// 报告：两臂 cell 构建与落盘
+// 报告：2×2 cell 构建与落盘
 // ---------------------------------------------------------------------------
 
 export interface R6EagerConfig {
-  arm: R6EagerArm | "all";
+  cell: R6EagerCellId | "all";
   samples: number;
   rounds: number;
   /** 统一协议固定 Boundary Policy ON（可选：仅报告元数据）。 */
@@ -107,6 +114,7 @@ export interface R6EagerConfig {
 
 export interface R6EagerCell {
   label: string;
+  taskId: R5TaskId;
   contractMode: R6ContractMode;
   runs: readonly R5RunMetrics[];
   aggregate: R5Aggregate;
@@ -114,40 +122,64 @@ export interface R6EagerCell {
 }
 
 /**
- * 从全部 runs 构建两格 cell（A = eager、B = eager-signatures）。
- * 分格依据：arm === "treatment" && taskId === "B" && contractMode 匹配；
+ * 从全部 runs 构建 2×2 格。分格依据：arm === "treatment" && taskId 匹配 && contractMode 匹配；
  * 每格用 `aggregateR5` / `buildR5JitGroups` 基于**该格自己的 runs** 独立聚合。
  */
 export function buildR6EagerCells(
   runs: readonly R5RunMetrics[],
   config: R6EagerConfig,
-): Record<R6EagerArm, R6EagerCell> {
-  const makeCell = (arm: R6EagerArm): R6EagerCell => {
-    const contractMode = R6_EAGER_CONTRACT_MODE[arm];
+): Record<R6EagerCellId, R6EagerCell> {
+  const makeCell = (id: R6EagerCellId): R6EagerCell => {
+    const def = R6_EAGER_CELLS[id];
     const cellRuns = runs.filter(
-      (run) => run.arm === "treatment" && run.taskId === "B" && run.contractMode === contractMode,
+      (run) => run.arm === "treatment" && run.taskId === def.taskId && run.contractMode === def.contractMode,
     );
     return {
-      label: R6_EAGER_ARM_LABEL[arm],
-      contractMode,
+      label: def.label,
+      taskId: def.taskId,
+      contractMode: def.contractMode,
       runs: cellRuns,
-      aggregate: aggregateR5(cellRuns, "treatment", "B"),
-      jitGroups: buildR5JitGroups(cellRuns, "treatment", "B"),
+      aggregate: aggregateR5(cellRuns, "treatment", def.taskId),
+      jitGroups: buildR5JitGroups(cellRuns, "treatment", def.taskId),
     };
   };
-  return { A: makeCell("A"), B: makeCell("B") };
+  return {
+    "A-eager": makeCell("A-eager"),
+    "A-sig": makeCell("A-sig"),
+    "B-eager": makeCell("B-eager"),
+    "B-sig": makeCell("B-sig"),
+  };
+}
+
+/** 计算 R6.3 的关键增量指标：A 的 signature tax、B 的 token/round 节省（正数分别表示税 / 节省）。 */
+export interface R6EagerTax {
+  aTaxTokens: number;
+  bSavingsTokens: number;
+  bSavingsRounds: number;
+}
+
+export function computeR6EagerTax(cells: Record<R6EagerCellId, R6EagerCell>): R6EagerTax {
+  const A = cells["A-eager"].aggregate.avgTokens;
+  const Asig = cells["A-sig"].aggregate.avgTokens;
+  const B = cells["B-eager"].aggregate.avgTokens;
+  const Bsig = cells["B-sig"].aggregate.avgTokens;
+  return {
+    aTaxTokens: Asig - A,
+    bSavingsTokens: B - Bsig,
+    bSavingsRounds: cells["B-eager"].aggregate.avgRounds - cells["B-sig"].aggregate.avgRounds,
+  };
 }
 
 /**
  * 把一次 R6.3 实验的结果完整写入 report.json：
- * 配置 + 任务元数据（prompt / oracle）+ 两格 cell（label / contractMode / aggregate / jitGroups）+ 全部 run。
+ * 配置 + 任务元数据（prompt / oracle）+ 2×2 cell（label / taskId / contractMode / aggregate / jitGroups）+ 全部 run。
  * 返回 report.json 的绝对路径。
  */
 export function writeR6EagerReport(
   outDir: string,
   config: R6EagerConfig,
   tasks: readonly R5Task[],
-  cells: Record<R6EagerArm, R6EagerCell>,
+  cells: Record<R6EagerCellId, R6EagerCell>,
   runs: readonly R5RunMetrics[],
 ): string {
   fs.mkdirSync(outDir, { recursive: true });
@@ -166,12 +198,13 @@ export function writeR6EagerReport(
           prompt: task.prompt,
           oracle: task.oracle.map(String),
         })),
-        // cell 只落 label / contractMode / aggregate / jitGroups（runs 已单独序列化，避免重复）
+        // cell 只落 label / taskId / contractMode / aggregate / jitGroups（runs 已单独序列化，避免重复）
         cells: Object.fromEntries(
-          (Object.keys(cells) as R6EagerArm[]).map((id) => [
+          (Object.keys(cells) as R6EagerCellId[]).map((id) => [
             id,
             {
               label: cells[id].label,
+              taskId: cells[id].taskId,
               contractMode: cells[id].contractMode,
               aggregate: cells[id].aggregate,
               jitGroups: cells[id].jitGroups,
@@ -192,17 +225,17 @@ export function writeR6EagerReport(
 // ---------------------------------------------------------------------------
 
 /**
- * 紧凑打印两臂对比，聚焦语义正确性 / 首轮语义成功 / clean offload / 轮次 / token / 延迟，
- * 末尾附 jitGroups 分布。
+ * 紧凑打印 2×2 对比，聚焦语义正确性 / 首轮语义成功 / clean offload / 轮次 / token / 延迟，
+ * 末尾附 A signature tax 与 B token/round 节省。
  */
-export function printR6EagerComparison(cells: Record<R6EagerArm, R6EagerCell>): void {
+export function printR6EagerComparison(cells: Record<R6EagerCellId, R6EagerCell>): void {
   const pct = (n: number): string => `${(n * 100).toFixed(0)}%`;
-  const arms: R6EagerArm[] = ["A", "B"];
-  for (const arm of arms) {
-    const cell = cells[arm];
+  const ids: R6EagerCellId[] = ["A-eager", "A-sig", "B-eager", "B-sig"];
+  for (const id of ids) {
+    const cell = cells[id];
     const agg = cell.aggregate;
     const jitDist = cell.jitGroups.map((group) => `${group.group}=${group.runs}`).join(" ");
-    console.log(`  [${arm}] ${cell.label}`);
+    console.log(`  [${id}] ${cell.label}`);
     console.log(
       `runs=${agg.runs} eventualSemantic=${pct(agg.eventualSemanticCorrectRate)} ` +
         `firstPassSemantic=${pct(agg.firstPassSemanticSuccessRate)} clean=${pct(agg.cleanOffloadRate)} ` +
@@ -210,6 +243,9 @@ export function printR6EagerComparison(cells: Record<R6EagerArm, R6EagerCell>): 
     );
     console.log(`    jitGroups: ${jitDist}`);
   }
+  const tax = computeR6EagerTax(cells);
+  console.log(`\nA signature tax = +${Math.round(tax.aTaxTokens)} tokens`);
+  console.log(`B token savings = ${Math.round(tax.bSavingsTokens)} tokens；round savings = ${tax.bSavingsRounds.toFixed(1)} rounds`);
 }
 
 // ---------------------------------------------------------------------------
@@ -238,27 +274,30 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const { arm, samples, rounds } = parseR6EagerFlags(process.argv.slice(2));
-  const task = R5_TASKS.find((item) => item.id === "B")!;
-  const arms: R6EagerArm[] = arm === "all" ? ["A", "B"] : [arm];
+  const { cell, samples, rounds } = parseR6EagerFlags(process.argv.slice(2));
+  const cellIds: R6EagerCellId[] = cell === "all" ? ["A-eager", "A-sig", "B-eager", "B-sig"] : [cell];
   const runtime = createDeepSeekPiRuntime();
 
   const runs: R5RunMetrics[] = [];
-  for (const currentArm of arms) {
+  const usedTasks = new Map<R5TaskId, R5Task>();
+  for (const id of cellIds) {
+    const def = R6_EAGER_CELLS[id];
+    const task = R5_TASKS.find((item) => item.id === def.taskId)!;
+    usedTasks.set(task.id, task);
     for (let i = 1; i <= samples; i += 1) {
-      console.log(`\n===== [${R6_EAGER_ARM_LABEL[currentArm]}] sample ${i}/${samples} =====`);
+      console.log(`\n===== [${def.label}] sample ${i}/${samples} =====`);
       const run = await runR5Run(task, "treatment", runtime, rounds, {
         boundaryPolicy: true,
         stopAfterSubmit: true,
-        contractMode: R6_EAGER_CONTRACT_MODE[currentArm],
+        contractMode: def.contractMode,
       });
       runs.push(run);
       logRun(run);
     }
   }
 
-  console.log("\n\n===== R6.3 Eager DSL Signatures 两臂对比 =====");
-  const config: R6EagerConfig = { arm, samples, rounds, boundaryPolicy: true, stopAfterSubmit: true };
+  console.log("\n\n===== R6.3 Eager DSL Signatures 2×2 对比 =====");
+  const config: R6EagerConfig = { cell, samples, rounds, boundaryPolicy: true, stopAfterSubmit: true };
   const cells = buildR6EagerCells(runs, config);
   printR6EagerComparison(cells);
 
@@ -268,7 +307,7 @@ async function main(): Promise<number> {
     "experiments",
     `r6-eager-signature-${new Date().toISOString().replace(/[:.]/g, "-")}`,
   );
-  const reportPath = writeR6EagerReport(outDir, config, [task], cells, runs);
+  const reportPath = writeR6EagerReport(outDir, config, [...usedTasks.values()], cells, runs);
   console.log(`\n报告已写入: ${reportPath}`);
   return 0;
 }

@@ -205,6 +205,8 @@ export async function runR5Run(
         ...(options.contractMode === "compile-only" || options.contractMode === "manifest" || options.contractMode === "eager-signatures"
           ? {}
           : { describeTools: true }),
+        // 只有 eager-signatures / production 才注入 inline DSL signature，保证历史臂的 contract visibility 隔离。
+        dslSignatures: options.contractMode === "eager-signatures",
         onCompileFailure: (diagnostics) => compileDiagnostics.push(...diagnostics),
       })
   ).map((tool) => (tool.name === SUBMIT_ANSWER_ID && options.stopAfterSubmit ? createR5SubmitTool(true) : tool));

@@ -59,7 +59,7 @@ describe("createPiTools — ToolRegistry → Pi AgentTool（JIT 变成真正的 
     expect(text.text).toContain("mock/org-repo-0");
   });
 
-  test("description 缺省回退到 label，并追加 DSL signature", () => {
+  test("description 缺省回退到 label，且不注入 DSL signature（缺省 none）", () => {
     const bare = defineTool({
       id: "demo.no_description",
       label: "No Description Tool",
@@ -68,8 +68,20 @@ describe("createPiTools — ToolRegistry → Pi AgentTool（JIT 变成真正的 
     });
     const registry = new ToolRegistry<RegisteredTool>([{ ...bare, execute: async () => ({ ok: true }) }]);
     const [adapted] = createPiTools(registry);
-    expect(adapted!.description).toContain("DSL: demo.no_description()");
+    expect(adapted!.description).toBe("No Description Tool");
+  });
+
+  test("dslSignatures:true 注入 inline DSL signature，并保留字段语义标签", () => {
+    const bare = defineTool({
+      id: "demo.no_description",
+      label: "No Description Tool",
+      inputSchema: Type.Object({}),
+      outputSchema: Type.Object({ metric_x: Type.Integer({ description: "forks" }) }),
+    });
+    const registry = new ToolRegistry<RegisteredTool>([{ ...bare, execute: async () => ({ ok: true }) }]);
+    const [adapted] = createPiTools(registry, { dslSignatures: true });
     expect(adapted!.description.startsWith("No Description Tool\nDSL:")).toBe(true);
+    expect(adapted!.description).toContain("demo.no_description() -> {metric_x: int[forks]}");
   });
 
   test("adaptRegisteredTool 用 host alias 作为 Pi 工具名", () => {
