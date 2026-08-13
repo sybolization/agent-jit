@@ -17,17 +17,21 @@ import { schemaViewOf, schemaViewText, type SchemaView } from "./schemaView.js";
  * “参数格式”/“类型定义”等段——保持每行自包含。
  */
 
-/** 把 SchemaView 渲染为单行输出形状：对象 `{a: string, b: integer}`、数组 `[...]`。 */
-function outputShape(view: SchemaView): string {
+/** 把 SchemaView 渲染为单行输出形状：对象 `{a: string, b: integer}`、数组 `[...]`。
+ *  fieldHints（opaque 工具）提供时，字段渲染为 `key: type[label]` 形态（最小语义标签）。 */
+function outputShape(view: SchemaView, fieldHints?: Readonly<Record<string, string>>): string {
   if (view.kind === "object") {
     const fields = Object.entries(view.properties)
-      .map(([key, prop]) => `${key}: ${schemaViewText(prop)}`)
+      .map(([key, prop]) => {
+        const hint = fieldHints?.[key];
+        return `${key}: ${schemaViewText(prop)}${hint !== undefined ? `[${hint}]` : ""}`;
+      })
       .join(", ");
     return `{${fields}}`;
   }
   if (view.kind === "array") {
     // schemaViewOf 已把 items 未知的数组归一为 unknown，这里 items 必然可渲染
-    return `[${outputShape(view.items)}]`;
+    return `[${outputShape(view.items, fieldHints)}]`;
   }
   return schemaViewText(view); // primitive / record / union / unknown 内联渲染
 }
@@ -51,5 +55,5 @@ export function renderCompactManifest(catalog: ToolCatalog, ids?: readonly strin
       .filter((tool) => order.has(tool.id))
       .sort((left, right) => order.get(left.id)! - order.get(right.id)!);
   }
-  return tools.map((tool) => `${tool.id} -> ${outputShape(schemaViewOf(tool.outputSchema))}`).join("\n");
+  return tools.map((tool) => `${tool.id} -> ${outputShape(schemaViewOf(tool.outputSchema), tool.fieldHints)}`).join("\n");
 }

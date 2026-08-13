@@ -110,7 +110,10 @@ export function createJitDescribeTool(
 }
 
 /** jit_execute_program 工具：source → 编译（同一 registry）→ 执行（同一 registry）→ 结果。 */
-export function createJitExecuteProgramTool(registry: RuntimeRegistry): AgentTool<typeof EXECUTE_PROGRAM_TOOL.parameters> {
+export function createJitExecuteProgramTool(
+  registry: RuntimeRegistry,
+  options: { onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void } = {},
+): AgentTool<typeof EXECUTE_PROGRAM_TOOL.parameters> {
   return {
     ...EXECUTE_PROGRAM_TOOL,
     label: "Compile and execute a DSL program",
@@ -123,7 +126,10 @@ export function createJitExecuteProgramTool(registry: RuntimeRegistry): AgentToo
       try {
         ({ graph } = compileExecutionDsl(source, { tools: registry }));
       } catch (error) {
-        if (error instanceof ExecutionDslCompileError) throw new Error(renderCompileFailure(error));
+        if (error instanceof ExecutionDslCompileError) {
+          options.onCompileFailure?.(error.diagnostics);
+          throw new Error(renderCompileFailure(error));
+        }
         throw error;
       }
       const execution = await execute(graph, registry);
@@ -267,10 +273,10 @@ export function renderCompileFailure(error: ExecutionDslCompileError): string {
 /** 创建 JIT 元工具集（jit_describe_tools / jit_execute_program；describeTools:false 时不挂 describe 工具）。 */
 export function createJitTools(
   registry: RuntimeRegistry,
-  options: { guidance?: DslGuidanceMode; describeTools?: boolean } = {},
+  options: { guidance?: DslGuidanceMode; describeTools?: boolean; onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void } = {},
 ): readonly AgentTool[] {
   return [
     ...(options.describeTools === false ? [] : [createJitDescribeTool(registry, options)]),
-    createJitExecuteProgramTool(registry),
+    createJitExecuteProgramTool(registry, options),
   ];
 }

@@ -200,7 +200,7 @@ export function writeR6Report(
       {
         mode: "r6-contract-discovery",
         config,
-        model: "deepseek-chat",
+        model: "deepseek-v4-flash",
         timestamp: new Date().toISOString(),
         tasks: tasks.map((task) => ({
           id: task.id,

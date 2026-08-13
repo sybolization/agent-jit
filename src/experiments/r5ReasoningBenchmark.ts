@@ -384,7 +384,7 @@ async function main(): Promise<number> {
 
 /** 单臂 reasoning observation（原 experiment:r5-reasoning 行为，保持不变）。 */
 async function runObservationMain(flags: R5ReasoningCliFlags): Promise<number> {
-  const runtime = createDeepSeekPiRuntime(flags.reasoning ? { reasoning: true } : undefined);
+  const runtime = createDeepSeekPiRuntime(flags.reasoning ? { reasoning: true } : { reasoning: false });
   const task = R5_TASKS.find((item) => item.id === "B")!;
 
   const runs: R5ReasoningRun[] = [];
@@ -505,8 +505,8 @@ async function runObservationMain(flags: R5ReasoningCliFlags): Promise<number> {
 
 async function runValidityMain(flags: R5ReasoningCliFlags): Promise<number> {
   const pairs = flags.samples; // validity 模式下 samples 即 pair 数
-  // OFF/ON 只差 reasoning flag：同一个 model id（deepseek-chat）、同一份 task/prompt/rounds/policy
-  const offRuntime = createDeepSeekPiRuntime(); // reasoning=false（与 R5 主实验一致）
+  // OFF/ON 只差 reasoning flag：同一个 model id、同一份 task/prompt/rounds/policy
+  const offRuntime = createDeepSeekPiRuntime({ reasoning: false }); // reasoning=false（思考关闭）
   const onRuntime = createDeepSeekPiRuntime({ reasoning: true }); // reasoning=true（thinking blocks）
   const task = R5_TASKS.find((item) => item.id === "B")!;
 

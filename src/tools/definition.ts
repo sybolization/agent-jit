@@ -11,6 +11,9 @@ export interface ToolContract {
   description?: string;
   inputSchema: TSchema;
   outputSchema: TSchema;
+  /** R6.2：输出字段语义标签（opaque 工具用），供 compact manifest 渲染 `field: type[label]`。
+   *  transparent 工具字段名自解释，不设此项。 */
+  fieldHints?: Readonly<Record<string, string>>;
 }
 
 /** 已绑定实现的可运行工具：在 ToolContract 之上要求 execute 必填。 */

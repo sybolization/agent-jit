@@ -66,6 +66,58 @@ export const DSL_CORE_REFERENCE = [
 ].join("\n");
 
 /**
+ * R6.2：字段名中立的核心语言参考（compile-only / manifest 臂专用）。
+ *
+ * 与 DSL_CORE_REFERENCE 的区别：示例里的输出字段名（_.full_name / key="stars" /
+ * language="TypeScript" / "stars / forks"）会泄露具体工具的 output 字段映射，
+ * 而 R6.2 的 opaque 条件要求"compile-only 组不能看到任何 output mapping"。
+ * 这里把示例改成通用变量名与 service.* 通用服务名，只教语法、不泄露任何字段名。
+ * 结构与标题段保持不变（测试依赖 "## Agent Execution DSL 参考" / "## 1. Tool calls"）。
+ */
+export const DSL_CORE_REFERENCE_NEUTRAL = [
+  "## Agent Execution DSL 参考（核心语言语义）",
+  "程序是 newline 分隔的语句序列：<变量> = <调用>(...)，最后一行必须是 return <变量>。",
+  "",
+  "## 1. Tool calls",
+  "普通工具调用遵循工具定义（Tool Contract）中的参数名与类型，不得自创参数名。",
+  "",
+  "例：",
+  "items = service.search(",
+  "    query=\"example\",",
+  "    limit=10",
+  ")",
+  "",
+  "工具 id 两种写法等价：service.search 与 service_search。",
+  "",
+  "## 2. Array dataflow operators",
+  "map / filter / select / compute / sort / take / concat / merge_by_key",
+  "",
+  "这些操作消费先前产生的数组变量，并生成新的数组变量；变量引用同时定义数据依赖。",
+  "",
+  "- map(列表, 工具(参数=_.字段))：对列表每个元素执行一次工具调用，返回结果数组。_.字段 引用当前元素字段。",
+  "  例：details = map(items, service.get_detail(id=_.id))",
+  "- take(列表, N)：截取前 N 条。例：top = take(details, 5)",
+  '- sort(列表, key="字段", desc=true)：按字段排序（默认升序）。例：ranked = sort(details, key="field", desc=true)',
+  '- filter(列表, 字段=值)：保留"字段 等于 值"的元素（等值过滤）。例：ts = filter(details, field="value")',
+  '- compute(列表, 新字段="表达式")：给每个元素计算新字段（表达式 = 字段引用 + 数字 + 四则运算 + 括号）。例：r = compute(details, density="field_a / field_b")',
+  '- select(列表, "谓词")：按比较谓词（> >= < <= == !=）过滤。例：hot = select(r, "density > 0.3")',
+  '- merge_by_key(基准列表, 附加列表..., key="字段")：给每条基准记录附加另一批数据的字段（基准已有字段不覆盖），不是对称合并。',
+  "  例：enriched = merge_by_key(users, ratings, key=\"user_id\")",
+  "- concat(列表1, 列表2, ...)：按顺序把多个列表拼成一个大列表（真正的列表拼接）。例：both = concat(left, right)",
+  "",
+  "## 3. Return",
+  "程序最后使用：",
+  "return variable",
+  "",
+  "注意：上面示例中的查询词 / 截取数 / 阈值只是演示语法，不代表任何任务的真实参数。",
+].join("\n");
+
+/** 返回字段名中立的核心语言参考（compile-only / manifest 臂；不泄露任何 output 字段映射）。 */
+export function renderNeutralDslReference(): string {
+  return DSL_CORE_REFERENCE_NEUTRAL;
+}
+
+/**
  * 正交组合模式：每个模式只教一种组合概念（绑定 / 分支重组 / 补字段），
  * 互相之间无法拼成 benchmark 的完整答案。只使用通用变量名与 service.* 通用服务名。
  */

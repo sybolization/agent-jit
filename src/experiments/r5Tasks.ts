@@ -3,6 +3,7 @@ import { defineTool, type RegisteredTool, type ToolContract } from "../tools/def
 import {
   ADVERSARIAL_REPOS,
   createAdversarialGithubTools,
+  createOpaqueAdversarialGithubTools,
 } from "../tools/providers/github/mock.js";
 import { computeR4eAnswer } from "./r4eBenchmark.js";
 import type { TaskSpec } from "./taskSpec.js";
@@ -53,6 +54,18 @@ function buildBTools(): RegisteredTool[] {
   );
 }
 
+/** B 型 opaque 工具集：与 buildBTools 同 4 工具，但 output 字段名换成 opaque（R6.2）。 */
+function buildBOpaqueTools(): RegisteredTool[] {
+  return createOpaqueAdversarialGithubTools().filter((tool) =>
+    [
+      "github.search_repositories",
+      "github.get_repository",
+      "github.get_contributor_stats",
+      "github.list_commits",
+    ].includes(tool.id),
+  );
+}
+
 /** B 型 DSL 路径的图语义检查 spec（与 R4e n=30 任务一致）。 */
 export const R5_B_SPEC: TaskSpec = {
   query: "agent framework",
@@ -76,6 +89,29 @@ export const R5_B_SPEC: TaskSpec = {
   },
   // 执行级语义检查（checkTaskSemantics）：最终输出（仓库对象数组）的身份字段
   answerField: "full_name",
+};
+
+/** B 型 opaque 的图语义 spec（R6.2）：与 R5_B_SPEC 镜像，仅字段名换 opaque 名。
+ *  checkTaskSemantics 只消费 answerField + oracle；其余字段保留为与 transparent 对齐。 */
+export const R5_B_OPAQUE_SPEC: TaskSpec = {
+  query: "agent framework",
+  queryTokens: ["agent framework"],
+  limit: B_LIMIT,
+  takeCount: B_TAKE_COUNT,
+  bindings: { repo_ref: "repo_ref" },
+  sortKey: "aggregate_value",
+  sortDesc: true,
+  stageTools: ["github.get_repository"],
+  computeExprs: { ratio: "metric_x / metric_y" },
+  selectPreds: [`ratio > ${RATIO_THRESHOLD}`, `ratio <= ${RATIO_THRESHOLD}`, `aggregate_value >= ${SCORE_THRESHOLD}`],
+  branchFlowSpec: {
+    branches: [
+      { predicate: `ratio > ${RATIO_THRESHOLD}`, tool: "github.get_contributor_stats" },
+      { predicate: `ratio <= ${RATIO_THRESHOLD}`, tool: "github.list_commits" },
+    ],
+    convergePredicate: `aggregate_value >= ${SCORE_THRESHOLD}`,
+  },
+  answerField: "repo_ref",
 };
 
 /** B 型 oracle：确定性 mock 数据上的正确答案（前 3 个仓库完整名称）。 */
@@ -306,6 +342,12 @@ export interface R5Task {
   pipelineToolIds?: readonly string[];
 }
 
+/** B 型任务的中性 prompt（transparent / opaque 共用，opaque 不得额外解释字段映射）。 */
+export const R5_B_PROMPT =
+  "搜索 GitHub 上活跃的 agent 框架仓库（查询条件用 agent framework），取前 30 个。对每个仓库获取它的详细数据（star 数与 fork 数）。" +
+  "然后按 fork/star 比值（ratio = forks / stars）分支：比值 > 0.15 的仓库获取贡献者路径的分数，其余仓库获取提交路径的分数（两条路径返回的分数同一尺度，可直接比较）。" +
+  "把每条分数对应回它所属的仓库，只保留分数 >= 100 的仓库，按分数从高到低取前 3 个，返回它们的完整名称（owner/repo）。";
+
 export const R5_TASKS: readonly R5Task[] = [
   {
     id: "A",
@@ -317,10 +359,7 @@ export const R5_TASKS: readonly R5Task[] = [
   {
     id: "B",
     name: "repo-score-pipeline",
-    prompt:
-      "搜索 GitHub 上活跃的 agent 框架仓库（查询条件用 agent framework），取前 30 个。对每个仓库获取它的详细数据（star 数与 fork 数）。" +
-      "然后按 fork/star 比值（ratio = forks / stars）分支：比值 > 0.15 的仓库获取贡献者路径的分数，其余仓库获取提交路径的分数（两条路径返回的分数同一尺度，可直接比较）。" +
-      "把每条分数对应回它所属的仓库，只保留分数 >= 100 的仓库，按分数从高到低取前 3 个，返回它们的完整名称（owner/repo）。",
+    prompt: R5_B_PROMPT,
     tools: buildBTools(),
     spec: R5_B_SPEC,
     oracle: computeR5GroundTruthB(),
@@ -350,5 +389,26 @@ export function createR5CTask(candidateCount: number = R5_ISSUES.length): R5Task
     tools: createR5IssueTools(issues),
     spec: R5_C_SPEC,
     oracle: r5TaskCOracle(issues),
+  };
+}
+
+/**
+ * B 型 opaque 任务工厂（R6.2）：prompt / oracle / pipelineToolIds 与 transparent Task B 完全一致，
+ * 仅 tools 用 opaque 变体、spec 用 R5_B_OPAQUE_SPEC（answerField=repo_ref）。
+ */
+export function createR5BOpaqueTask(): R5Task {
+  return {
+    id: "B",
+    name: "repo-score-pipeline-opaque",
+    prompt: R5_B_PROMPT,
+    tools: buildBOpaqueTools(),
+    spec: R5_B_OPAQUE_SPEC,
+    oracle: computeR5GroundTruthB(),
+    pipelineToolIds: [
+      "github.search_repositories",
+      "github.get_repository",
+      "github.get_contributor_stats",
+      "github.list_commits",
+    ],
   };
 }

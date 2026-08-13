@@ -162,6 +162,110 @@ export function createAdversarialGithubTools(): RegisteredTool[] {
   ];
 }
 
+/**
+ * R6.2 Opaque adversarial mock 工具：与 `createAdversarialGithubTools()` 共享同一份
+ * `ADVERSARIAL_REPOS` 与完全相同的执行逻辑，仅 output 字段名换成无法从任务语义猜出的
+ * opaque 名，字段与 transparent 一一映射（ground-truth mapping）：
+ *   repo_ref = full_name；metric_x = forks；metric_y = stars；metric_z = language；
+ *   aggregate_value = score。
+ *
+ * 约束：input schema / tool id / label 与 transparent 完全一致；description 中性化
+ * （不泄露 `full_name / forks / stars / score` 等透明字段名）；`fieldHints` 携带最小语义
+ * 标签，供 compact manifest 渲染 `metric_x: integer[forks]` 形态（仅 manifest 臂可见）。
+ */
+export function createOpaqueAdversarialGithubTools(): RegisteredTool[] {
+  const contracts: ToolContract[] = [
+    defineTool({
+      id: "github.search_repositories",
+      label: "Search GitHub repositories",
+      description: "按查询条件搜索仓库，返回仓库摘要列表。",
+      inputSchema: Type.Object(
+        { query: Type.String(), limit: Type.Optional(Type.Integer()) },
+        { additionalProperties: false },
+      ),
+      outputSchema: Type.Array(Type.Object({ repo_ref: Type.String() }, { additionalProperties: false })),
+      fieldHints: { repo_ref: "repository identity" },
+    }),
+    defineTool({
+      id: "github.get_repository",
+      label: "Get a repository",
+      description: "获取单个仓库的详细信息。",
+      inputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
+      outputSchema: Type.Object(
+        { repo_ref: Type.String(), metric_x: Type.Integer(), metric_y: Type.Integer(), metric_z: Type.String() },
+        { additionalProperties: false },
+      ),
+      fieldHints: {
+        repo_ref: "repository identity",
+        metric_x: "forks",
+        metric_y: "stars",
+        metric_z: "language",
+      },
+    }),
+    defineTool({
+      id: "github.get_contributor_stats",
+      label: "Get repository contributor stats",
+      description:
+        "获取仓库贡献者统计，返回该仓库贡献者路径的统一可比较数值（与提交路径数值同尺度，可直接排序比较）。",
+      inputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
+      outputSchema: Type.Object({ repo_ref: Type.String(), aggregate_value: Type.Integer() }, { additionalProperties: false }),
+      fieldHints: { repo_ref: "repository identity", aggregate_value: "score" },
+    }),
+    defineTool({
+      id: "github.list_commits",
+      label: "List repository commits",
+      description:
+        "获取仓库提交统计，返回该仓库提交路径的统一可比较数值（与贡献者路径数值同尺度，可直接排序比较）。",
+      inputSchema: Type.Object(
+        { full_name: Type.String(), per_page: Type.Optional(Type.Integer()) },
+        { additionalProperties: false },
+      ),
+      outputSchema: Type.Object({ repo_ref: Type.String(), aggregate_value: Type.Integer() }, { additionalProperties: false }),
+      fieldHints: { repo_ref: "repository identity", aggregate_value: "score" },
+    }),
+  ];
+  const contractOf = (id: string): ToolContract => {
+    const contract = contracts.find((item) => item.id === id);
+    if (!contract) throw new Error(`mock: 未注册的工具 ${id}`);
+    return contract;
+  };
+  const byName = new Map(ADVERSARIAL_REPOS.map((row) => [row.full_name, row]));
+  const pick = (args: unknown): AdversarialRepoRow => {
+    const fullName = String((args as Record<string, unknown>).full_name ?? "");
+    return byName.get(fullName) ?? { full_name: fullName, stars: 0, forks: 0, language: "TypeScript", contributor_count: 0, total_commits: 0 };
+  };
+  return [
+    {
+      ...contractOf("github.search_repositories"),
+      execute: async (args) => {
+        const limit = Number((args as Record<string, unknown>).limit ?? ADVERSARIAL_REPOS.length);
+        return ADVERSARIAL_REPOS.slice(0, limit).map((row) => ({ repo_ref: row.full_name }));
+      },
+    },
+    {
+      ...contractOf("github.get_repository"),
+      execute: async (args) => {
+        const row = pick(args);
+        return { repo_ref: row.full_name, metric_x: row.forks, metric_y: row.stars, metric_z: row.language };
+      },
+    },
+    {
+      ...contractOf("github.get_contributor_stats"),
+      execute: async (args) => {
+        const row = pick(args);
+        return { repo_ref: row.full_name, aggregate_value: row.contributor_count * 3 };
+      },
+    },
+    {
+      ...contractOf("github.list_commits"),
+      execute: async (args) => {
+        const row = pick(args);
+        return { repo_ref: row.full_name, aggregate_value: row.total_commits * 2 };
+      },
+    },
+  ];
+}
+
 export function createMockGithubTools(options: MockGithubOptions = {}): RegisteredTool[] {
   const [minDelay = 20, maxDelay = 100] = options.delayMs ?? [20, 100];
   const count = options.repositoryCount ?? 10;

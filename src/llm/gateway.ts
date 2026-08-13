@@ -66,16 +66,16 @@ export interface LlmGateway {
 }
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
-const DEEPSEEK_MODEL_ID = "deepseek-chat";
+const DEEPSEEK_MODEL_ID = "deepseek-v4-flash";
 
 function createDeepSeekModel(options?: { reasoning?: boolean }): Model<"openai-completions"> {
   return {
     id: DEEPSEEK_MODEL_ID,
-    name: "DeepSeek Chat",
+    name: "DeepSeek V4 Flash",
     api: "openai-completions",
     provider: "deepseek",
     baseUrl: DEEPSEEK_BASE_URL,
-    reasoning: options?.reasoning ?? false,
+    reasoning: options?.reasoning ?? true,
     input: ["text"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 128_000,
@@ -194,7 +194,7 @@ function createDeepSeekModels(options?: { reasoning?: boolean }) {
 
 function getDeepSeekModel(models: ReturnType<typeof createDeepSeekModels>): Model<"openai-completions"> {
   const model = models.getModel("deepseek", DEEPSEEK_MODEL_ID);
-  if (!model) throw new Error("DeepSeek 模型未就绪：deepseek-chat");
+  if (!model) throw new Error("DeepSeek 模型未就绪：deepseek-v4-flash");
   return model as Model<"openai-completions">;
 }
 
@@ -206,8 +206,7 @@ export interface PiRuntime {
    * 开启模型 reasoning 时给 Agent 的 thinking level（对应 pi-agent-core `Agent` 的
    * `initialState.thinkingLevel`，会经 streamFn 的 `reasoning` 选项转为请求参数）。
    *
-   * 缺失 = 保持默认 off（与旧行为完全一致，请求不会带 `thinking:{type:"enabled"}`，
-   * 因此 provider 不会返回 reasoning_content）。
+   * 缺省 = 开启思考（V4 Flash 默认思考，显式传 reasoning:false 才关闭）。
    */
   thinkingLevel?: "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 }
@@ -215,15 +214,16 @@ export interface PiRuntime {
 /**
  * 创建 DeepSeek 的 Pi Agent runtime（与 LlmGateway 共用同一个 provider 配置）。
  *
- * reasoning: true 时（R5.1 reasoning observation）同时置 model.reasoning 与 Agent
- * thinkingLevel="medium"——只有两者都满足，pi-ai 的 openai-completions API 才会在请求里
- * 发 `thinking:{type:"enabled"}`（DeepSeek thinking 模式），响应才会带 reasoning_content。
+ * 默认开启思考（reasoning:true → model.reasoning + Agent thinkingLevel="medium"）——
+ * 只有两者都满足，pi-ai 的 openai-completions API 才会在请求里发
+ * `thinking:{type:"enabled"}`（DeepSeek thinking 模式），响应才会带 reasoning_content。
+ * 显式传 reasoning:false 关闭思考（model.reasoning=false 且不置 thinkingLevel）。
  */
 export function createDeepSeekPiRuntime(options?: { reasoning?: boolean }): PiRuntime {
   const models = createDeepSeekModels(options);
   return {
     model: getDeepSeekModel(models),
     streamFn: models.streamSimple.bind(models) as unknown as StreamFn,
-    ...(options?.reasoning ? { thinkingLevel: "medium" as const } : {}),
+    ...(options?.reasoning ?? true ? { thinkingLevel: "medium" as const } : {}),
   };
 }

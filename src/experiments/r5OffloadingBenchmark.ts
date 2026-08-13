@@ -49,7 +49,7 @@ import { Type } from "typebox";
 
 import { createDeepSeekPiRuntime, type PiRuntime } from "../llm/gateway.js";
 import { adaptRegisteredTool, createPiTools } from "../integrations/pi/toolAdapter.js";
-import { renderDslReferenceWithSource, type DslGuidanceMode } from "../integrations/pi/dslReference.js";
+import { renderNeutralDslReference, type DslGuidanceMode } from "../integrations/pi/dslReference.js";
 import type { JitExecuteProgramDetails } from "../integrations/pi/jit.js";
 import type { ExecutionGraph } from "../compiler/ir.js";
 import type { TraceEntry } from "../runtime/trace.js";
@@ -60,12 +60,49 @@ import { toolIdAlias, ToolRegistry } from "../tools/registry.js";
 import { checkTaskSemantics } from "./taskSpec.js";
 import { runPiAgent, type AgentReasoningTurn, type AgentTokenRound } from "./agentRunner.js";
 import { createR5CTask, R5_TASKS, type R5Task, type R5TaskId } from "./r5Tasks.js";
+import type { DslDiagnostic } from "../language/diagnostics.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
 
 /** R6 contract acquisition 模式（三臂）：eager = 现状 baseline（先 describe 拿契约再 execute）；compile-only = 无前置 describe、不挂 describe 工具，直接写程序，编译诊断兜底；manifest = compile-only + 紧凑 output manifest。 */
 export type R6ContractMode = "eager" | "compile-only" | "manifest";
+
+/**
+ * R6.2：compile failure 诊断按 code 归三类，回答"opaque 是否真正制造了 contract uncertainty"。
+ * 分类依据是 `DslDiagnostic.code`（编译器原始 code，非 JIT 层大写 code）。
+ */
+export interface CompileErrorBreakdown {
+  /** 语法/完整性类（与 output contract 无关）：syntax / duplicate_name / missing_return / duplicate_return */
+  syntaxOrCompleteness: number;
+  /** output contract 类：UNKNOWN_FIELD / config_type_mismatch / unknown_parameter / MAP_BINDING_REF_INVALID */
+  outputContractRelated: number;
+  /** 其余（unknown_tool / undefined_reference / duplicate_argument / invalid_reference / expression_invalid / TOO_MANY_POSITIONAL_ARGS / schema_invalid 等） */
+  other: number;
+}
+
+/** 编译诊断 code → R6.2 三类（syntaxOrCompleteness / outputContractRelated / other）。 */
+export function classifyCompileErrorCode(code: string): keyof CompileErrorBreakdown {
+  if (code === "syntax" || code === "duplicate_name" || code === "missing_return" || code === "duplicate_return") {
+    return "syntaxOrCompleteness";
+  }
+  if (
+    code === "UNKNOWN_FIELD" ||
+    code === "config_type_mismatch" ||
+    code === "unknown_parameter" ||
+    code === "MAP_BINDING_REF_INVALID"
+  ) {
+    return "outputContractRelated";
+  }
+  return "other";
+}
+
+/** 把一批编译诊断汇总为三类计数（供 run 级 compileErrorBreakdown 与格内聚合使用）。 */
+export function compileErrorBreakdown(diagnostics: readonly DslDiagnostic[]): CompileErrorBreakdown {
+  const breakdown: CompileErrorBreakdown = { syntaxOrCompleteness: 0, outputContractRelated: 0, other: 0 };
+  for (const item of diagnostics) breakdown[classifyCompileErrorCode(item.code)] += 1;
+  return breakdown;
+}
 
 /**
  * submit_answer：双 arm 完全同标准的最终答案提交通道。
@@ -180,7 +217,7 @@ export function r5TreatmentSystemPrompt(options?: {
       ? [
           "",
           "工具的参数名与类型以你的工具定义为准（你已可见）；输出字段在编译前未知——先写程序提交，编译诊断会指出不存在的字段并列出可用字段。",
-          renderDslReferenceWithSource("primitive", { toolContractSource: "definitions" }),
+          renderNeutralDslReference(),
         ]
       : []),
     // manifest：再追加紧凑 output manifest（只含工具输出形状）
@@ -326,6 +363,19 @@ export interface R5RunMetrics {
   repairTokens?: number;
   /** R6.1：该 run 的 contract acquisition 模式（eager / compile-only / manifest；runR5Run 透传；R6 三臂分臂聚合的事实源） */
   contractMode?: R6ContractMode;
+  /** R6.2：该 run 的工具输出命名（transparent / opaque；runR5Run 透传，R6.2 分格事实源） */
+  toolNaming?: "transparent" | "opaque";
+  /** R6.2：首次 jit_execute_program 即 compile+execute+semantic correct（无 execute → undefined） */
+  firstPassSemanticSuccess?: boolean;
+  /** R6.2：compile 失败诊断的三类计数（runR5Run 经 onCompileFailure 采集；无编译失败 → undefined） */
+  compileErrorBreakdown?: CompileErrorBreakdown;
+  /** R6.2：manifest 臂的 manifest 字符数 / 估算 token（非 manifest 臂 → undefined） */
+  manifestChars?: number;
+  manifestEstimatedTokens?: number;
+  /** R6.2：首次 compile 前 token、repair 区间 token（与 repairTokens 同源）、首次成功执行后 token（无 tokenRounds → undefined） */
+  tokensBeforeFirstCompile?: number;
+  tokensInRepairRounds?: number;
+  tokensAfterSuccessfulExecution?: number;
   // JIT 行为（R5 review：拆分代替单一 path = "dsl"）
   /** 是否调用过 jit_describe_tools / jit_execute_program（愿不愿意尝试） */
   jitAttempted: boolean;
@@ -495,6 +545,22 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
         .reduce((sum, item) => sum + item.total, 0);
     }
   }
+  // R6.2 repair cost 三段：首次 compile 前 / repair 区间（= repairTokens）/ 首次成功执行后
+  let tokensBeforeFirstCompile: number | undefined;
+  let tokensAfterSuccessfulExecution: number | undefined;
+  if (input.tokenRounds !== undefined) {
+    const firstExecuteRound = executeCallsInTimeline[0]?.round;
+    if (firstExecuteRound !== undefined) {
+      tokensBeforeFirstCompile = input.tokenRounds
+        .filter((item) => item.round < firstExecuteRound)
+        .reduce((sum, item) => sum + item.total, 0);
+    }
+    if (firstSuccessExecuteRound !== undefined) {
+      tokensAfterSuccessfulExecution = input.tokenRounds
+        .filter((item) => item.round > firstSuccessExecuteRound)
+        .reduce((sum, item) => sum + item.total, 0);
+    }
+  }
   const preOffloadBusinessCalls =
     firstJitRound === undefined
       ? []
@@ -603,6 +669,9 @@ export function deriveR5Metrics(input: R5RunDerivationInput): R5RunMetrics {
     describeFallbackUsed: describeAfterFailedExecute,
     ...(preDescribeUsed !== undefined ? { preDescribeUsed } : {}),
     ...(repairTokens !== undefined ? { repairTokens } : {}),
+    ...(tokensBeforeFirstCompile !== undefined ? { tokensBeforeFirstCompile } : {}),
+    ...(repairTokens !== undefined ? { tokensInRepairRounds: repairTokens } : {}),
+    ...(tokensAfterSuccessfulExecution !== undefined ? { tokensAfterSuccessfulExecution } : {}),
     jitAttempted,
     jitExecutionSucceeded,
     jitSemanticCorrect: input.jitSemanticCorrect,
@@ -642,6 +711,8 @@ export interface R5RunOptions {
   boundaryPolicy?: boolean;
   /** R6.1 contract acquisition 模式：缺省 eager = 现状（先 describe 拿契约再 execute）；compile-only / manifest = 直接 execute + 结构化诊断兜底（describeTools:false，不挂 describe 工具） */
   contractMode?: R6ContractMode;
+  /** R6.2：工具输出命名（transparent / opaque），runR5Run 透传到 R5RunMetrics 供分格 */
+  toolNaming?: "transparent" | "opaque";
 }
 
 export async function runR5Run(
@@ -652,6 +723,11 @@ export async function runR5Run(
   options: R5RunOptions = {},
 ): Promise<R5RunMetrics> {
   const registry = new ToolRegistry<RegisteredTool>([...task.tools, submitAnswerTool]);
+  // R6.2：编译失败诊断采集（onCompileFailure 汇总）与首个成功程序（firstPassSemanticSuccess 用）
+  const compileDiagnostics: DslDiagnostic[] = [];
+  let firstProgramDetails: JitExecuteProgramDetails | undefined;
+  // R6.2：manifest 臂的 manifest 文本（同时供 systemPrompt 与 manifestChars/EstimatedTokens）
+  const manifestText = options.contractMode === "manifest" ? renderCompactManifest(registry) : "";
   // 双 arm 唯一差异：control 只有 atomic tools（含 submit_answer）；treatment 再挂上 jit_* 元工具。
   // dslGuidance 只影响 treatment 臂（jit_describe_tools 的 manual/bindings 渲染），control 臂无 JIT 不受影响。
   const piTools = (arm === "control"
@@ -661,6 +737,7 @@ export async function runR5Run(
         ...(options.contractMode === "compile-only" || options.contractMode === "manifest"
           ? { describeTools: false }
           : {}),
+        onCompileFailure: (diagnostics) => compileDiagnostics.push(...diagnostics),
       })
   ).map((tool) => (tool.name === SUBMIT_ANSWER_ID && options.stopAfterSubmit ? createR5SubmitTool(true) : tool));
 
@@ -682,7 +759,7 @@ export async function runR5Run(
             ...(options.contractMode !== undefined && options.contractMode !== "eager"
               ? { contractMode: options.contractMode }
               : {}),
-            ...(options.contractMode === "manifest" ? { manifest: renderCompactManifest(registry) } : {}),
+            ...(options.contractMode === "manifest" && manifestText.length > 0 ? { manifest: manifestText } : {}),
           }),
     tools: piTools,
     prompt: task.prompt,
@@ -709,6 +786,7 @@ export async function runR5Run(
       const details = (result as { details?: JitExecuteProgramDetails } | null)?.details;
       if (details && details.status === "success") {
         lastProgramDetails = details;
+        if (firstProgramDetails === undefined) firstProgramDetails = details;
         executeCallPhases.push({ round, compileSuccess: true, executionSuccess: true });
         return;
       }
@@ -779,9 +857,31 @@ export async function runR5Run(
     oracle: task.oracle,
     ...(run.error !== undefined ? { error: run.error } : {}),
   });
+
+  // R6.2：首次 execute 即 compile+execute+semantic correct（比 firstPassCompileSuccess 更强）
+  let firstPassSemanticSuccess: boolean | undefined;
+  if (executeCallPhases.length > 0 && task.spec) {
+    const first = executeCallPhases[0]!;
+    if (first.compileSuccess && first.executionSuccess) {
+      firstPassSemanticSuccess = firstProgramDetails
+        ? (await checkTaskSemantics(firstProgramDetails.graph, task)).pass
+        : undefined;
+    } else {
+      firstPassSemanticSuccess = false;
+    }
+  }
+  // R6.2：compile 失败诊断的三类计数
+  const errorBreakdown = compileDiagnostics.length > 0 ? compileErrorBreakdown(compileDiagnostics) : undefined;
+
   return {
     ...metrics,
     ...(options.contractMode !== undefined ? { contractMode: options.contractMode } : {}),
+    ...(options.toolNaming !== undefined ? { toolNaming: options.toolNaming } : {}),
+    ...(firstPassSemanticSuccess !== undefined ? { firstPassSemanticSuccess } : {}),
+    ...(errorBreakdown !== undefined ? { compileErrorBreakdown: errorBreakdown } : {}),
+    ...(manifestText.length > 0
+      ? { manifestChars: manifestText.length, manifestEstimatedTokens: Math.ceil(manifestText.length / 4) }
+      : {}),
     ...(lastProgram ? { lastProgram } : {}),
     ...(executeCallPhases.length > 0 ? { executeCallPhases } : {}),
   };
@@ -874,6 +974,16 @@ export interface R5Aggregate {
   preDescribeUsedRate: number;
   /** R6.1：平均 repairTokens（有定义值的均值；无 → undefined） */
   avgRepairTokens: number | undefined;
+  /** R6.2：平均编译尝试次数（compileAttempts 有定义值的均值） */
+  avgCompileAttempts: number;
+  /** R6.2：平均延迟（ms） */
+  avgLatencyMs: number;
+  /** R6.2：首次 execute 即 compile+execute+semantic correct 的比例（firstPassSemanticSuccess===true / 格内总数） */
+  firstPassSemanticSuccessRate: number;
+  /** R6.2：output contract 相关编译错误占比（格内 outputContractRelated 总数 / 三类诊断总数；无诊断 → 0） */
+  outputContractErrorRate: number;
+  /** R6.2：语法/完整性编译错误占比（格内 syntaxOrCompleteness 总数 / 三类诊断总数；无诊断 → 0） */
+  syntaxCompletenessErrorRate: number;
 }
 
 export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R5TaskId): R5Aggregate {
@@ -915,6 +1025,22 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
     .filter((value): value is number => value !== undefined);
   // R6.1：尝试过 compile 的 run 数（firstPassCompileRateAmongAttempts 的分母；executeCalls > 0）
   const compileAttemptRuns = cell.filter((run) => run.executeCalls > 0).length;
+  // R6.2：新聚合指标（编译尝试 / 延迟 / 首轮语义成功 / 编译错误分类占比）
+  const compileAttemptValues = cell
+    .map((run) => run.compileAttempts)
+    .filter((value): value is number => value !== undefined);
+  const latencyValues = cell.map((run) => run.latencyMs);
+  let outputContractTotal = 0;
+  let syntaxCompletenessTotal = 0;
+  let otherTotal = 0;
+  for (const run of cell) {
+    const breakdown = run.compileErrorBreakdown;
+    if (!breakdown) continue;
+    outputContractTotal += breakdown.outputContractRelated;
+    syntaxCompletenessTotal += breakdown.syntaxOrCompleteness;
+    otherTotal += breakdown.other;
+  }
+  const compileErrorTotal = outputContractTotal + syntaxCompletenessTotal + otherTotal;
   return {
     arm,
     taskId,
@@ -965,6 +1091,11 @@ export function aggregateR5(runs: readonly R5RunMetrics[], arm: R5Arm, taskId: R
     describeFallbackRate: ratio(cell.filter((run) => run.describeFallbackUsed).length),
     preDescribeUsedRate: ratio(cell.filter((run) => run.preDescribeUsed === true).length),
     avgRepairTokens: repairTokenValues.length > 0 ? avg(repairTokenValues) : undefined,
+    avgCompileAttempts: avg(compileAttemptValues),
+    avgLatencyMs: avg(latencyValues),
+    firstPassSemanticSuccessRate: ratio(cell.filter((run) => run.firstPassSemanticSuccess === true).length),
+    outputContractErrorRate: compileErrorTotal > 0 ? outputContractTotal / compileErrorTotal : 0,
+    syntaxCompletenessErrorRate: compileErrorTotal > 0 ? syntaxCompletenessTotal / compileErrorTotal : 0,
   };
 }
 
@@ -1116,7 +1247,7 @@ export function writeR5Report(
       {
         mode: "r5-autonomous-offloading",
         config,
-        model: "deepseek-chat",
+        model: "deepseek-v4-flash",
         timestamp: new Date().toISOString(),
         tasks: tasks.map((task) => ({
           id: task.id,

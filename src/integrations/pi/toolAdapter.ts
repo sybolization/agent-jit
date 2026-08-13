@@ -3,6 +3,7 @@ import type { RegisteredTool } from "../../tools/definition.js";
 import { type ToolRegistry } from "../../tools/registry.js";
 import { createJitDescribeTool, createJitExecuteProgramTool } from "./jit.js";
 import type { DslGuidanceMode } from "./dslReference.js";
+import type { DslDiagnostic } from "../../language/diagnostics.js";
 
 /**
  * ToolRegistry → Pi AgentTool 适配层。
@@ -48,11 +49,15 @@ export function adaptRegisteredTool(registry: ToolRegistry<RegisteredTool>, tool
  */
 export function createPiTools(
   registry: ToolRegistry<RegisteredTool>,
-  options: { guidance?: DslGuidanceMode; describeTools?: boolean } = {},
+  options: {
+    guidance?: DslGuidanceMode;
+    describeTools?: boolean;
+    onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void;
+  } = {},
 ): AgentTool<any>[] {
   return [
     ...registry.all().map((tool) => adaptRegisteredTool(registry, tool)),
     ...(options.describeTools === false ? [] : [createJitDescribeTool(registry, options)]),
-    createJitExecuteProgramTool(registry),
+    createJitExecuteProgramTool(registry, options),
   ];
 }
