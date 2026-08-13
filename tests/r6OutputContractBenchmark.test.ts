@@ -80,16 +80,19 @@ describe("R6.2 opaque tool variant — 与 transparent 完全等价", () => {
     expect(oCommits).toEqual({ repo_ref: "adv/org-repo-1", aggregate_value: 750 });
   });
 
-  test("fieldHints 正确（mapping 标签），description/label 不泄露字段名", () => {
+  test("output schema 字段 description 正确（mapping 标签），description/label 不泄露字段名", () => {
     const getRepo = byId(opaque).get("github.get_repository")!;
-    expect(getRepo.fieldHints).toEqual({
-      repo_ref: "repository identity",
-      metric_x: "forks",
-      metric_y: "stars",
-      metric_z: "language",
-    });
+    const repoProps = (getRepo.outputSchema as unknown as { properties?: Record<string, { description?: string }> }).properties;
+    expect(repoProps?.repo_ref?.description).toBe("repository identity");
+    expect(repoProps?.metric_x?.description).toBe("forks");
+    expect(repoProps?.metric_y?.description).toBe("stars");
+    expect(repoProps?.metric_z?.description).toBe("language");
+
     const stats = byId(opaque).get("github.get_contributor_stats")!;
-    expect(stats.fieldHints).toEqual({ repo_ref: "repository identity", aggregate_value: "score" });
+    const statsProps = (stats.outputSchema as unknown as { properties?: Record<string, { description?: string }> }).properties;
+    expect(statsProps?.repo_ref?.description).toBe("repository identity");
+    expect(statsProps?.aggregate_value?.description).toBe("score");
+
     for (const tool of opaque) {
       const text = `${tool.label ?? ""} ${tool.description ?? ""}`;
       expect(text).not.toMatch(/full_name|forks|stars|score/);

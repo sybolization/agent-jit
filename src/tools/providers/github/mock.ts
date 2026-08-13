@@ -170,8 +170,9 @@ export function createAdversarialGithubTools(): RegisteredTool[] {
  *   aggregate_value = score。
  *
  * 约束：input schema / tool id / label 与 transparent 完全一致；description 中性化
- * （不泄露 `full_name / forks / stars / score` 等透明字段名）；`fieldHints` 携带最小语义
- * 标签，供 compact manifest 渲染 `metric_x: integer[forks]` 形态（仅 manifest 臂可见）。
+ * （不泄露 `full_name / forks / stars / score` 等透明字段名）；output schema property
+ * description 携带最小语义标签，供 compact manifest 渲染 `metric_x: integer[forks]`
+ * 形态（仅 manifest 臂可见）。
  */
 export function createOpaqueAdversarialGithubTools(): RegisteredTool[] {
   const contracts: ToolContract[] = [
@@ -183,8 +184,7 @@ export function createOpaqueAdversarialGithubTools(): RegisteredTool[] {
         { query: Type.String(), limit: Type.Optional(Type.Integer()) },
         { additionalProperties: false },
       ),
-      outputSchema: Type.Array(Type.Object({ repo_ref: Type.String() }, { additionalProperties: false })),
-      fieldHints: { repo_ref: "repository identity" },
+      outputSchema: Type.Array(Type.Object({ repo_ref: Type.String({ description: "repository identity" }) }, { additionalProperties: false })),
     }),
     defineTool({
       id: "github.get_repository",
@@ -192,15 +192,14 @@ export function createOpaqueAdversarialGithubTools(): RegisteredTool[] {
       description: "获取单个仓库的详细信息。",
       inputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
       outputSchema: Type.Object(
-        { repo_ref: Type.String(), metric_x: Type.Integer(), metric_y: Type.Integer(), metric_z: Type.String() },
+        {
+          repo_ref: Type.String({ description: "repository identity" }),
+          metric_x: Type.Integer({ description: "forks" }),
+          metric_y: Type.Integer({ description: "stars" }),
+          metric_z: Type.String({ description: "language" }),
+        },
         { additionalProperties: false },
       ),
-      fieldHints: {
-        repo_ref: "repository identity",
-        metric_x: "forks",
-        metric_y: "stars",
-        metric_z: "language",
-      },
     }),
     defineTool({
       id: "github.get_contributor_stats",
@@ -208,8 +207,13 @@ export function createOpaqueAdversarialGithubTools(): RegisteredTool[] {
       description:
         "获取仓库贡献者统计，返回该仓库贡献者路径的统一可比较数值（与提交路径数值同尺度，可直接排序比较）。",
       inputSchema: Type.Object({ full_name: Type.String() }, { additionalProperties: false }),
-      outputSchema: Type.Object({ repo_ref: Type.String(), aggregate_value: Type.Integer() }, { additionalProperties: false }),
-      fieldHints: { repo_ref: "repository identity", aggregate_value: "score" },
+      outputSchema: Type.Object(
+        {
+          repo_ref: Type.String({ description: "repository identity" }),
+          aggregate_value: Type.Integer({ description: "score" }),
+        },
+        { additionalProperties: false },
+      ),
     }),
     defineTool({
       id: "github.list_commits",
@@ -220,8 +224,13 @@ export function createOpaqueAdversarialGithubTools(): RegisteredTool[] {
         { full_name: Type.String(), per_page: Type.Optional(Type.Integer()) },
         { additionalProperties: false },
       ),
-      outputSchema: Type.Object({ repo_ref: Type.String(), aggregate_value: Type.Integer() }, { additionalProperties: false }),
-      fieldHints: { repo_ref: "repository identity", aggregate_value: "score" },
+      outputSchema: Type.Object(
+        {
+          repo_ref: Type.String({ description: "repository identity" }),
+          aggregate_value: Type.Integer({ description: "score" }),
+        },
+        { additionalProperties: false },
+      ),
     }),
   ];
   const contractOf = (id: string): ToolContract => {

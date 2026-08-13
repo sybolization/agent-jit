@@ -15,15 +15,47 @@ import { schemaViewOf, schemaViewText, type SchemaView } from "./schemaView.js";
  * 约定：不做命名类型抽取（结构去重、类型定义段都交给 llmCatalog），
  * 不渲染 required / title / $id / description 等元数据，不出现输入参数 /
  * “参数格式”/“类型定义”等段——保持每行自包含。
+ *
+ * 历史兼容 renderer：本文件是历史兼容 renderer，新代码请使用 `dslSignature.ts` 的
+ * `renderDslSignature`（forward-looking 的 DSL 签名层），不再在此新增渲染逻辑。
  */
 
+/**
+ * 从 output schema 的 property `description` 收集字段语义标签（opaque 工具用）：
+ * 递归读取顶层 object（或 array 元素的 object）每个 property 的 description，
+ * 非空字符串才收录，返回 `{字段名: description}`。transparent 工具无 description → 空表。
+ */
+function outputFieldLabels(schema: unknown): Record<string, string> {
+  const labels: Record<string, string> = {};
+  const collect = (node: unknown): void => {
+    if (node === null || typeof node !== "object" || Array.isArray(node)) return;
+    const raw = node as { type?: unknown; items?: unknown; properties?: Record<string, unknown> };
+    if (raw.type === "array" && raw.items !== null && typeof raw.items === "object" && !Array.isArray(raw.items)) {
+      collect(raw.items);
+      return;
+    }
+    if (raw.type === "object") {
+      for (const [key, prop] of Object.entries(raw.properties ?? {})) {
+        if (prop !== null && typeof prop === "object" && !Array.isArray(prop)) {
+          const description = (prop as { description?: unknown }).description;
+          if (typeof description === "string" && description.length > 0) {
+            labels[key] = description;
+          }
+        }
+      }
+    }
+  };
+  collect(schema);
+  return labels;
+}
+
 /** 把 SchemaView 渲染为单行输出形状：对象 `{a: string, b: integer}`、数组 `[...]`。
- *  fieldHints（opaque 工具）提供时，字段渲染为 `key: type[label]` 形态（最小语义标签）。 */
-function outputShape(view: SchemaView, fieldHints?: Readonly<Record<string, string>>): string {
+ *  labels（output schema property description）提供时，字段渲染为 `key: type[label]` 形态（最小语义标签）。 */
+function outputShape(view: SchemaView, labels?: Readonly<Record<string, string>>): string {
   if (view.kind === "object") {
     const fields = Object.entries(view.properties)
       .map(([key, prop]) => {
-        const hint = fieldHints?.[key];
+        const hint = labels?.[key];
         return `${key}: ${schemaViewText(prop)}${hint !== undefined ? `[${hint}]` : ""}`;
       })
       .join(", ");
@@ -31,7 +63,7 @@ function outputShape(view: SchemaView, fieldHints?: Readonly<Record<string, stri
   }
   if (view.kind === "array") {
     // schemaViewOf 已把 items 未知的数组归一为 unknown，这里 items 必然可渲染
-    return `[${outputShape(view.items, fieldHints)}]`;
+    return `[${outputShape(view.items, labels)}]`;
   }
   return schemaViewText(view); // primitive / record / union / unknown 内联渲染
 }
@@ -55,5 +87,5 @@ export function renderCompactManifest(catalog: ToolCatalog, ids?: readonly strin
       .filter((tool) => order.has(tool.id))
       .sort((left, right) => order.get(left.id)! - order.get(right.id)!);
   }
-  return tools.map((tool) => `${tool.id} -> ${outputShape(schemaViewOf(tool.outputSchema), tool.fieldHints)}`).join("\n");
+  return tools.map((tool) => `${tool.id} -> ${outputShape(schemaViewOf(tool.outputSchema), outputFieldLabels(tool.outputSchema))}`).join("\n");
 }

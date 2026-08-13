@@ -32,7 +32,8 @@ export const DSL_CORE_REFERENCE = [
   "程序是 newline 分隔的语句序列：<变量> = <调用>(...)，最后一行必须是 return <变量>。",
   "",
   "## 1. Tool calls",
-  "普通工具调用遵循 jit_describe_tools 返回的 Tool Contract：参数名、参数类型与返回类型由契约决定，不得自创参数。",
+  "普通工具调用遵循随 active tool 提供的 DSL signature：参数名、参数类型与返回类型由签名决定，不得自创参数。",
+  "函数式签名示例：service.lookup(key: str) -> {id: str, score: int}",
   "",
   "例：",
   "repos = github.search_repositories(",
@@ -79,7 +80,8 @@ export const DSL_CORE_REFERENCE_NEUTRAL = [
   "程序是 newline 分隔的语句序列：<变量> = <调用>(...)，最后一行必须是 return <变量>。",
   "",
   "## 1. Tool calls",
-  "普通工具调用遵循工具定义（Tool Contract）中的参数名与类型，不得自创参数名。",
+  "普通工具调用遵循随 active tool 提供的 DSL signature：参数名、参数类型与返回类型由签名决定，不得自创参数。",
+  "函数式签名示例：service.lookup(key: str) -> {id: str, count: int}",
   "",
   "例：",
   "items = service.search(",
@@ -204,18 +206,18 @@ export function renderDslReference(mode: DslGuidanceMode): string {
 }
 
 /**
- * compile-only / manifest 臂（R6.1 修正版）：`jit_describe_tools` 未注册，
- * 核心参考的 Tool calls 段不能再说"遵循 jit_describe_tools 返回的 Tool Contract"，
- * 否则模型会在程序里误用该工具。此选项把该行替换为中性表述（契约来自模型可见的工具定义），
- * eager / R5 缺省行为不变。
+ * Tool calls 段的两种变体：DSL signature 已 eager 注入到每个 active tool 的 description，
+ * 核心参考的 Tool calls 段不再引用 jit_describe_tools（该工具在缺省/compile-only/manifest
+ * 臂都不注册）。此选项把该行替换为强调"工具定义中的 DSL signature"的变体，
+ * renderDslReference 缺省行为（describe 变体）不变。
  */
 export type DslToolContractSource = "describe" | "definitions";
 
 const DESCRIBE_TOOL_CALLS_LINE =
-  "普通工具调用遵循 jit_describe_tools 返回的 Tool Contract：参数名、参数类型与返回类型由契约决定，不得自创参数。";
+  "普通工具调用遵循随 active tool 提供的 DSL signature：参数名、参数类型与返回类型由签名决定，不得自创参数。";
 
 const DEFINITIONS_TOOL_CALLS_LINE =
-  "普通工具调用遵循工具定义（Tool Contract）中的参数名与类型，不得自创参数名。";
+  "普通工具调用遵循工具定义（Tool Contract）中的 DSL signature：参数名、参数类型与返回类型由签名决定，不得自创参数。";
 
 export function renderDslReferenceWithSource(
   mode: DslGuidanceMode,

@@ -646,13 +646,17 @@ RepositorySummary {
 - 渲染走归一化的 SchemaView 层（`src/tools/schemaView.ts`）：`string | null`、嵌套、union、record 都能正确表达，无法识别的类型保留 `unknown`，不默认当成 string；
 - compiler 内部仍然使用完整 JSON Schema——目录只是给模型的紧凑投影。
 
-> **唯一正式 renderer**：`src/tools/llmCatalog.ts` 是唯一的 DSL contract renderer；旧格式
+> **正式 renderer**：`src/tools/dslSignature.ts` 是 forward-looking 的唯一 DSL 签名 renderer
+> （`dslSignatureOf` → `renderDslSignature`，输出 `id(params) -> returns` 的函数式签名）。
+> `src/tools/llmCatalog.ts` 与 `src/tools/compactContractRenderer.ts` 是历史兼容 renderer
+> （保留字节输出供旧 benchmark reproduce，新代码不再新增渲染逻辑）；旧格式
 > `renderExecutionToolCatalog` 已迁到 `src/experiments/executionCatalog.ts`（仅供旧 benchmark 的
 > iterative 臂提示词使用，新代码不要引用）。
 
 原则：
 
-> **工具调用只需要 input contract；工具编排必须同时有 output contract。**
+> **Provider 契约是 schema-shaped；DSL 契约是 function-shaped。** 工具调用只需要 input contract；
+> 工具编排必须同时有 output contract。
 
 ### JIT 元工具（jit_describe_tools / jit_execute_program）
 
@@ -665,7 +669,12 @@ JIT 元工具：
   jit_execute_program(source)            提交 DSL 程序给 Harness 编译执行
 ```
 
-`jit_describe_tools` 是**确定性**的：`tool_names → ToolIdResolver → SchemaView → compact DSL 契约文本`，没有概率过程。**严格语义（不允许 partial success）**：请求里任一 id 未知就整体失败——`UNKNOWN_TOOL: unknown1, unknown2` 一次性列出全部未知 + 确定性近似建议（`Did you mean "github_get_repository"（github.get_repository）？`），绝不返回部分契约；`tool_names` 上限 20（防 lazy loading 变回 eager loading）。因此 DSL 臂的常驻 system prompt **不内嵌业务工具目录**——只包含 DSL 语法/原则 + 两个元工具的说明；模型只有在判断"接下来这几步可以程序化"时才调用 describe_tools 获取契约，再写程序、调用 execute_program。
+`jit_describe_tools` 是**确定性**的：`tool_names → ToolIdResolver → SchemaView → compact DSL 契约文本`，没有概率过程。**严格语义（不允许 partial success）**：请求里任一 id 未知就整体失败——`UNKNOWN_TOOL: unknown1, unknown2` 一次性列出全部未知 + 确定性近似建议（`Did you mean "github_get_repository"（github.get_repository）？`），绝不返回部分契约；`tool_names` 上限 20（防 lazy loading 变回 eager loading）。
+
+> **describe 是 optional discovery，不是正常 JIT 前置。** 在 production/default 路径里，每个 active
+> 工具已经通过 `adaptRegisteredTool` 把 `DSL: id(params) -> returns` 的紧凑签名注入到自己的
+> description 中，模型直接 `jit_execute_program` 即可编程；`jit_describe_tools` 只为大型 registry /
+> 动态工具发现保留（`createPiTools` 默认不再挂载，显式 `describeTools:true` 才启用）。
 
 ### Pi Agent Tool 集成（`src/integrations/pi/`）
 
@@ -676,15 +685,15 @@ ToolRegistry
     ↓
 createPiTools(registry)        ← src/integrations/pi/toolAdapter.ts
     ↓
-Pi Agent
-  ├─ github_search_repositories    普通业务工具：host alias 名，execute → 原 RegisteredTool.execute
-  ├─ github_get_repository
+Pi Agent（默认 active tool signatures → execute_program）
+  ├─ github_search_repositories    普通业务工具：host alias 名，description 已含 DSL 签名
+  ├─ github_get_repository         execute → 原 RegisteredTool.execute
   ├─ ...
-  ├─ jit_describe_tools            → registry → renderToolContracts
   └─ jit_execute_program           → compileExecutionDsl → execute(graph, 同一 registry) → result
+（可选：createPiTools(registry, { describeTools: true }) 才额外挂 jit_describe_tools）
 ```
 
-- 普通工具只改名字（canonical → host alias）与执行签名（`execute(input)` → `execute(toolCallId, params)`），语义零改动；
+- 普通工具只改名字（canonical → host alias）与执行签名（`execute(input)` → `execute(toolCallId, params)`），并在 description 追加一行 `DSL: id(params) -> returns`（由 `dslSignatureOf` / `renderDslSignature` 从同一 `ToolContract` 派生），语义零改动；
 - `jit_execute_program.execute` 内部完成 编译 → 执行（**同一个 registry**，compile 与 runtime 解析同一批工具），失败（未知工具 / 编译失败 / 执行失败）一律 throw，由 Agent 转成 `isError` toolResult 回填给模型——严格语义天然成立；
 - 成功执行的程序随 `AgentToolResult.details` 携带结构化记录（`JitExecuteProgramDetails`：source / result / graph / trace），供 benchmark 测量（任务正确性、compressed path length），**不进入模型上下文**；
 - 模型侧运行基座统一由 `src/llm/gateway.ts` 的 `createDeepSeekPiRuntime()` 提供（model + streamFn，与 `LlmGateway` 共用同一个 DeepSeek provider 配置）；共享运行辅助 `src/experiments/agentRunner.ts` 采集轮数 / tokens / 工具调用序列 / 最终文本。
@@ -868,14 +877,19 @@ src/tools/
     ToolContract / RegisteredTool / ToolCatalog / ToolRegistry
     jitTools.ts                      JIT 元工具契约（jit_describe_tools / jit_execute_program）
     schemaView（归一化 schema 层：JSON Schema → SchemaView）
-    llmCatalog（Compact LLM Catalog：全量目录 + describe_tools 子集渲染）
+    dslSignature.ts                 DslToolSignature：ToolContract → 函数式 DSL 签名（唯一 forward renderer）
+    llmCatalog.ts                   Compact LLM Catalog（历史兼容 renderer：全量目录 + describe_tools 子集）
+    compactContractRenderer.ts      Compact output manifest（历史兼容 renderer，供 R6.2 reproduce）
     providers/
         github/{contracts,real,mock}.ts   契约 + 真实 adapter + mock
         domain/mock.ts                    跨域 mock（CRM / users / email）
 
 src/integrations/pi/
-    toolAdapter.ts                   createPiTools(registry)：业务工具 + JIT 元工具 → Pi AgentTool
-    jit.ts                           jit_describe_tools / jit_execute_program 的 AgentTool execute 层
+    toolAdapter.ts                   createPiTools(registry)：业务工具（含 DSL 签名）+ jit_execute_program → Pi AgentTool
+    executeProgramTool.ts            jit_execute_program 的 AgentTool execute 层
+    describeToolsTool.ts             jit_describe_tools（optional discovery / legacy）
+    compileDiagnostics.ts            编译诊断结构化渲染（FIX_HINTS / renderCompileFailure）
+    dslReference.ts                  DSL 语言参考（primitive / patterns / full-example）
 
 src/compiler/
     Execution IR compiler
@@ -901,7 +915,14 @@ src/experiments/
     agentRunner.ts                   共享 Agent 运行辅助（轮数 / tokens / 工具调用 / 最终文本）
     hybridAgentBenchmark.ts          真 Agent 双通道 benchmark（Agent loop 统一调度，无特殊 dispatch）
     r5Tasks.ts                       R5 任务集（A/B/C 三类 + oracle + C 型 mock）
-    r5OffloadingBenchmark.ts         R5 Autonomous Offloading 双 arm 实验 + 新指标汇总
+    r5OffloadingBenchmark.ts         R5 Autonomous Offloading 双 arm 实验（facade：实验定义 + CLI）
+    shared/
+        types.ts                     共享实验指标/报告类型
+        agentJitRun.ts               指标推导与聚合（deriveR5Metrics / aggregateR5）
+        offloadMetrics.ts            压缩路径与 JIT 分组
+        compileMetrics.ts            编译错误分类
+        submitAnswer.ts              submit_answer 工具
+        experimentReport.ts          报告落盘
 
 tests/
     compiler / runtime / experiment tests

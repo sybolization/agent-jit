@@ -1,7 +1,9 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { RegisteredTool } from "../../tools/definition.js";
 import { type ToolRegistry } from "../../tools/registry.js";
-import { createJitDescribeTool, createJitExecuteProgramTool } from "./jit.js";
+import { createJitDescribeTool } from "./describeToolsTool.js";
+import { createJitExecuteProgramTool } from "./executeProgramTool.js";
+import { dslSignatureOf, renderDslSignature } from "../../tools/dslSignature.js";
 import type { DslGuidanceMode } from "./dslReference.js";
 import type { DslDiagnostic } from "../../language/diagnostics.js";
 
@@ -32,7 +34,7 @@ export function adaptRegisteredTool(registry: ToolRegistry<RegisteredTool>, tool
   return {
     name: registry.hostName(tool.id),
     label: tool.label,
-    description: tool.description ?? tool.label,
+    description: `${tool.description ?? tool.label}\nDSL: ${renderDslSignature(dslSignatureOf(tool))}`,
     parameters: tool.inputSchema,
     execute: async (_toolCallId, params) => {
       const result = await tool.execute(params);
@@ -44,8 +46,8 @@ export function adaptRegisteredTool(registry: ToolRegistry<RegisteredTool>, tool
 /**
  * 把整个 registry 变成 Pi Agent 的工具集：普通业务工具（host alias 名）+ JIT 元工具。
  * Agent/agent loop 负责工具调用循环——harness 不需要再对 jit_* 做特殊 dispatch。
- * describeTools 缺省 true（挂 jit_describe_tools）；compile-only / manifest 臂传
- * describeTools:false——模型没有 describe 工具可用，只能直接写程序、靠编译诊断兜底。
+ * describeTools 缺省 false（optional discovery，不挂 jit_describe_tools——active tools 已随定义
+ * 携带 DSL signature）；需要历史 eager 流程（先 describe 再 execute）时显式传 describeTools:true。
  */
 export function createPiTools(
   registry: ToolRegistry<RegisteredTool>,
@@ -57,7 +59,7 @@ export function createPiTools(
 ): AgentTool<any>[] {
   return [
     ...registry.all().map((tool) => adaptRegisteredTool(registry, tool)),
-    ...(options.describeTools === false ? [] : [createJitDescribeTool(registry, options)]),
+    ...(options.describeTools === true ? [createJitDescribeTool(registry, options)] : []),
     createJitExecuteProgramTool(registry, options),
   ];
 }

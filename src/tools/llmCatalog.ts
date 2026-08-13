@@ -12,6 +12,9 @@ import { schemaViewOf, schemaViewText, type SchemaView } from "./schemaView.js";
  * - 渲染走 SchemaView 归一（string | null / 嵌套 / union / record），
  *   compiler 内部仍然使用完整 JSON Schema，这里只是给模型的紧凑投影。
  *
+ * 历史兼容 renderer：本文件是历史兼容 renderer，新代码请使用 `dslSignature.ts` 的
+ * `renderDslSignature`（forward-looking 的 DSL 签名层），不再在此新增渲染逻辑。
+ *
  * 两个消费入口：
  * - renderCompactToolCatalog：全量目录（把工具目录嵌入 prompt 的老通道）；
  * - renderToolContracts（子集）：jit_describe_tools 元工具的确定性渲染

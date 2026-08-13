@@ -1512,7 +1512,7 @@ describe("r5TreatmentSystemPrompt — contractMode 三臂", () => {
     expect(prompt).not.toContain("jit_describe_tools");
     expect(prompt).toContain("## Agent Execution DSL 参考");
     expect(prompt).toContain("## 1. Tool calls");
-    expect(prompt).toContain("遵循工具定义");
+    expect(prompt).toContain("DSL signature");
   });
 
   test("manifest：追加 ## Output manifest 与 manifest 行（JIT 说明仍不含 jit_describe_tools）", () => {

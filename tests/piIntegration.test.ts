@@ -23,9 +23,16 @@ function makeRegistry(): ToolRegistry<RegisteredTool> {
 }
 
 describe("createPiTools — ToolRegistry → Pi AgentTool（JIT 变成真正的 Pi Agent Tool）", () => {
-  test("返回普通业务工具（host alias 名）+ jit_describe_tools + jit_execute_program", () => {
+  test("返回普通业务工具（host alias 名）+ jit_execute_program（缺省不挂 describe）", () => {
     const tools = createPiTools(makeRegistry());
     expect(tools.map((tool) => tool.name)).toEqual([
+      "github_search_repositories",
+      "github_get_repository",
+      "jit_execute_program",
+    ]);
+    // describeTools:true 显式开启 optional discovery（历史 eager 流程）
+    const withDescribe = createPiTools(makeRegistry(), { describeTools: true });
+    expect(withDescribe.map((tool) => tool.name)).toEqual([
       "github_search_repositories",
       "github_get_repository",
       "jit_describe_tools",
@@ -52,7 +59,7 @@ describe("createPiTools — ToolRegistry → Pi AgentTool（JIT 变成真正的 
     expect(text.text).toContain("mock/org-repo-0");
   });
 
-  test("description 缺省回退到 label", () => {
+  test("description 缺省回退到 label，并追加 DSL signature", () => {
     const bare = defineTool({
       id: "demo.no_description",
       label: "No Description Tool",
@@ -61,7 +68,8 @@ describe("createPiTools — ToolRegistry → Pi AgentTool（JIT 变成真正的 
     });
     const registry = new ToolRegistry<RegisteredTool>([{ ...bare, execute: async () => ({ ok: true }) }]);
     const [adapted] = createPiTools(registry);
-    expect(adapted!.description).toBe("No Description Tool");
+    expect(adapted!.description).toContain("DSL: demo.no_description()");
+    expect(adapted!.description.startsWith("No Description Tool\nDSL:")).toBe(true);
   });
 
   test("adaptRegisteredTool 用 host alias 作为 Pi 工具名", () => {
@@ -180,7 +188,7 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     // definitions：core 的 Tool calls 行被替换为中性表述；默认（describe）与 renderDslReference 逐字节一致
     const definitions = renderDslReferenceWithSource("primitive", { toolContractSource: "definitions" });
     expect(definitions).not.toContain("jit_describe_tools");
-    expect(definitions).toContain("遵循工具定义（Tool Contract）中的参数名与类型");
+    expect(definitions).toContain("遵循工具定义（Tool Contract）中的 DSL signature");
     expect(definitions).toContain("## 1. Tool calls");
     expect(definitions).toContain("## 2. Array dataflow operators");
     expect(renderDslReferenceWithSource("primitive")).toBe(renderDslReference("primitive"));
