@@ -11,12 +11,17 @@ Agent 仍是 planner；Agent JIT 是执行 offload 层。
 
 ## 安装
 
-本仓库即一个 DeepSeek Harness **bundle**（`package.json` 的 `dsh.bundle.patch` + `cordis.patch.yml`）。预构建产物 `dist/` 随仓库分发，git 安装无需任何构建授权：
+本仓库即一个 DeepSeek Harness **bundle**（`package.json` 的 `dsh.bundle.patch` + `cordis.patch.yml`）。预构建产物 `dist/` 随仓库分发，git 安装无需任何构建授权。
+
+装进 **web profile** 后，每次 `dsh web` 启动都会自动加载（`dsh web` 是 `--profile web` 的别名；`npx @deepseek-ai/dsh web` 同样生效）：
 
 ```sh
-dsh plugin --profile agentjit add github:sybolization/agent-jit
-dsh --profile agentjit --dump-config    # 验证：应出现 agent-jit-dsl 行
+dsh plugin --profile web add github:sybolization/agent-jit
+dsh web --dump-config    # 验证：应出现 agent-jit-dsl 行
+dsh web                  # 之后每次启动都带插件
 ```
+
+要装进其他 profile（headless / 自定义组合）同理换 profile 名；注意**自定义 profile 默认只含 `dsh-base`（无 Web UI）**，需要 UI 请同时加装 `@deepseek-ai/dsh-web-app`。卸载：`dsh plugin --profile web remove agent-jit`。
 
 ## 工具
 
