@@ -1,5 +1,5 @@
 import type { Context } from "@deepseek-ai/cordis";
-import type { ToolDefinition } from "@deepseek-ai/dsh-tools";
+import type { ToolRuntime } from "@deepseek-ai/dsh-tools";
 import type { RegisteredTool } from "../../tools/definition.js";
 import { createMockGithubTools } from "../../tools/providers/github/mock.js";
 import { createRealGithubTools } from "../../tools/providers/github/real.js";
@@ -9,7 +9,7 @@ import type { RuntimeRegistry } from "../../runtime/runtime.js";
 import type { DslGuidanceMode } from "../pi/dslReference.js";
 import { DEFAULT_DSL_GUIDANCE, renderDslReference } from "../pi/dslReference.js";
 import { adaptRegisteredTool } from "./toolAdapter.js";
-import { createDshJitTools } from "./jitTools.js";
+import { createDshJitTools, type DshHostToolsConfig } from "./jitTools.js";
 
 /**
  * Agent JIT 的 DSH 插件（Cordis 插件形态）。
@@ -20,7 +20,9 @@ import { createDshJitTools } from "./jitTools.js";
  * 2. 把每个工具注册进 ctx.tools（name = host alias，description 注入实验
  *    验证的函数式 DSL 签名——普通调用看 parameters，JIT 编程看 DSL: 签名）；
  * 3. 注册 jit_describe_tools / jit_execute_program 元工具（jit_execute_program
- *    编译并执行 DSL 程序；配置开启的 DSH 宿主工具经嵌套分发可被 DSL 编排）。
+ *    编译并执行 DSL 程序；DSH 宿主工具经 hostDiscovery 活视图在运行时
+ *    自动发现——任何注册进 ctx.tools 的工具 describe 即用、DSL 直接可编排，
+ *    零配置；可选用 allow 白名单 / exclude 黑名单收紧）。
  * 可选：把 DSL 语言参考（primitive/patterns/full-example）挂进 system prompt
  * 的 section（缺省 primitive——最少信息已达 100% offload precision）。
  *
@@ -51,11 +53,17 @@ export interface AgentJitDshConfig {
     describeTools?: boolean;
   };
   /**
-   * 暴露给 DSL 程序的 DSH 宿主工具名（DSH 原名，如 "run_bash"）。
-   * 这些工具经 ctx.tools.execute 嵌套分发执行，走完整策略管线
+   * DSL 程序可编排的 DSH 宿主工具（ctx.tools 里已注册的工具）。
+   *
+   * 缺省（undefined）**自动发现全部**：任何注册进 ctx.tools 的工具
+   * （其他插件 / 动态注册）describe 即用、DSL 直接可编排，零配置。
+   * 显式传 [] 关闭宿主工具；传名字数组 = 白名单。
+   * 宿主工具经 ctx.tools.execute 嵌套分发，走完整策略管线
    * （guard / pre-execute / post-execute / 超时 / 沙箱）。
    */
   hostTools?: string[];
+  /** 宿主工具黑名单：始终排除（白名单之外的第二道闸，如不想开放 bash 给 DSL）。 */
+  excludeHostTools?: string[];
 }
 
 /** 构建 agent-jit ToolRegistry：github（real/mock）+ domain（mock）。 */
@@ -82,18 +90,14 @@ export function apply(ctx: Context, config: AgentJitDshConfig = {}): void {
     ctx.tools.register(adaptRegisteredTool(tool, { dslSignature: dsl.signatureInDescription ?? "inline" }));
   }
 
-  // 2. 宿主工具（DSH 自身工具，供 DSL 程序编排）。
-  const hostTools: ToolDefinition[] = [];
-  for (const hostName of config.hostTools ?? []) {
-    const definition = ctx.tools.get(hostName);
-    if (definition === undefined) {
-      throw new Error(`agent-jit-dsl: hostTools 引用了未注册的 DSH 工具 ${JSON.stringify(hostName)}`);
-    }
-    hostTools.push(definition);
-  }
+  // 2. 宿主工具开放配置：缺省自动发现全部；[] 关闭；非空 = 白名单。
+  const hostTools: DshHostToolsConfig = {
+    ...(config.hostTools === undefined ? {} : { allow: config.hostTools }),
+    ...(config.excludeHostTools === undefined ? {} : { exclude: config.excludeHostTools }),
+  };
 
   // 3. JIT 元工具（jit_describe_tools / jit_execute_program）。
-  for (const metaTool of createDshJitTools(registry, ctx.tools, {
+  for (const metaTool of createDshJitTools(registry, ctx.tools as ToolRuntime, {
     guidance: dsl.guidance ?? DEFAULT_DSL_GUIDANCE,
     describeTools: dsl.describeTools,
     hostTools,

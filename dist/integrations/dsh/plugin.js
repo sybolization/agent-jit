@@ -14,7 +14,9 @@ import { createDshJitTools } from "./jitTools.js";
  * 2. 把每个工具注册进 ctx.tools（name = host alias，description 注入实验
  *    验证的函数式 DSL 签名——普通调用看 parameters，JIT 编程看 DSL: 签名）；
  * 3. 注册 jit_describe_tools / jit_execute_program 元工具（jit_execute_program
- *    编译并执行 DSL 程序；配置开启的 DSH 宿主工具经嵌套分发可被 DSL 编排）。
+ *    编译并执行 DSL 程序；DSH 宿主工具经 hostDiscovery 活视图在运行时
+ *    自动发现——任何注册进 ctx.tools 的工具 describe 即用、DSL 直接可编排，
+ *    零配置；可选用 allow 白名单 / exclude 黑名单收紧）。
  * 可选：把 DSL 语言参考（primitive/patterns/full-example）挂进 system prompt
  * 的 section（缺省 primitive——最少信息已达 100% offload precision）。
  *
@@ -43,15 +45,11 @@ export function apply(ctx, config = {}) {
     for (const tool of registry.all()) {
         ctx.tools.register(adaptRegisteredTool(tool, { dslSignature: dsl.signatureInDescription ?? "inline" }));
     }
-    // 2. 宿主工具（DSH 自身工具，供 DSL 程序编排）。
-    const hostTools = [];
-    for (const hostName of config.hostTools ?? []) {
-        const definition = ctx.tools.get(hostName);
-        if (definition === undefined) {
-            throw new Error(`agent-jit-dsl: hostTools 引用了未注册的 DSH 工具 ${JSON.stringify(hostName)}`);
-        }
-        hostTools.push(definition);
-    }
+    // 2. 宿主工具开放配置：缺省自动发现全部；[] 关闭；非空 = 白名单。
+    const hostTools = {
+        ...(config.hostTools === undefined ? {} : { allow: config.hostTools }),
+        ...(config.excludeHostTools === undefined ? {} : { exclude: config.excludeHostTools }),
+    };
     // 3. JIT 元工具（jit_describe_tools / jit_execute_program）。
     for (const metaTool of createDshJitTools(registry, ctx.tools, {
         guidance: dsl.guidance ?? DEFAULT_DSL_GUIDANCE,

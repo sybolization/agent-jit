@@ -5,7 +5,7 @@ import { renderCompileFailure } from "../pi/compileDiagnostics.js";
 import { DEFAULT_DSL_GUIDANCE, renderDslReference } from "../pi/dslReference.js";
 import { renderCompositionBindings } from "../../tools/compositionHints.js";
 import { describeToolContracts, MAX_DESCRIBE_TOOLS, } from "../../tools/jitTools.js";
-import { dshToolAsRegisteredTool } from "./toolAdapter.js";
+import { HostToolView, unreachableHostCaller } from "./hostDiscovery.js";
 /**
  * DSH 形态的 JIT 元工具（jit_describe_tools / jit_execute_program）。
  *
@@ -22,38 +22,47 @@ import { dshToolAsRegisteredTool } from "./toolAdapter.js";
  * 失败（未知工具 / 编译失败 / 执行失败）一律 throw，由 DSH 转成 isError
  * toolResult 回填模型——严格语义（不允许 partial success）天然成立。
  *
- * 执行期 registry = 插件自有工具（base）+ 配置开启的 DSH 宿主工具；
- * 宿主工具经 ctx.tools.execute 嵌套分发（parent = 本次 jit 调用的 token），
- * 走完整策略管线（guard / pre-execute / post-execute / 超时 / 沙箱）。
+ * 执行期 registry = 插件自有工具（base）+ **DSH 宿主工具活视图**（hostDiscovery）：
+ * 不依赖 apply 时快照，describe / execute 时实时查 ctx.tools（scope = 调用方
+ * exec.agent），任何已注册的 DSH 工具（其他插件 / 动态注册）零配置即可
+ * describe + 被 DSL 编排；宿主工具经 ctx.tools.execute 嵌套分发
+ * （parent = 本次 jit 调用的 token），走完整策略管线（guard / pre-execute /
+ * post-execute / 超时 / 沙箱）。jit_* 元工具自身被活视图排除，防递归。
  */
-/** 执行期 registry：base（插件自有工具）之上叠加宿主工具适配层。 */
+/** 执行期 registry：base（插件自有工具）之上叠加宿主工具活视图。 */
 class ExecutionRegistry {
     base;
-    hostTools = new Map();
-    constructor(base, hostDefinitions, caller) {
+    host;
+    constructor(base, host) {
         this.base = base;
-        for (const definition of hostDefinitions) {
-            this.hostTools.set(definition.name, dshToolAsRegisteredTool(definition, caller));
-        }
-    }
-    host(name) {
-        return this.hostTools.get(name);
+        this.host = host;
     }
     get(name) {
-        return this.base.get(name) ?? this.host(name);
+        return this.base.get(name) ?? this.host?.get(name);
     }
     all() {
-        return [...this.base.all(), ...this.hostTools.values()];
+        return [...this.base.all(), ...(this.host?.all() ?? [])];
     }
     resolveId(name) {
-        return this.base.resolveId(name) ?? (this.hostTools.has(name) ? name : undefined);
+        return this.base.resolveId(name) ?? this.host?.resolveId(name);
     }
     suggestIds(name, max) {
-        return this.base.suggestIds(name, max);
+        const base = this.base.suggestIds(name, max);
+        const host = this.host?.suggestIds(name, max) ?? [];
+        // 合并去重（canonical 唯一），保持 base 优先、host 补齐。
+        const seen = new Set(base.map((item) => item.canonical));
+        const merged = [...base];
+        for (const item of host) {
+            if (!seen.has(item.canonical)) {
+                seen.add(item.canonical);
+                merged.push(item);
+            }
+        }
+        return merged.slice(0, max);
     }
 }
 /** jit_describe_tools：tool_names → 确定性 DSL 函数式契约文本（同 Pi 四段式）。 */
-export function createDshJitDescribeTool(registry, options = {}) {
+export function createDshJitDescribeTool(registry, tools, options = {}) {
     let describeCalls = 0;
     const guidance = options.guidance ?? DEFAULT_DSL_GUIDANCE;
     return {
@@ -72,18 +81,28 @@ export function createDshJitDescribeTool(registry, options = {}) {
             schema: { type: "string" },
             render: (_args, value) => [{ type: "text", text: String(value) }],
         },
-        execute: async (args) => {
+        execute: async (args, exec) => {
             const toolNames = args.tool_names;
             if (!Array.isArray(toolNames) || toolNames.length === 0 || toolNames.length > MAX_DESCRIBE_TOOLS) {
                 throw new Error(`tool_names 必须是 1..${MAX_DESCRIBE_TOOLS} 个工具名的数组（严格语义：不允许 partial success）`);
             }
             const names = toolNames.filter((item) => typeof item === "string");
-            let text = describeToolContracts(registry, names, { header: "# Requested Tool Contracts" });
+            // 活视图：scope = 调用方 agent（模型可见面一致），caller 不可达（只渲染契约）。
+            const host = new HostToolView({
+                tools,
+                scope: exec?.agent,
+                caller: unreachableHostCaller(),
+                base: registry,
+                allow: options.hostTools?.allow,
+                exclude: options.hostTools?.exclude,
+            });
+            const executionRegistry = new ExecutionRegistry(registry, host);
+            let text = describeToolContracts(executionRegistry, names, { header: "# Requested Tool Contracts" });
             // 严格语义：任一 id 未知 → 整体失败（UNKNOWN_TOOL 全列 + 建议），抛给 DSH 转 toolResult
             if (text.startsWith("错误"))
                 throw new Error(text);
             describeCalls += 1;
-            const bindings = guidance === "patterns" ? renderCompositionBindings(registry, names) : "";
+            const bindings = guidance === "patterns" ? renderCompositionBindings(executionRegistry, names) : "";
             if (describeCalls === 1)
                 text = `${renderDslReference(guidance)}\n\n${text}`;
             if (bindings.length > 0)
@@ -94,7 +113,6 @@ export function createDshJitDescribeTool(registry, options = {}) {
 }
 /** jit_execute_program：source → 编译（执行期 registry）→ 执行（同一 registry）→ 结果。 */
 export function createDshJitExecuteProgramTool(registry, tools, options = {}) {
-    const hostDefinitions = options.hostTools ?? [];
     return {
         name: "jit_execute_program",
         description: "提交一段 Agent Execution DSL 程序源码给 Harness 编译执行（把完整程序放在 source 参数里）。",
@@ -132,7 +150,16 @@ export function createDshJitExecuteProgramTool(registry, tools, options = {}) {
                     throw new Error(result.error.message);
                 return result.value;
             };
-            const executionRegistry = new ExecutionRegistry(registry, hostDefinitions, caller);
+            // 活视图：scope = 调用方 agent；任何已注册 DSH 工具零配置可编排。
+            const host = new HostToolView({
+                tools,
+                scope: exec?.agent,
+                caller,
+                base: registry,
+                allow: options.hostTools?.allow,
+                exclude: options.hostTools?.exclude,
+            });
+            const executionRegistry = new ExecutionRegistry(registry, host);
             let graph;
             try {
                 ({ graph } = compileExecutionDsl(source, { tools: executionRegistry }));
@@ -155,7 +182,7 @@ export function createDshJitExecuteProgramTool(registry, tools, options = {}) {
 /** 创建 DSH 元工具集（jit_describe_tools / jit_execute_program；describeTools:false 时不挂 describe）。 */
 export function createDshJitTools(registry, tools, options = {}) {
     return [
-        ...(options.describeTools === false ? [] : [createDshJitDescribeTool(registry, options)]),
+        ...(options.describeTools === false ? [] : [createDshJitDescribeTool(registry, tools, options)]),
         createDshJitExecuteProgramTool(registry, tools, options),
     ];
 }

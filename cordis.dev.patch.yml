@@ -14,4 +14,6 @@
           systemPrompt: true
           guidance: primitive
           describeTools: true
-        hostTools: []
+        # 缺省 = 自动发现全部 DSH 宿主工具（describe 即用、零配置）。
+        # hostTools: []
+        # excludeHostTools: []

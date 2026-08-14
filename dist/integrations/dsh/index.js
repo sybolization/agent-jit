@@ -8,4 +8,5 @@
 export { name, inject, apply } from "./plugin.js";
 export { adaptRegisteredTool, dshToolAsRegisteredTool } from "./toolAdapter.js";
 export { createDshJitDescribeTool, createDshJitExecuteProgramTool, createDshJitTools, } from "./jitTools.js";
+export { HostToolView, unreachableHostCaller } from "./hostDiscovery.js";
 export { jsonSchemaFromTypebox, typeboxFromJsonSchema } from "./schema.js";

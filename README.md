@@ -100,8 +100,16 @@ dsl:
   systemPrompt: true               # 常驻 DSL 语言参考 system prompt section
   guidance: primitive              # primitive | patterns | full-example
   describeTools: true              # 是否注册 jit_describe_tools
-hostTools: []   # 可被 DSL 编排的 DSH 宿主工具名（如 run_bash），经嵌套分发走完整策略管线
+# hostTools: []         # 缺省（不写）= 自动发现全部 DSH 宿主工具（describe 即用）；
+#                        # [] 显式关闭；写名字数组 = 白名单
+# excludeHostTools: []  # 黑名单：始终排除（如不想开放 bash 给 DSL）
 ```
+
+宿主工具经 hostDiscovery 活视图在运行时自动发现：任何注册进 `ctx.tools`
+的工具（其他插件 / 动态注册）**describe 即用、DSL 直接可编排，零配置零代码
+修改**；执行走 `ctx.tools.execute` 嵌套分发（完整策略管线：guard /
+pre-execute / post-execute / 超时 / 沙箱），scope = 调用方 agent。`jit_*`
+元工具自身被排除，防递归。
 
 ## 开发
 

@@ -7,10 +7,22 @@ import { createMockDomainTools } from "../src/tools/providers/domain/mock.js";
 import { adaptRegisteredTool, dshToolAsRegisteredTool } from "../src/integrations/dsh/toolAdapter.js";
 import { createDshJitDescribeTool, createDshJitExecuteProgramTool } from "../src/integrations/dsh/jitTools.js";
 import { jsonSchemaFromTypebox, typeboxFromJsonSchema } from "../src/integrations/dsh/schema.js";
+import type { ToolRuntime } from "@deepseek-ai/dsh-tools";
 
 /** 与 piIntegration.test.ts 同构的注册表（github + domain mock）。 */
 function makeRegistry(): ToolRegistry<RegisteredTool> {
   return new ToolRegistry<RegisteredTool>([...createMockGithubTools(), ...createMockDomainTools()]);
+}
+
+/** 空宿主工具 runtime stub：无宿主工具可发现（行为等同旧的"未配置 hostTools"）。 */
+function makeEmptyHostTools(): ToolRuntime {
+  return {
+    get: () => undefined,
+    schemas: () => [],
+    execute: async () => {
+      throw new Error("不应执行宿主工具");
+    },
+  } as unknown as ToolRuntime;
 }
 
 describe("adaptRegisteredTool → DSH ToolDefinition", () => {
@@ -145,7 +157,7 @@ describe("schema 转换层", () => {
 describe("DSH JIT 元工具", () => {
   test("createDshJitDescribeTool：确定性契约渲染，未知工具整体失败", async () => {
     const registry = makeRegistry();
-    const tool = createDshJitDescribeTool(registry);
+    const tool = createDshJitDescribeTool(registry, makeEmptyHostTools());
     expect(tool.name).toBe("jit_describe_tools");
     const text = await tool.execute({ tool_names: ["github.get_repository"] }, undefined as never);
     expect(text).toContain("github.get_repository");
@@ -158,12 +170,14 @@ describe("DSH JIT 元工具", () => {
     const registry = makeRegistry();
     const calls: string[] = [];
     const tools = {
+      get: () => undefined,
+      schemas: () => [],
       execute: async (input: { name: string }) => {
         calls.push(input.name);
         throw new Error("不应在无宿主工具的程序里被调用");
       },
     };
-    const tool = createDshJitExecuteProgramTool(registry, tools as never);
+    const tool = createDshJitExecuteProgramTool(registry, tools as unknown as ToolRuntime);
     const source = [
       'repos = github.search_repositories(query="dsl", limit=3)',
       "return repos",

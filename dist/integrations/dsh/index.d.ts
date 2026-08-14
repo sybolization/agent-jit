@@ -7,5 +7,6 @@
  */
 export { name, inject, apply, type AgentJitDshConfig } from "./plugin.js";
 export { adaptRegisteredTool, dshToolAsRegisteredTool, type DslToolCaller } from "./toolAdapter.js";
-export { createDshJitDescribeTool, createDshJitExecuteProgramTool, createDshJitTools, type JitExecuteProgramDetails, } from "./jitTools.js";
+export { createDshJitDescribeTool, createDshJitExecuteProgramTool, createDshJitTools, type DshHostToolsConfig, type JitExecuteProgramDetails, } from "./jitTools.js";
+export { HostToolView, unreachableHostCaller, type HostToolViewOptions } from "./hostDiscovery.js";
 export { jsonSchemaFromTypebox, typeboxFromJsonSchema } from "./schema.js";
