@@ -216,7 +216,7 @@ export async function runR5Run(
         guidance: options.dslGuidance,
         ...(options.contractMode === "compile-only" || options.contractMode === "manifest" || options.contractMode === "eager-signatures"
           ? {}
-          : { describeTools: true, describeFormat: "legacy" as const }),
+          : { describeTools: true, describeFormat: "legacy" as const, legacyBundle: true }),
         // 只有 eager-signatures / production 才注入 inline DSL signature，保证历史臂的 contract visibility 隔离。
         dslSignatures: options.contractMode === "eager-signatures",
         onCompileFailure: (diagnostics) => compileDiagnostics.push(...diagnostics),
@@ -384,10 +384,21 @@ export interface R5CliFlags {
   stopAfterSubmit: boolean;
   /** boundary-policy：treatment 提示词追加 Offload 边界策略（--boundary-policy 开启） */
   boundaryPolicy: boolean;
+  /** reasoning：模型思考开关（--reasoning 开启；缺省 false，显式冻结，不依赖 gateway 默认值） */
+  reasoning: boolean;
 }
 
 export function parseFlags(argv: readonly string[]): R5CliFlags {
-  const flags: R5CliFlags = { arm: "both", task: "all", samples: 1, rounds: 10, dslGuidance: "primitive", stopAfterSubmit: false, boundaryPolicy: false };
+  const flags: R5CliFlags = {
+    arm: "both",
+    task: "all",
+    samples: 1,
+    rounds: 10,
+    dslGuidance: "primitive",
+    stopAfterSubmit: false,
+    boundaryPolicy: false,
+    reasoning: false,
+  };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, "").split("=");
     if (key === "arm" && (value === "control" || value === "treatment" || value === "both")) flags.arm = value;
@@ -401,6 +412,7 @@ export function parseFlags(argv: readonly string[]): R5CliFlags {
     }
     if (key === "stop-after-submit" && value === undefined) flags.stopAfterSubmit = true;
     if (key === "boundary-policy" && value === undefined) flags.boundaryPolicy = true;
+    if (key === "reasoning" && value === undefined) flags.reasoning = true;
   }
   return flags;
 }
@@ -417,12 +429,13 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const { arm, task, samples, rounds, candidates, dslGuidance, stopAfterSubmit, boundaryPolicy } = parseFlags(process.argv.slice(2));
+  const { arm, task, samples, rounds, candidates, dslGuidance, stopAfterSubmit, boundaryPolicy, reasoning } = parseFlags(process.argv.slice(2));
   const tasks = R5_TASKS.filter((item) => task === "all" || item.id === task).map((item) =>
     candidates !== undefined && item.id === "C" ? createR5CTask(candidates) : item,
   );
   const arms: R5Arm[] = arm === "both" ? ["control", "treatment"] : [arm];
-  const runtime = createDeepSeekPiRuntime();
+  // reasoning 显式冻结：只认 CLI 标志，不依赖 gateway 默认值（历史重跑需 --reasoning 复现旧行为）
+  const runtime = createDeepSeekPiRuntime({ reasoning });
 
   const runs: R5RunMetrics[] = [];
   for (const currentArm of arms) {
@@ -525,6 +538,7 @@ async function main(): Promise<number> {
       samples,
       rounds,
       dslGuidance,
+      reasoningEnabled: reasoning,
       ...(stopAfterSubmit ? { stopAfterSubmit } : {}),
       ...(boundaryPolicy ? { boundaryPolicy } : {}),
       ...(candidates !== undefined ? { candidates } : {}),

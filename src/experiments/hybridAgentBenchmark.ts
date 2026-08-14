@@ -191,11 +191,14 @@ async function main(): Promise<number> {
     console.error(`[FAIL] 未知任务 id ${taskId}（可选 1-5）`);
     return 1;
   }
-  const runtime = createDeepSeekPiRuntime();
+  // reasoning 显式冻结：--reasoning 开启；缺省 false，不依赖 gateway 默认值
+  const reasoning = process.argv.includes("--reasoning");
+  const runtime = createDeepSeekPiRuntime({ reasoning });
   const taskWithNeutralPrompt: R3Task = { ...task, prompt: NEUTRAL_PROMPTS[task.id] ?? task.prompt };
 
   console.log(`任务 ${taskWithNeutralPrompt.id}（${taskWithNeutralPrompt.name}）— 双通道：业务工具 ${taskWithNeutralPrompt.tools.map((t) => toolIdAlias(t.id)).join(", ")} + ${DESCRIBE_TOOLS_TOOL.name} / ${EXECUTE_PROGRAM_TOOL.name}`);
   console.log(`task prompt（中性，不点名工具）：${taskWithNeutralPrompt.prompt}`);
+  console.log(`reasoningEnabled=${reasoning}`);
   console.log("===== 循环开始 =====\n");
 
   const result = await runHybrid(taskWithNeutralPrompt, runtime);

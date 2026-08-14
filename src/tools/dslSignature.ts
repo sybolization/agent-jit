@@ -3,9 +3,9 @@
  * 并渲染为 `id(params) -> returns` 的紧凑签名。
  *
  * 类型判断**只有一套**：结构归一化统一走 `schemaViewOf`（src/tools/schemaView.ts），
- * 这里只做 SchemaView → DslType 的映射；字段语义标签（label）来自 schema property 的
- * `description`，通过单独的 metadata extraction（`collectFieldLabels`）读取，避免
- * 与 schemaView 重复实现一套 JSON Schema traversal。
+ * 这里只做 SchemaView → DslType 的映射；字段语义标签（label）来自 SchemaView
+ * 节点自带的 description 元数据（schemaViewOf 递归归一，嵌套 object/array 的
+ * 字段标签完整保留）——不再对 raw JSON Schema 做二次 traversal。
  */
 
 import type { ToolContract } from "./definition.js";
@@ -56,25 +56,8 @@ export interface RenderDslSignatureOptions {
   description?: string;
 }
 
-/** 从原始 JSON Schema 提取顶层 object（或 array 元素 object）字段的 description 作为语义标签。 */
-function collectFieldLabels(schema: unknown): Record<string, string> {
-  const node = (schema ?? {}) as { type?: unknown; items?: unknown; properties?: Record<string, unknown> };
-  let properties = node.properties;
-  if (node.type === "array" && node.items !== null && typeof node.items === "object" && !Array.isArray(node.items)) {
-    properties = (node.items as { properties?: Record<string, unknown> }).properties;
-  }
-  const labels: Record<string, string> = {};
-  for (const [name, prop] of Object.entries(properties ?? {})) {
-    if (prop !== null && typeof prop === "object" && !Array.isArray(prop)) {
-      const description = (prop as { description?: unknown }).description;
-      if (typeof description === "string" && description.length > 0) labels[name] = description;
-    }
-  }
-  return labels;
-}
-
-/** 把 canonical SchemaView 映射为 DslType；labels 提供对象字段的可选语义标签（来自 description）。 */
-export function dslTypeFromSchemaView(view: SchemaView, labels: Readonly<Record<string, string>> = {}): DslType {
+/** 把 canonical SchemaView 映射为 DslType；字段语义标签直接取自 SchemaView 节点的 description。 */
+export function dslTypeFromSchemaView(view: SchemaView): DslType {
   switch (view.kind) {
     case "string":
       return { kind: "str" };
@@ -87,31 +70,30 @@ export function dslTypeFromSchemaView(view: SchemaView, labels: Readonly<Record<
     case "null":
       return { kind: "null" };
     case "array":
-      return { kind: "list", items: dslTypeFromSchemaView(view.items, labels) };
+      return { kind: "list", items: dslTypeFromSchemaView(view.items) };
     case "object": {
       const fields = Object.entries(view.properties).map(([name, prop]) => {
-        const field: DslField = { name, type: dslTypeFromSchemaView(prop, labels) };
-        const label = labels[name];
-        if (label !== undefined) field.label = label;
+        const field: DslField = { name, type: dslTypeFromSchemaView(prop) };
+        if (prop.description !== undefined) field.label = prop.description;
         return field;
       });
       return { kind: "object", fields };
     }
     case "record":
-      return { kind: "record", value: dslTypeFromSchemaView(view.value, labels) };
+      return { kind: "record", value: dslTypeFromSchemaView(view.value) };
     case "union":
-      return { kind: "union", members: view.members.map((member) => dslTypeFromSchemaView(member, labels)) };
+      return { kind: "union", members: view.members.map((member) => dslTypeFromSchemaView(member)) };
     case "unknown":
       return { kind: "unknown" };
   }
 }
 
-/** 便捷：JSON Schema → DslType（不含字段语义标签；标签由 dslSignatureOf 单独提取）。 */
+/** 便捷：JSON Schema → DslType（字段语义标签由 schemaViewOf 递归归一携带）。 */
 export function dslTypeOf(schema: unknown): DslType {
   return dslTypeFromSchemaView(schemaViewOf(schema));
 }
 
-/** 把 ToolContract 归一为 DslToolSignature：id + 参数（含 required）+ 返回类型（含字段标签）。 */
+/** 把 ToolContract 归一为 DslToolSignature：id + 参数（含 required）+ 返回类型（含嵌套字段标签）。 */
 export function dslSignatureOf(contract: ToolContract): DslToolSignature {
   const raw = contract.inputSchema as { required?: unknown };
   const required = new Set<string>(
@@ -127,11 +109,10 @@ export function dslSignatureOf(contract: ToolContract): DslToolSignature {
         }))
       : [];
   const outputView = schemaViewOf(contract.outputSchema);
-  const labels = collectFieldLabels(contract.outputSchema);
   return {
     id: contract.id,
     parameters,
-    returns: dslTypeFromSchemaView(outputView, labels),
+    returns: dslTypeFromSchemaView(outputView),
   };
 }
 

@@ -81,10 +81,12 @@ export interface R6CliFlags {
   samples: number;
   rounds: number;
   stopAfterSubmit: boolean;
+  /** reasoning：模型思考开关（--reasoning 开启；缺省 false，显式冻结） */
+  reasoning: boolean;
 }
 
 export function parseR6Flags(argv: readonly string[]): R6CliFlags {
-  const flags: R6CliFlags = { arm: "all", task: "all", samples: 1, rounds: 10, stopAfterSubmit: false };
+  const flags: R6CliFlags = { arm: "all", task: "all", samples: 1, rounds: 10, stopAfterSubmit: false, reasoning: false };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, "").split("=");
     if (key === "arm") {
@@ -98,6 +100,7 @@ export function parseR6Flags(argv: readonly string[]): R6CliFlags {
     if (key === "samples") flags.samples = Math.max(1, Number(value) || 1);
     if (key === "rounds") flags.rounds = Math.max(2, Number(value) || 10);
     if (key === "stop-after-submit" && value === undefined) flags.stopAfterSubmit = true;
+    if (key === "reasoning" && value === undefined) flags.reasoning = true;
   }
   return flags;
 }
@@ -132,6 +135,8 @@ export interface R6ReportConfig {
   stopAfterSubmit: boolean;
   /** 统一协议固定 Boundary Policy ON（可选：仅报告元数据，buildR6Cells/writeR6Report 不消费）。 */
   boundaryPolicy?: boolean;
+  /** reasoning 开关（显式冻结，--reasoning 开启）。 */
+  reasoningEnabled?: boolean;
 }
 
 /**
@@ -302,10 +307,11 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const { arm, task, samples, rounds, stopAfterSubmit } = parseR6Flags(process.argv.slice(2));
+  const { arm, task, samples, rounds, stopAfterSubmit, reasoning } = parseR6Flags(process.argv.slice(2));
   const tasks = R5_TASKS.filter((item) => task === "all" || item.id === task);
   const r6Arms: R6Arm[] = arm === "all" ? ["A", "B", "C"] : [arm];
-  const runtime = createDeepSeekPiRuntime();
+  // reasoning 显式冻结：只认 CLI 标志，不依赖 gateway 默认值
+  const runtime = createDeepSeekPiRuntime({ reasoning });
 
   const runs: R5RunMetrics[] = [];
   // control 臂恒跑（与选定臂同 samples 数，保证四格样本量可比；无 JIT，contractMode 无关）
@@ -347,7 +353,7 @@ async function main(): Promise<number> {
   );
   const reportPath = writeR6Report(
     outDir,
-    { arm, task, samples, rounds, stopAfterSubmit, boundaryPolicy: true },
+    { arm, task, samples, rounds, stopAfterSubmit, boundaryPolicy: true, reasoningEnabled: reasoning },
     tasks,
     cells,
     runs,

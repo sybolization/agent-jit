@@ -27,16 +27,24 @@ function resolveCanonicalIds(catalog: RuntimeRegistry, toolNames: readonly strin
   return ids;
 }
 
-/** jit_describe_tools 工具：tool_names → 确定性 DSL 契约文本（四段式：DSL manual + 契约 + bindings）。 */
+/** jit_describe_tools 工具：tool_names → 确定性 DSL 契约文本。
+ *
+ * 两个正交选项（production 缺省最简）：
+ * - describeFormat："signature"（缺省，与 active tool 内联签名同源）| "legacy"（历史四段式）；
+ * - legacyBundle：false（缺省）= **纯契约 discovery**，不捆绑 DSL manual 与组合 bindings
+ *   （DSL 语言参考由 stable system context 提供）；true = 历史 eager 臂行为
+ *   （首次调用附带 manual、patterns 模式附带 bindings），仅供历史实验复现。
+ */
 export function createJitDescribeTool(
   registry: RuntimeRegistry,
-  options: { guidance?: DslGuidanceMode; describeFormat?: DescribeContractFormat } = {},
+  options: { guidance?: DslGuidanceMode; describeFormat?: DescribeContractFormat; legacyBundle?: boolean } = {},
 ): AgentTool<typeof DESCRIBE_TOOLS_TOOL.parameters> {
   let describeCalls = 0;
   const guidance = options.guidance ?? DEFAULT_DSL_GUIDANCE;
   // 历史 eager 臂传 "legacy"（llmCatalog 四段式，逐字节复现历史输出）；
   // production（eager-signatures）缺省 "signature"——与 active tool 内联签名同源。
   const describeFormat = options.describeFormat ?? "signature";
+  const legacyBundle = options.legacyBundle === true;
   return {
     ...DESCRIBE_TOOLS_TOOL,
     label: "Describe DSL tool contracts",
@@ -48,8 +56,15 @@ export function createJitDescribeTool(
       });
       // 严格语义：任一 id 未知 → 整体失败（UNKNOWN_TOOL 全列 + 建议），抛给 Agent 转 toolResult
       if (text.startsWith("错误")) throw new Error(text);
+      if (!legacyBundle) {
+        // production：纯契约，不捆绑语言教学（manual 由 stable system context 提供）
+        return {
+          content: [{ type: "text", text }],
+          details: { toolNames: (params as { tool_names: string[] }).tool_names },
+        };
+      }
       describeCalls += 1;
-      // 本次请求工具集合的局部兼容连接（仅 patterns 模式；与 manual 的按需加载解耦，每次 describe 都返回）
+      // 历史 eager 臂：本次请求工具集合的局部兼容连接（仅 patterns 模式）
       const canonicalIds = resolveCanonicalIds(registry, toolNames);
       const bindings = guidance === "patterns" ? renderCompositionBindings(registry, canonicalIds) : "";
       // DSL manual 按需加载：第一次 describe 顺带返回语法参考（按 guidance 模式渲染），之后不再重复

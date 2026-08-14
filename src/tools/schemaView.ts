@@ -10,16 +10,16 @@
  */
 
 export type SchemaView =
-  | { kind: "string" }
-  | { kind: "integer" }
-  | { kind: "number" }
-  | { kind: "boolean" }
-  | { kind: "null" }
-  | { kind: "array"; items: SchemaView }
-  | { kind: "object"; properties: Record<string, SchemaView>; required: readonly string[] }
-  | { kind: "record"; value: SchemaView }
-  | { kind: "union"; members: readonly SchemaView[] }
-  | { kind: "unknown" };
+  | { kind: "string"; description?: string }
+  | { kind: "integer"; description?: string }
+  | { kind: "number"; description?: string }
+  | { kind: "boolean"; description?: string }
+  | { kind: "null"; description?: string }
+  | { kind: "array"; items: SchemaView; description?: string }
+  | { kind: "object"; properties: Record<string, SchemaView>; required: readonly string[]; description?: string }
+  | { kind: "record"; value: SchemaView; description?: string }
+  | { kind: "union"; members: readonly SchemaView[]; description?: string }
+  | { kind: "unknown"; description?: string };
 
 interface RawSchema {
   type?: string;
@@ -30,32 +30,45 @@ interface RawSchema {
   patternProperties?: Record<string, unknown>;
   additionalProperties?: unknown;
   required?: string[];
+  description?: unknown;
 }
 
-/** 把 JSON Schema / TypeBox schema 归一为 SchemaView；无法识别 → unknown。 */
+/** 从 raw 节点提取语义标签（schema property 的 description；非空字符串才保留）。 */
+function descriptionOf(node: RawSchema): string | undefined {
+  return typeof node.description === "string" && node.description.length > 0 ? node.description : undefined;
+}
+
+/**
+ * 把 JSON Schema / TypeBox schema 归一为 SchemaView；无法识别 → unknown。
+ * 每个节点携带自身 schema 的 description（语义标签）——DSL 签名层据此
+ * 递归渲染 `key: type[label]`，嵌套 object/array 的标签不再丢失，
+ * 也不再需要 dslSignature 对 raw JSON Schema 做二次 traversal。
+ */
 export function schemaViewOf(schema: unknown): SchemaView {
   const node = (schema ?? {}) as RawSchema;
+  const description = descriptionOf(node);
 
   // union：anyOf / oneOf 取成员（typebox Type.Union 输出 anyOf）
   const unionMembers = node.anyOf ?? node.oneOf;
   if (Array.isArray(unionMembers) && unionMembers.length > 0) {
-    return { kind: "union", members: unionMembers.map(schemaViewOf) };
+    return { kind: "union", members: unionMembers.map(schemaViewOf), ...(description !== undefined ? { description } : {}) };
   }
 
   switch (node.type) {
     case "string":
-      return { kind: "string" };
+      return { kind: "string", ...(description !== undefined ? { description } : {}) };
     case "integer":
-      return { kind: "integer" };
+      return { kind: "integer", ...(description !== undefined ? { description } : {}) };
     case "number":
-      return { kind: "number" };
+      return { kind: "number", ...(description !== undefined ? { description } : {}) };
     case "boolean":
-      return { kind: "boolean" };
+      return { kind: "boolean", ...(description !== undefined ? { description } : {}) };
     case "null":
-      return { kind: "null" };
+      return { kind: "null", ...(description !== undefined ? { description } : {}) };
     case "array": {
       const items = schemaViewOf(node.items);
-      return items.kind === "unknown" ? { kind: "unknown" } : { kind: "array", items };
+      if (items.kind === "unknown") return { kind: "unknown", ...(description !== undefined ? { description } : {}) };
+      return { kind: "array", items, ...(description !== undefined ? { description } : {}) };
     }
     case "object": {
       // patternProperties / additionalProperties（对象 schema）→ record<T>
@@ -63,20 +76,29 @@ export function schemaViewOf(schema: unknown): SchemaView {
       const patternValue = patternValues[0];
       if (patternValue !== undefined) {
         const value = schemaViewOf(patternValue);
-        return value.kind === "unknown" ? { kind: "unknown" } : { kind: "record", value };
+        return value.kind === "unknown"
+          ? { kind: "unknown", ...(description !== undefined ? { description } : {}) }
+          : { kind: "record", value, ...(description !== undefined ? { description } : {}) };
       }
       if (typeof node.additionalProperties === "object" && node.additionalProperties !== null) {
         const value = schemaViewOf(node.additionalProperties);
-        return value.kind === "unknown" ? { kind: "unknown" } : { kind: "record", value };
+        return value.kind === "unknown"
+          ? { kind: "unknown", ...(description !== undefined ? { description } : {}) }
+          : { kind: "record", value, ...(description !== undefined ? { description } : {}) };
       }
       const properties: Record<string, SchemaView> = {};
       for (const [key, prop] of Object.entries(node.properties ?? {})) {
         properties[key] = schemaViewOf(prop);
       }
-      return { kind: "object", properties, required: node.required ?? [] };
+      return {
+        kind: "object",
+        properties,
+        required: node.required ?? [],
+        ...(description !== undefined ? { description } : {}),
+      };
     }
     default:
-      return { kind: "unknown" };
+      return { kind: "unknown", ...(description !== undefined ? { description } : {}) };
   }
 }
 

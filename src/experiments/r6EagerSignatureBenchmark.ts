@@ -80,10 +80,12 @@ export interface R6EagerFlags {
   cell: R6EagerCellId | "all";
   samples: number;
   rounds: number;
+  /** reasoning：模型思考开关（--reasoning 开启；缺省 false，显式冻结） */
+  reasoning: boolean;
 }
 
 export function parseR6EagerFlags(argv: readonly string[]): R6EagerFlags {
-  const flags: R6EagerFlags = { cell: "all", samples: 1, rounds: 10 };
+  const flags: R6EagerFlags = { cell: "all", samples: 1, rounds: 10, reasoning: false };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, "").split("=");
     if (key === "cell") {
@@ -95,6 +97,7 @@ export function parseR6EagerFlags(argv: readonly string[]): R6EagerFlags {
     }
     if (key === "samples") flags.samples = Math.max(1, Number(value) || 1);
     if (key === "rounds") flags.rounds = Math.max(2, Number(value) || 10);
+    if (key === "reasoning" && value === undefined) flags.reasoning = true;
   }
   return flags;
 }
@@ -111,6 +114,8 @@ export interface R6EagerConfig {
   boundaryPolicy?: boolean;
   /** 统一协议固定 stop-after-submit ON（可选：仅报告元数据）。 */
   stopAfterSubmit?: boolean;
+  /** reasoning 开关（显式冻结，--reasoning 开启）。 */
+  reasoningEnabled?: boolean;
 }
 
 export interface R6EagerCell {
@@ -275,9 +280,10 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const { cell, samples, rounds } = parseR6EagerFlags(process.argv.slice(2));
+  const { cell, samples, rounds, reasoning } = parseR6EagerFlags(process.argv.slice(2));
   const cellIds: R6EagerCellId[] = cell === "all" ? ["A-eager", "A-sig", "B-eager", "B-sig"] : [cell];
-  const runtime = createDeepSeekPiRuntime();
+  // reasoning 显式冻结：只认 CLI 标志，不依赖 gateway 默认值
+  const runtime = createDeepSeekPiRuntime({ reasoning });
 
   const runs: R5RunMetrics[] = [];
   const usedTasks = new Map<R5TaskId, R5Task>();
@@ -298,7 +304,7 @@ async function main(): Promise<number> {
   }
 
   console.log("\n\n===== R6.3 Eager DSL Signatures 2×2 对比 =====");
-  const config: R6EagerConfig = { cell, samples, rounds, boundaryPolicy: true, stopAfterSubmit: true };
+  const config: R6EagerConfig = { cell, samples, rounds, boundaryPolicy: true, stopAfterSubmit: true, reasoningEnabled: reasoning };
   const cells = buildR6EagerCells(runs, config);
   printR6EagerComparison(cells);
 

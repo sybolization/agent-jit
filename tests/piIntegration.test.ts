@@ -135,8 +135,8 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     await expect(tool.execute("c3", { tool_names: [] })).rejects.toThrow(/tool_names 为空/);
   });
 
-  test("DSL manual 按需加载：第一次 describe 附带语法参考（默认 primitive），后续只返回契约 + bindings", async () => {
-    const lazyTool = createJitDescribeTool(makeRegistry(), { describeFormat: "legacy" });
+  test("DSL manual 按需加载（legacyBundle：历史 eager 臂）：第一次 describe 附带语法参考（默认 primitive），后续只返回契约 + bindings", async () => {
+    const lazyTool = createJitDescribeTool(makeRegistry(), { describeFormat: "legacy", legacyBundle: true });
     const first = await lazyTool.execute("c1", { tool_names: ["github.get_repository"] });
     const firstText = (first.content[0] as { type: "text"; text: string }).text;
     expect(firstText).toContain("## 1. Tool calls"); // manual 只随首次 describe 返回
@@ -206,8 +206,8 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     expect(renderDslReferenceWithSource("primitive")).toBe(renderDslReference("primitive"));
   });
 
-  test("四段式输出：manual + # Requested Tool Contracts + ## Compatible bindings（patterns 模式每次返回；legacy 格式）", async () => {
-    const lazyTool = createJitDescribeTool(makeRegistry(), { guidance: "patterns", describeFormat: "legacy" });
+  test("四段式输出（legacyBundle）：manual + # Requested Tool Contracts + ## Compatible bindings（patterns 模式每次返回）", async () => {
+    const lazyTool = createJitDescribeTool(makeRegistry(), { guidance: "patterns", describeFormat: "legacy", legacyBundle: true });
     const first = await lazyTool.execute("c1", {
       tool_names: ["github.search_repositories", "github.get_repository"],
     });
@@ -234,7 +234,7 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     expect(secondText).toContain("github.search_repositories[].full_name");
   });
 
-  test("signature 格式（production 默认）：函数式签名与 inline 渲染同源，无类型定义段", async () => {
+  test("signature 格式（production 默认）：函数式签名与 inline 渲染同源，无类型定义段、不捆绑 DSL manual", async () => {
     const sigTool = createJitDescribeTool(makeRegistry());
     const result = await sigTool.execute("c1", {
       tool_names: ["github.search_repositories", "github.get_repository"],
@@ -245,10 +245,13 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     expect(text).toContain("->");
     expect(text).not.toContain("## 类型定义");
     expect(text).not.toContain("# 参数格式");
+    // production 解耦：describe 不捆绑 DSL manual（语言参考由 stable system context 提供）
+    expect(text).not.toContain("## 1. Tool calls");
+    expect(text).not.toContain("## Compatible bindings");
   });
 
-  test("guidance 影响 describe 输出：primitive 无组合模式与 bindings；full-example 含端到端示例", async () => {
-    const primitiveTool = createJitDescribeTool(makeRegistry(), { guidance: "primitive", describeFormat: "legacy" });
+  test("guidance 影响 describe 输出（legacyBundle：历史）：primitive 无组合模式与 bindings；full-example 含端到端示例", async () => {
+    const primitiveTool = createJitDescribeTool(makeRegistry(), { guidance: "primitive", describeFormat: "legacy", legacyBundle: true });
     const primitiveText = (
       (await primitiveTool.execute("c1", {
         tool_names: ["github.search_repositories", "github.get_repository"],
@@ -258,7 +261,7 @@ describe("jit_describe_tools（AgentTool）— 严格语义", () => {
     expect(primitiveText).not.toContain("Composition patterns");
     expect(primitiveText).not.toContain("## Compatible bindings"); // Z 下界：无组合模式、无 hints
 
-    const fullTool = createJitDescribeTool(makeRegistry(), { guidance: "full-example", describeFormat: "legacy" });
+    const fullTool = createJitDescribeTool(makeRegistry(), { guidance: "full-example", describeFormat: "legacy", legacyBundle: true });
     const fullText = (
       (await fullTool.execute("c1", {
         tool_names: ["github.search_repositories", "github.get_repository"],

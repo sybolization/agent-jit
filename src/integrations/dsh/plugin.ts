@@ -109,7 +109,6 @@ export function apply(ctx: Context, config: AgentJitDshConfig = {}): void {
 
   // 3. JIT 元工具（jit_describe_tools / jit_execute_program）。
   for (const metaTool of createDshJitTools(registry, ctx.tools as ToolRuntime, {
-    guidance: dsl.guidance ?? DEFAULT_DSL_GUIDANCE,
     describeTools: dsl.describeTools,
     hostTools,
   })) {

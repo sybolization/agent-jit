@@ -76,6 +76,8 @@ export function createPiTools(
     describeTools?: boolean;
     /** describe 契约渲染格式：历史 eager 臂传 "legacy"（llmCatalog 四段式）；production 缺省 "signature"。 */
     describeFormat?: DescribeContractFormat;
+    /** 历史 eager 臂传 true（describe 捆绑 DSL manual + bindings）；production 缺省 false（纯契约）。 */
+    legacyBundle?: boolean;
     dslSignatures?: boolean;
     onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void;
   } = {},

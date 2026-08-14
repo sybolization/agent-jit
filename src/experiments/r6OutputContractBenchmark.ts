@@ -75,10 +75,12 @@ export interface R6OutputContractFlags {
   cell: R6OutputContractCellId | "all";
   samples: number;
   rounds: number;
+  /** reasoning：模型思考开关（--reasoning 开启；缺省 false，显式冻结） */
+  reasoning: boolean;
 }
 
 export function parseR6OutputContractFlags(argv: readonly string[]): R6OutputContractFlags {
-  const flags: R6OutputContractFlags = { cell: "all", samples: 1, rounds: 10 };
+  const flags: R6OutputContractFlags = { cell: "all", samples: 1, rounds: 10, reasoning: false };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, "").split("=");
     if (key === "cell") {
@@ -90,6 +92,7 @@ export function parseR6OutputContractFlags(argv: readonly string[]): R6OutputCon
     }
     if (key === "samples") flags.samples = Math.max(1, Number(value) || 1);
     if (key === "rounds") flags.rounds = Math.max(2, Number(value) || 10);
+    if (key === "reasoning" && value === undefined) flags.reasoning = true;
   }
   return flags;
 }
@@ -116,6 +119,8 @@ export interface R6OutputContractConfig {
   rounds: number;
   boundaryPolicy?: boolean;
   stopAfterSubmit?: boolean;
+  /** reasoning 开关（显式冻结，--reasoning 开启）。 */
+  reasoningEnabled?: boolean;
 }
 
 export function buildR6OutputContractCells(
@@ -294,11 +299,12 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const { cell, samples, rounds } = parseR6OutputContractFlags(process.argv.slice(2));
+  const { cell, samples, rounds, reasoning } = parseR6OutputContractFlags(process.argv.slice(2));
   const cellIds: R6OutputContractCellId[] = cell === "all" ? ["B-T", "C-T", "B-O", "C-O"] : [cell];
   const transparentTask = R5_TASKS.find((item) => item.id === "B")!;
   const opaqueTask = createR5BOpaqueTask();
-  const runtime = createDeepSeekPiRuntime();
+  // reasoning 显式冻结：只认 CLI 标志，不依赖 gateway 默认值
+  const runtime = createDeepSeekPiRuntime({ reasoning });
 
   const runs: R5RunMetrics[] = [];
   const usedTasks = new Map<string, R5Task>();
@@ -331,7 +337,7 @@ async function main(): Promise<number> {
   );
   const reportPath = writeR6OutputContractReport(
     outDir,
-    { cell, samples, rounds, boundaryPolicy: true, stopAfterSubmit: true },
+    { cell, samples, rounds, boundaryPolicy: true, stopAfterSubmit: true, reasoningEnabled: reasoning },
     [...usedTasks.values()],
     cells,
     runs,

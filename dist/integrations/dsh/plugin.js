@@ -53,7 +53,6 @@ export function apply(ctx, config = {}) {
     };
     // 3. JIT 元工具（jit_describe_tools / jit_execute_program）。
     for (const metaTool of createDshJitTools(registry, ctx.tools, {
-        guidance: dsl.guidance ?? DEFAULT_DSL_GUIDANCE,
         describeTools: dsl.describeTools,
         hostTools,
     })) {

@@ -48,17 +48,18 @@ const baseMetrics = (
 });
 
 describe("r6DescribeBenchmark — parseR6Flags", () => {
-  test("默认：arm=all / task=all / samples=1 / rounds=10 / stopAfterSubmit=false", () => {
-    expect(parseR6Flags([])).toEqual({ arm: "all", task: "all", samples: 1, rounds: 10, stopAfterSubmit: false });
+  test("默认：arm=all / task=all / samples=1 / rounds=10 / stopAfterSubmit=false / reasoning=false", () => {
+    expect(parseR6Flags([])).toEqual({ arm: "all", task: "all", samples: 1, rounds: 10, stopAfterSubmit: false, reasoning: false });
   });
 
-  test("解析 --arm / --task / --samples / --stop-after-submit", () => {
-    expect(parseR6Flags(["--arm=B", "--task=B", "--samples=20", "--stop-after-submit"])).toEqual({
+  test("解析 --arm / --task / --samples / --stop-after-submit / --reasoning", () => {
+    expect(parseR6Flags(["--arm=B", "--task=B", "--samples=20", "--stop-after-submit", "--reasoning"])).toEqual({
       arm: "B",
       task: "B",
       samples: 20,
       rounds: 10,
       stopAfterSubmit: true,
+      reasoning: true,
     });
   });
 

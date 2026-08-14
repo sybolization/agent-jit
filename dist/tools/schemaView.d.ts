@@ -10,31 +10,46 @@
  */
 export type SchemaView = {
     kind: "string";
+    description?: string;
 } | {
     kind: "integer";
+    description?: string;
 } | {
     kind: "number";
+    description?: string;
 } | {
     kind: "boolean";
+    description?: string;
 } | {
     kind: "null";
+    description?: string;
 } | {
     kind: "array";
     items: SchemaView;
+    description?: string;
 } | {
     kind: "object";
     properties: Record<string, SchemaView>;
     required: readonly string[];
+    description?: string;
 } | {
     kind: "record";
     value: SchemaView;
+    description?: string;
 } | {
     kind: "union";
     members: readonly SchemaView[];
+    description?: string;
 } | {
     kind: "unknown";
+    description?: string;
 };
-/** 把 JSON Schema / TypeBox schema 归一为 SchemaView；无法识别 → unknown。 */
+/**
+ * 把 JSON Schema / TypeBox schema 归一为 SchemaView；无法识别 → unknown。
+ * 每个节点携带自身 schema 的 description（语义标签）——DSL 签名层据此
+ * 递归渲染 `key: type[label]`，嵌套 object/array 的标签不再丢失，
+ * 也不再需要 dslSignature 对 raw JSON Schema 做二次 traversal。
+ */
 export declare function schemaViewOf(schema: unknown): SchemaView;
 /** 把 SchemaView 渲染为人类可读文本（catalog 与诊断共用）。 */
 export declare function schemaViewText(view: SchemaView): string;

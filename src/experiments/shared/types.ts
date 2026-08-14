@@ -349,6 +349,8 @@ export interface R5ReportConfig {
   stopAfterSubmit?: boolean;
   /** boundary-policy：treatment 提示词追加 Offload 边界策略（report 记录用；可选，缺省不写） */
   boundaryPolicy?: boolean;
+  /** reasoning 开关（显式冻结，不依赖 gateway 默认值；--reasoning 开启） */
+  reasoningEnabled?: boolean;
   /** R6.1 contract acquisition 模式（report 记录用；可选，缺省不写 = eager） */
   contractMode?: R6ContractMode;
 }

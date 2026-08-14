@@ -13,8 +13,8 @@ import { schemaViewOf, schemaViewText } from "./schemaView.js";
  * 不渲染 required / title / $id / description 等元数据，不出现输入参数 /
  * “参数格式”/“类型定义”等段——保持每行自包含。
  *
- * 历史兼容 renderer：本文件是历史兼容 renderer，新代码请使用 `dslSignature.ts` 的
- * `renderDslSignature`（forward-looking 的 DSL 签名层），不再在此新增渲染逻辑。
+ * @deprecated 历史兼容 renderer：仅 R6 manifest 臂（历史实验）使用。
+ * 新代码请使用 `dslSignature.ts` 的 `renderDslSignature`，不再在此新增渲染逻辑。
  */
 /**
  * 从 output schema 的 property `description` 收集字段语义标签（opaque 工具用）：

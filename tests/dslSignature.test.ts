@@ -80,6 +80,48 @@ describe("dslSignatureOf — 契约到签名", () => {
       fields: [{ name: "forks", type: { kind: "int" }, label: "forks" }],
     });
   });
+
+  test("嵌套语义标签完整保留（object 内嵌 object + array 元素 object）", () => {
+    const tool = defineTool({
+      id: "demo.nested",
+      label: "Nested",
+      inputSchema: Type.Object({}, { additionalProperties: false }),
+      outputSchema: Type.Object({
+        repo: Type.Object(
+          {
+            metrics: Type.Object({ x: Type.Integer({ description: "forks" }) }, { additionalProperties: false }),
+          },
+          { additionalProperties: false },
+        ),
+        items: Type.Array(
+          Type.Object({ name: Type.String({ description: "full_name" }) }, { additionalProperties: false }),
+        ),
+      }),
+    });
+    const text = renderDslSignature(dslSignatureOf(tool), { fieldLabels: true });
+    expect(text).toContain("x: int[forks]");
+    expect(text).toContain("name: str[full_name]");
+  });
+
+  test("array 元素标签（顶层数组输出）递归保留", () => {
+    const tool = defineTool({
+      id: "demo.arr",
+      label: "Arr",
+      inputSchema: Type.Object({}, { additionalProperties: false }),
+      outputSchema: Type.Array(
+        Type.Object(
+          {
+            count: Type.Integer({ description: "total_contributions" }),
+            nested: Type.Object({ ratio: Type.Number({ description: "forks/stars" }) }, { additionalProperties: false }),
+          },
+          { additionalProperties: false },
+        ),
+      ),
+    });
+    const text = renderDslSignature(dslSignatureOf(tool), { fieldLabels: true });
+    expect(text).toContain("count: int[total_contributions]");
+    expect(text).toContain("ratio: num[forks/stars]");
+  });
 });
 
 describe("renderDslSignature — 紧凑渲染", () => {

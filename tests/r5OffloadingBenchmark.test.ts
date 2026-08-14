@@ -1110,6 +1110,13 @@ describe("boundaryPolicy — parseFlags", () => {
   });
 });
 
+describe("reasoning — parseFlags 显式冻结", () => {
+  test("--reasoning → true；默认 false（不依赖 gateway 默认值）", () => {
+    expect(parseFlags([]).reasoning).toBe(false);
+    expect(parseFlags(["--reasoning"]).reasoning).toBe(true);
+  });
+});
+
 describe("boundaryPolicy — writeR5Report config", () => {
   test("writeR5Report：config 记录 boundaryPolicy", () => {
     const runs: R5RunMetrics[] = [baseMetrics({ arm: "treatment", taskId: "B" })];

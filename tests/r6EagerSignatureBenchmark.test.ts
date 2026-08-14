@@ -59,14 +59,15 @@ describe("r6EagerSignatureBenchmark — R6_EAGER_CELLS 2×2 映射", () => {
 
 describe("r6EagerSignatureBenchmark — parseR6EagerFlags", () => {
   test("默认：cell=all / samples=1 / rounds=10", () => {
-    expect(parseR6EagerFlags([])).toEqual({ cell: "all", samples: 1, rounds: 10 });
+    expect(parseR6EagerFlags([])).toEqual({ cell: "all", samples: 1, rounds: 10, reasoning: false });
   });
 
   test("解析 --cell / --samples / --rounds", () => {
-    expect(parseR6EagerFlags(["--cell=B-sig", "--samples=20", "--rounds=5"])).toEqual({
+    expect(parseR6EagerFlags(["--cell=B-sig", "--samples=20", "--rounds=5", "--reasoning"])).toEqual({
       cell: "B-sig",
       samples: 20,
       rounds: 5,
+      reasoning: true,
     });
   });
 

@@ -2,8 +2,6 @@ import { CallId } from "@deepseek-ai/dsh-llm";
 import { compileExecutionDsl, ExecutionDslCompileError } from "../../compiler/compile.js";
 import { execute } from "../../runtime/runtime.js";
 import { renderCompileFailure } from "../pi/compileDiagnostics.js";
-import { DEFAULT_DSL_GUIDANCE, renderDslReference } from "../pi/dslReference.js";
-import { renderCompositionBindings } from "../../tools/compositionHints.js";
 import { describeToolContracts, MAX_DESCRIBE_TOOLS, } from "../../tools/jitTools.js";
 import { HostToolView, unreachableHostCaller } from "./hostDiscovery.js";
 /**
@@ -61,10 +59,9 @@ class ExecutionRegistry {
         return merged.slice(0, max);
     }
 }
-/** jit_describe_tools：tool_names → 确定性 DSL 函数式契约文本（production：signature 渲染，与 inline 签名同源）。 */
+/** jit_describe_tools：tool_names → 确定性 DSL 函数式契约文本（production：纯契约 discovery，
+ *  与 inline 签名同源；DSL 语言参考由 system prompt section 提供，不再随 describe 捆绑）。 */
 export function createDshJitDescribeTool(registry, tools, options = {}) {
-    let describeCalls = 0;
-    const guidance = options.guidance ?? DEFAULT_DSL_GUIDANCE;
     return {
         name: "jit_describe_tools",
         description: "获取当前上下文中未提供或需要额外查询的工具 DSL 函数签名（输入参数 + 输出字段）。"
@@ -97,16 +94,10 @@ export function createDshJitDescribeTool(registry, tools, options = {}) {
                 exclude: options.hostTools?.exclude,
             });
             const executionRegistry = new ExecutionRegistry(registry, host);
-            let text = describeToolContracts(executionRegistry, names, { header: "# Requested Tool Contracts" });
+            const text = describeToolContracts(executionRegistry, names, { header: "# Requested Tool Contracts" });
             // 严格语义：任一 id 未知 → 整体失败（UNKNOWN_TOOL 全列 + 建议），抛给 DSH 转 toolResult
             if (text.startsWith("错误"))
                 throw new Error(text);
-            describeCalls += 1;
-            const bindings = guidance === "patterns" ? renderCompositionBindings(executionRegistry, names) : "";
-            if (describeCalls === 1)
-                text = `${renderDslReference(guidance)}\n\n${text}`;
-            if (bindings.length > 0)
-                text = `${text}\n\n${bindings}`;
             return text;
         },
     };

@@ -12,13 +12,11 @@ import { schemaViewOf, schemaViewText, type SchemaView } from "./schemaView.js";
  * - 渲染走 SchemaView 归一（string | null / 嵌套 / union / record），
  *   compiler 内部仍然使用完整 JSON Schema，这里只是给模型的紧凑投影。
  *
- * 历史兼容 renderer：本文件是历史兼容 renderer，新代码请使用 `dslSignature.ts` 的
+ * @deprecated 历史兼容 renderer：新代码请使用 `dslSignature.ts` 的
  * `renderDslSignature`（forward-looking 的 DSL 签名层），不再在此新增渲染逻辑。
- *
- * 两个消费入口：
- * - renderCompactToolCatalog：全量目录（把工具目录嵌入 prompt 的老通道）；
- * - renderToolContracts（子集）：jit_describe_tools 元工具的确定性渲染
- *   （模型点名若干工具 → 返回它们的 DSL 用法契约），见 src/tools/jitTools.ts。
+ * 本文件的消费入口只剩历史快照/复现路径：
+ * - `renderToolContracts`：仅 describe 的 "legacy" 格式（历史 eager 臂）使用；
+ * - `renderCompactToolCatalog`：仅嵌入 prompt 的老通道（历史 experiment）。
  */
 
 const VERB_PREFIXES = ["search", "get", "list", "prepare", "fetch", "create", "count", "find", "load"];

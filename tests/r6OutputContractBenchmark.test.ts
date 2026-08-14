@@ -306,8 +306,8 @@ describe("R6.2 aggregateR5 — 新字段", () => {
 
 describe("R6.2 runner — flags / cells / report / 判断矩阵", () => {
   test("parseR6OutputContractFlags 默认与解析", () => {
-    expect(parseR6OutputContractFlags([])).toEqual({ cell: "all", samples: 1, rounds: 10 });
-    expect(parseR6OutputContractFlags(["--cell=B-O", "--samples=20"])).toEqual({ cell: "B-O", samples: 20, rounds: 10 });
+    expect(parseR6OutputContractFlags([])).toEqual({ cell: "all", samples: 1, rounds: 10, reasoning: false });
+    expect(parseR6OutputContractFlags(["--cell=B-O", "--samples=20", "--reasoning"])).toEqual({ cell: "B-O", samples: 20, rounds: 10, reasoning: true });
     expect(() => parseR6OutputContractFlags(["--cell=X"])).toThrow(/--cell 必须是/);
   });
 
