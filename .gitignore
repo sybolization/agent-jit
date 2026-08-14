@@ -3,8 +3,9 @@
 
 # Node
 node_modules/
-dist/
 *.log
+
+# dist/ 是 bundle 的预构建产物，随仓库分发（git 安装无需构建授权）
 
 # 实验产物：logs/ 纳入版本控制（实验可复现性要求保留原始 report.json）
 # 例外：raw CoT（模型思维链原文）绝不入库——只进 gitignored 的 logs/reasoning-raw/，

@@ -1,0 +1,18 @@
+# Agent JIT 的 DSH bundle patch 层：向 profile 树插入 DSL 插件行。
+# 行 name 用包名 + 子路径（agent-jit/dsh → package.json exports），
+# 安装后由 Node 从 profile 的 node_modules 解析；`--patch` 开发模式可
+# 把 name 换成本仓库 dist 模块的绝对路径。
+- insert:
+    - id: agent-jit-dsl
+      name: agent-jit/dsh
+      config:
+        providers:
+          github: mock
+          domain: mock
+        dsl:
+          signatureInDescription: inline
+          systemPrompt: true
+          guidance: primitive
+          describeTools: true
+        # DSL 程序可编排的 DSH 宿主工具（原名）。bash/fs 等按需开启：
+        hostTools: []

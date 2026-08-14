@@ -1,0 +1,209 @@
+import { CallId } from "@deepseek-ai/dsh-llm";
+import type { ToolDefinition, ToolRuntime } from "@deepseek-ai/dsh-tools";
+import type { ExecutionGraph } from "../../compiler/ir.js";
+import { compileExecutionDsl, ExecutionDslCompileError } from "../../compiler/compile.js";
+import type { DslDiagnostic } from "../../language/diagnostics.js";
+import { execute, type RuntimeRegistry } from "../../runtime/runtime.js";
+import type { TraceEntry } from "../../runtime/trace.js";
+import { renderCompileFailure } from "../pi/compileDiagnostics.js";
+import { DEFAULT_DSL_GUIDANCE, renderDslReference, type DslGuidanceMode } from "../pi/dslReference.js";
+import { renderCompositionBindings } from "../../tools/compositionHints.js";
+import {
+  describeToolContracts,
+  MAX_DESCRIBE_TOOLS,
+} from "../../tools/jitTools.js";
+import { dshToolAsRegisteredTool, type DslToolCaller } from "./toolAdapter.js";
+
+/**
+ * DSH 形态的 JIT 元工具（jit_describe_tools / jit_execute_program）。
+ *
+ * 与 Pi 集成（src/integrations/pi/jit.ts）的分工：
+ * - Pi：createJitTools(registry) → AgentTool[]，由 Pi Agent 的工具调用循环调度；
+ * - DSH：createDshJitTools(registry, tools) → ToolDefinition[]，注册进 ctx.tools，
+ *   由 DSH agent loop 统一调度——harness 侧对 jit_* 不做特殊 dispatch。
+ *
+ * 执行语义与 Pi 完全一致：
+ * - jit_describe_tools → describeToolContracts（确定性函数式契约渲染；
+ *   首次调用附带 DSL 语言参考，patterns 模式附带组合 bindings）；
+ * - jit_execute_program → compileExecutionDsl(source, { tools: 执行期 registry })
+ *   → execute(graph, 同一个 registry) → JSON 文本结果。
+ * 失败（未知工具 / 编译失败 / 执行失败）一律 throw，由 DSH 转成 isError
+ * toolResult 回填模型——严格语义（不允许 partial success）天然成立。
+ *
+ * 执行期 registry = 插件自有工具（base）+ 配置开启的 DSH 宿主工具；
+ * 宿主工具经 ctx.tools.execute 嵌套分发（parent = 本次 jit 调用的 token），
+ * 走完整策略管线（guard / pre-execute / post-execute / 超时 / 沙箱）。
+ */
+
+/** 执行期 registry：base（插件自有工具）之上叠加宿主工具适配层。 */
+class ExecutionRegistry implements RuntimeRegistry {
+  private readonly hostTools = new Map<string, ReturnType<typeof dshToolAsRegisteredTool>>();
+
+  constructor(
+    private readonly base: RuntimeRegistry,
+    hostDefinitions: readonly ToolDefinition[],
+    caller: DslToolCaller,
+  ) {
+    for (const definition of hostDefinitions) {
+      this.hostTools.set(definition.name, dshToolAsRegisteredTool(definition, caller));
+    }
+  }
+
+  private host(name: string) {
+    return this.hostTools.get(name);
+  }
+
+  get(name: string) {
+    return this.base.get(name) ?? this.host(name);
+  }
+
+  all() {
+    return [...this.base.all(), ...this.hostTools.values()];
+  }
+
+  resolveId(name: string): string | undefined {
+    return this.base.resolveId(name) ?? (this.hostTools.has(name) ? name : undefined);
+  }
+
+  suggestIds(name: string, max?: number) {
+    return this.base.suggestIds(name, max);
+  }
+}
+
+/** jit_describe_tools：tool_names → 确定性 DSL 函数式契约文本（同 Pi 四段式）。 */
+export function createDshJitDescribeTool(
+  registry: RuntimeRegistry,
+  options: { guidance?: DslGuidanceMode } = {},
+): ToolDefinition {
+  let describeCalls = 0;
+  const guidance = options.guidance ?? DEFAULT_DSL_GUIDANCE;
+  return {
+    name: "jit_describe_tools",
+    description:
+      "获取工具在 DSL 程序中的用法契约（输入参数 + 输出字段，函数式签名）。"
+      + "决定把几个工具编排成 DSL 程序时，先调用本工具。",
+    parameters: {
+      type: "object",
+      properties: {
+        tool_names: { type: "array", items: { type: "string" }, description: "要获取 DSL 契约的工具 id 列表" },
+      },
+      required: ["tool_names"],
+      additionalProperties: false,
+    },
+    output: {
+      schema: { type: "string" },
+      render: (_args, value) => [{ type: "text", text: String(value) }],
+    },
+    execute: async (args) => {
+      const toolNames = (args as { tool_names?: unknown }).tool_names;
+      if (!Array.isArray(toolNames) || toolNames.length === 0 || toolNames.length > MAX_DESCRIBE_TOOLS) {
+        throw new Error(
+          `tool_names 必须是 1..${MAX_DESCRIBE_TOOLS} 个工具名的数组（严格语义：不允许 partial success）`,
+        );
+      }
+      const names = toolNames.filter((item): item is string => typeof item === "string");
+      let text = describeToolContracts(registry, names, { header: "# Requested Tool Contracts" });
+      // 严格语义：任一 id 未知 → 整体失败（UNKNOWN_TOOL 全列 + 建议），抛给 DSH 转 toolResult
+      if (text.startsWith("错误")) throw new Error(text);
+      describeCalls += 1;
+      const bindings = guidance === "patterns" ? renderCompositionBindings(registry, names) : "";
+      if (describeCalls === 1) text = `${renderDslReference(guidance)}\n\n${text}`;
+      if (bindings.length > 0) text = `${text}\n\n${bindings}`;
+      return text;
+    },
+  };
+}
+
+/** jit_execute_program 成功执行后的结构化记录（不进模型上下文，供观测/benchmark）。 */
+export interface JitExecuteProgramDetails {
+  source: string;
+  status: "success";
+  result: unknown;
+  graph: ExecutionGraph;
+  trace: readonly TraceEntry[];
+  totalDurationMs: number;
+}
+
+/** jit_execute_program：source → 编译（执行期 registry）→ 执行（同一 registry）→ 结果。 */
+export function createDshJitExecuteProgramTool(
+  registry: RuntimeRegistry,
+  tools: ToolRuntime,
+  options: {
+    hostTools?: readonly ToolDefinition[];
+    onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void;
+  } = {},
+): ToolDefinition {
+  const hostDefinitions = options.hostTools ?? [];
+  return {
+    name: "jit_execute_program",
+    description:
+      "提交一段 Agent Execution DSL 程序源码给 Harness 编译执行（把完整程序放在 source 参数里）。",
+    parameters: {
+      type: "object",
+      properties: {
+        source: { type: "string", description: "Agent Execution DSL 程序源码（每条语句独占一行）" },
+      },
+      required: ["source"],
+      additionalProperties: false,
+    },
+    output: {
+      schema: { type: "string" },
+      render: (_args, value) => [{ type: "text", text: String(value) }],
+    },
+    execute: async (args, exec) => {
+      const source = (args as { source?: unknown }).source;
+      if (typeof source !== "string" || source.trim().length === 0) {
+        throw new Error("source 为空。请把完整 DSL 程序放在 source 参数里。");
+      }
+      // 执行期嵌套分发闭包：宿主工具经 ctx.tools.execute 走完整策略管线，
+      // 以本次 jit 调用为 parent（调度/超时/沙箱都归属同一执行树）。
+      let callSeq = 0;
+      const caller: DslToolCaller = async (name, callArgs) => {
+        const result = await tools.execute({
+          callId: CallId(`${exec.callId}:dsl:${++callSeq}`),
+          rootCallId: exec.rootCallId,
+          name,
+          arguments: callArgs,
+          signal: exec.signal,
+          agent: exec.agent,
+          parent: exec.token,
+        });
+        if (result.isError) throw new Error(result.error.message);
+        return result.value;
+      };
+      const executionRegistry = new ExecutionRegistry(registry, hostDefinitions, caller);
+      let graph: ExecutionGraph;
+      try {
+        ({ graph } = compileExecutionDsl(source, { tools: executionRegistry }));
+      } catch (error) {
+        if (error instanceof ExecutionDslCompileError) {
+          options.onCompileFailure?.(error.diagnostics);
+          throw new Error(renderCompileFailure(error));
+        }
+        throw error;
+      }
+      const execution = await execute(graph, executionRegistry);
+      if (execution.status === "failed") {
+        throw new Error(`执行失败：${execution.error}`);
+      }
+      return JSON.stringify(execution.result);
+    },
+  };
+}
+
+/** 创建 DSH 元工具集（jit_describe_tools / jit_execute_program；describeTools:false 时不挂 describe）。 */
+export function createDshJitTools(
+  registry: RuntimeRegistry,
+  tools: ToolRuntime,
+  options: {
+    guidance?: DslGuidanceMode;
+    describeTools?: boolean;
+    hostTools?: readonly ToolDefinition[];
+    onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void;
+  } = {},
+): readonly ToolDefinition[] {
+  return [
+    ...(options.describeTools === false ? [] : [createDshJitDescribeTool(registry, options)]),
+    createDshJitExecuteProgramTool(registry, tools, options),
+  ];
+}

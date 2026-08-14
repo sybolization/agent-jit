@@ -1,0 +1,17 @@
+# 开发环 patch 覆盖层：把已构建的 dist 模块以绝对路径挂进 Web UI。
+# 用法（在 deepseek-harness checkout 内）：
+#   pnpm dsh web --patch ../agent-execution-dsl-seed/cordis.dev.patch.yml --port 3081
+# 注意：模块路径必须绝对；先 npm run build 生成 dist。
+- insert:
+    - id: agent-jit-dsl
+      name: /Users/apple/Documents/agent-execution-dsl-seed/dist/integrations/dsh/index.js
+      config:
+        providers:
+          github: mock
+          domain: mock
+        dsl:
+          signatureInDescription: inline
+          systemPrompt: true
+          guidance: primitive
+          describeTools: true
+        hostTools: []
