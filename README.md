@@ -16,7 +16,11 @@ Agent 仍是 planner；Agent JIT 是执行 offload 层。
 装进 **web profile** 后，每次 `dsh web` 启动都会自动加载（`dsh web` 是 `--profile web` 的别名；`npx @deepseek-ai/dsh web` 同样生效）：
 
 ```sh
+# npm（推荐；发布的是预构建产物，无构建授权）
+dsh plugin --profile web add agent-jit
+# 或从 GitHub 安装（dist/ 随仓库分发，同样无构建授权）
 dsh plugin --profile web add github:sybolization/agent-jit
+
 dsh web --dump-config    # 验证：应出现 agent-jit-dsl 行
 dsh web                  # 之后每次启动都带插件
 ```

@@ -1,7 +1,6 @@
 {
   "name": "agent-jit",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Agent JIT: a compiler/runtime that offloads deterministic execution paths from LLM agent loops.",
   "license": "MIT",

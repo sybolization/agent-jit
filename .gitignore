@@ -3,6 +3,7 @@
 
 # Node
 node_modules/
+*.tgz
 *.log
 
 # dist/ 是 bundle 的预构建产物，随仓库分发（git 安装无需构建授权）
