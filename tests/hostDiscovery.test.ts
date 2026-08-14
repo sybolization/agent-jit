@@ -61,6 +61,26 @@ function registerDemoTool(ctx: Context, nameOverride?: string): string {
   return toolName;
 }
 
+/** 注册一个返回包装对象的宿主工具（模拟 glob / web_search 形态）。 */
+function registerWrapperTool(ctx: Context): string {
+  const toolName = "demo_wrapper";
+  ctx.tools.register({
+    name: toolName,
+    description: "演示工具：返回包装对象（模拟 glob）。",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    output: {
+      schema: {
+        type: "object",
+        properties: { root: { type: "string" }, items: { type: "array", items: { type: "string" } } },
+        required: ["root", "items"],
+      },
+      render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }],
+    },
+    execute: async () => ({ root: "/demo", items: ["one", "two", "three"] }),
+  });
+  return toolName;
+}
+
 describe("hostDiscovery 活视图：零配置自动发现 DSH 宿主工具", () => {
   test("apply 后注册的工具，describe 立即能拿到 DSL 契约（无需配置 hostTools）", async () => {
     const ctx = await setup();
@@ -140,5 +160,34 @@ describe("hostDiscovery 活视图：零配置自动发现 DSH 宿主工具", () 
     await expect(
       call(ctxExclude, "jit_describe_tools", { tool_names: [excludedName] }),
     ).rejects.toThrow(/UNKNOWN_TOOL/);
+  });
+
+  test("字段投影：宿主工具包装对象解包进数据流（take(files.items, N)）", async () => {
+    const ctx = await setup();
+    const toolName = registerWrapperTool(ctx);
+    const source = [
+      `files = ${toolName}()`,
+      "top = take(files.items, 2)",
+      "return top",
+    ].join("\n");
+    const result = JSON.parse(String(await call(ctx, "jit_execute_program", { source })));
+    expect(result).toEqual(["one", "two"]);
+  });
+
+  test("collect：多个宿主工具对象结果包成数组", async () => {
+    const ctx = await setup();
+    const wrapper = registerWrapperTool(ctx);
+    const calc = registerDemoTool(ctx);
+    const source = [
+      `a = ${wrapper}()`,
+      `b = ${calc}(a=1, b=2)`,
+      "both = collect(a, b)",
+      "return both",
+    ].join("\n");
+    const result = JSON.parse(String(await call(ctx, "jit_execute_program", { source })));
+    expect(result).toEqual([
+      { root: "/demo", items: ["one", "two", "three"] },
+      { sum: 3 },
+    ]);
   });
 });

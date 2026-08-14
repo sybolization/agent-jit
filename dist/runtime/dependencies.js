@@ -15,7 +15,10 @@ export function nodeDependencies(node) {
             return [node.source];
         case "join":
         case "concat":
+        case "collect":
             return node.sources;
+        case "project":
+            return [node.source];
         case "return":
             return [node.value];
     }

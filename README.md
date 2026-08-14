@@ -58,6 +58,17 @@ return top
 
 逐工具执行需要 **11 次** agent loop 往返；`jit_execute_program` **1 次**调用返回相同结果（有测试断言保护）。
 
+宿主工具（bash / glob / web_search 等）多返回包装对象，可用**字段投影**与 **collect** 接进数据流：
+
+```text
+files = glob(pattern="src/**/*.ts")
+top = take(files.paths, 3)          # 字段投影：对象.字段 解包数组字段
+hits = web_search(query="dsh plugin")
+proof = bash(command="git log --oneline -1", description="验证")
+both = collect(hits, proof)         # 把两个对象结果包成一个数组
+return both
+```
+
 ## 为什么有效：实验数据
 
 完整实验报告见 `experiment_result/`。核心结论：**对可提前表达为确定性程序的执行路径，把 orchestration state 从 LLM loop 迁移到 compiler/runtime，任务质量不变，token / 上下文暴露 / 往返轮次显著下降。**

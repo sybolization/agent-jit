@@ -56,10 +56,20 @@ export const DSL_CONSTRUCTS: Record<string, readonly string[]> = {
     '- map：第一个位置参数是源数组，第二个位置参数是工具 id（双引号字符串）；用 key="<字段名>" 指定从每个元素取哪个字段作为该工具的参数',
     '  示例：map(repos, "github.get_repository", key="full_name")',
   ],
+  collect: [
+    "- collect：位置参数全部是变量引用（至少 1 个），把任意值（对象 / 数组 / 标量）按顺序包成一个新数组",
+    "  语义：把非数组结果（如多个宿主工具的对象输出）合进一个数组后，才能接 take / map 等数组操作",
+    "  示例：both = collect(hits, proof)",
+  ],
+  project: [
+    "- 字段投影：引用位置（source / 工具参数 / return / collect）写 变量.字段 取出对象的一个字段，多级链式 a.b.c",
+    "  语义：宿主工具常返回包装对象（如 glob → {root, paths}），用投影解包出数组字段再进数据流",
+    "  示例：top = take(files.paths, 3)",
+  ],
 };
 
 /** 语言关键字（出现在 <callee> 说明中；顺序即展示顺序）。join 是 merge_by_key 的遗留别名，不再向模型公开。 */
-export const LANGUAGE_KEYWORDS = ["map", "take", "filter", "sort", "compute", "select", "merge_by_key", "concat", "return"];
+export const LANGUAGE_KEYWORDS = ["map", "take", "filter", "sort", "compute", "select", "merge_by_key", "concat", "collect", "return"];
 
 export interface DslSystemPromptOptions {
   /** 启用的语言构造（DSL_CONSTRUCTS 的键）；关键字列表由其与 LANGUAGE_KEYWORDS 求交得出 */
@@ -98,7 +108,7 @@ export function buildDslSystemPrompt(options: DslSystemPromptOptions): string {
     "",
     "## 语法（newline 分隔语句，每条独占一行）",
     "<name> = <callee>(<参数>, ...)",
-    "- <name>：变量名（[a-zA-Z_][a-zA-Z0-9_]*），变量名即图中的节点",
+    "- <name>：变量名（[a-zA-Z_][a-zA-Z0-9_]*，可含点号；含点号的变量名在引用解析时精确名优先于字段投影），变量名即图中的节点",
     `- <callee>：已注册工具 id（canonical 或 host alias 均可），或语言关键字 ${keywords.join(" / ")}`,
     "- <value>：字符串（双引号）、数字、布尔、null，或先前定义的变量名（裸标识符即引用，定义数据流边）",
     ...grammarLines,

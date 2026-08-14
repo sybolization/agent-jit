@@ -41,7 +41,24 @@ export interface ElementSchema {
 /** 从工具 outputSchema 提取元素 schema：array 取 items 的 object，object 取自身。 */
 export declare function elementSchemaOf(definition: ToolContract | undefined): ElementSchema | undefined;
 /** 节点输出 → 元素 schema（编译循环随符号表维护）；compute 形状动态未知，join/concat 取第一个 source。 */
-export declare function nodeElementSchema(node: ExecutionNode, tools: ToolCatalog | undefined, symbols: ReadonlyMap<string, ElementSchema | undefined>): ElementSchema | undefined;
+export declare function nodeElementSchema(node: ExecutionNode, tools: ToolCatalog | undefined, symbols: ReadonlyMap<string, ElementSchema | undefined>, valueViews?: ReadonlyMap<string, SchemaView | undefined>): ElementSchema | undefined;
+/**
+ * 节点输出 → **值级** SchemaView（project 静态字段校验的事实源）。
+ *
+ * 与 nodeElementSchema 的区别：ElementSchema 是"扁平化元素形状"（array 时取
+ * items），无法回答"这个变量的值本身是不是对象、有哪些字段"——而 project
+ * 的静态校验需要值级形状。tool → outputSchema；map → array<items>；
+ * compute/join/concat/collect 异构 → unknown；project → 源对象视图的字段视图；
+ * return → 透传。无法静态确定时返回 undefined（不误报，运行时兜底）。
+ */
+export declare function nodeValueView(node: ExecutionNode, tools: ToolCatalog | undefined, valueViews: ReadonlyMap<string, SchemaView | undefined>): SchemaView | undefined;
+/** 对象视图上取字段视图（含 union 任一成员命中）；非对象 / 字段缺失 → undefined。 */
+export declare function fieldViewOf(view: SchemaView, field: string): SchemaView | undefined;
+/**
+ * 投影字段视图 → 元素 schema（供 project 结果作为 map source 的绑定校验）：
+ * array<object> → items 属性；object → 自身属性；其余 → undefined（未知）。
+ */
+export declare function projectElementSchema(sourceView: SchemaView, field: string): ElementSchema | undefined;
 export declare function normalizeLiteral(value: LiteralValue, kind: string): LiteralValue;
 export declare function literalKindError(value: LiteralValue, parameterKey: string, kind: string): string | null;
 export declare function pushMissing(diagnostics: DslDiagnostic[], line: number, callee: string, key: string): void;

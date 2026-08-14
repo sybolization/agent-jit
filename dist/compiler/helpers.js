@@ -65,7 +65,7 @@ export function elementSchemaOf(definition) {
     return undefined;
 }
 /** 节点输出 → 元素 schema（编译循环随符号表维护）；compute 形状动态未知，join/concat 取第一个 source。 */
-export function nodeElementSchema(node, tools, symbols) {
+export function nodeElementSchema(node, tools, symbols, valueViews) {
     switch (node.kind) {
         case "tool":
         case "map":
@@ -76,9 +76,83 @@ export function nodeElementSchema(node, tools, symbols) {
         case "join":
         case "concat":
             return symbols.get(node.sources[0]);
+        case "project": {
+            // 投影结果作为 map source 时的元素 schema：字段视图 array<object> → items；object → 自身。
+            const sourceView = valueViews?.get(node.source);
+            return sourceView ? projectElementSchema(sourceView, node.field) : undefined;
+        }
+        case "collect":
+            // 异构集合，元素形状不可静态确定 → 未知（不误报）
+            return undefined;
         case "return":
             return undefined;
     }
+}
+/**
+ * 节点输出 → **值级** SchemaView（project 静态字段校验的事实源）。
+ *
+ * 与 nodeElementSchema 的区别：ElementSchema 是"扁平化元素形状"（array 时取
+ * items），无法回答"这个变量的值本身是不是对象、有哪些字段"——而 project
+ * 的静态校验需要值级形状。tool → outputSchema；map → array<items>；
+ * compute/join/concat/collect 异构 → unknown；project → 源对象视图的字段视图；
+ * return → 透传。无法静态确定时返回 undefined（不误报，运行时兜底）。
+ */
+export function nodeValueView(node, tools, valueViews) {
+    switch (node.kind) {
+        case "tool":
+        case "map": {
+            if (!tools)
+                return undefined;
+            const definition = tools.get(node.tool);
+            if (!definition)
+                return undefined;
+            const view = schemaViewOf(definition.outputSchema);
+            return node.kind === "map" && view.kind !== "unknown"
+                ? { kind: "array", items: view }
+                : view;
+        }
+        case "compute":
+        case "join":
+        case "concat":
+        case "collect":
+            return undefined;
+        case "project": {
+            const sourceView = valueViews.get(node.source);
+            if (!sourceView)
+                return undefined;
+            return fieldViewOf(sourceView, node.field);
+        }
+        case "return":
+            return valueViews.get(node.value);
+    }
+}
+/** 对象视图上取字段视图（含 union 任一成员命中）；非对象 / 字段缺失 → undefined。 */
+export function fieldViewOf(view, field) {
+    if (view.kind === "object")
+        return view.properties[field];
+    if (view.kind === "union") {
+        for (const member of view.members) {
+            const found = fieldViewOf(member, field);
+            if (found !== undefined)
+                return found;
+        }
+    }
+    return undefined;
+}
+/**
+ * 投影字段视图 → 元素 schema（供 project 结果作为 map source 的绑定校验）：
+ * array<object> → items 属性；object → 自身属性；其余 → undefined（未知）。
+ */
+export function projectElementSchema(sourceView, field) {
+    const fieldView = fieldViewOf(sourceView, field);
+    if (!fieldView)
+        return undefined;
+    if (fieldView.kind === "array" && fieldView.items.kind === "object") {
+        return { properties: fieldView.items.properties };
+    }
+    if (fieldView.kind === "object")
+        return { properties: fieldView.properties };
+    return undefined;
 }
 export function normalizeLiteral(value, kind) {
     if (typeof value !== "string")

@@ -69,6 +69,26 @@ export declare const ConcatNodeSchema: Type.TObject<{
     kind: Type.TLiteral<"concat">;
     sources: Type.TArray<Type.TString>;
 }>;
+/**
+ * project（字段投影）：从对象型变量取一个字段（`变量.字段` 引用，
+ * 多级 `a.b.c` 由编译器链式物化）。编译期对已知对象输出做静态字段校验，
+ * 运行时兜底（非对象 / 字段缺失 → 整体失败）。
+ */
+export declare const ProjectNodeSchema: Type.TObject<{
+    id: Type.TString;
+    kind: Type.TLiteral<"project">;
+    source: Type.TString;
+    field: Type.TString;
+}>;
+/**
+ * collect：把任意值（对象 / 数组 / 标量）按顺序包成一个新数组——
+ * 与 concat 的分工：concat 拼数组，collect 把非数组值包成数组。
+ */
+export declare const CollectNodeSchema: Type.TObject<{
+    id: Type.TString;
+    kind: Type.TLiteral<"collect">;
+    sources: Type.TArray<Type.TString>;
+}>;
 export declare const ReturnNodeSchema: Type.TObject<{
     id: Type.TString;
     kind: Type.TLiteral<"return">;
@@ -113,6 +133,15 @@ export declare const ExecutionNodeSchema: Type.TUnion<[Type.TObject<{
 }>, Type.TObject<{
     id: Type.TString;
     kind: Type.TLiteral<"concat">;
+    sources: Type.TArray<Type.TString>;
+}>, Type.TObject<{
+    id: Type.TString;
+    kind: Type.TLiteral<"project">;
+    source: Type.TString;
+    field: Type.TString;
+}>, Type.TObject<{
+    id: Type.TString;
+    kind: Type.TLiteral<"collect">;
     sources: Type.TArray<Type.TString>;
 }>, Type.TObject<{
     id: Type.TString;
@@ -163,6 +192,15 @@ export declare const ExecutionGraphSchema: Type.TObject<{
         sources: Type.TArray<Type.TString>;
     }>, Type.TObject<{
         id: Type.TString;
+        kind: Type.TLiteral<"project">;
+        source: Type.TString;
+        field: Type.TString;
+    }>, Type.TObject<{
+        id: Type.TString;
+        kind: Type.TLiteral<"collect">;
+        sources: Type.TArray<Type.TString>;
+    }>, Type.TObject<{
+        id: Type.TString;
         kind: Type.TLiteral<"return">;
         value: Type.TString;
     }>]>>;
@@ -174,6 +212,8 @@ export type MapNode = Static<typeof MapNodeSchema>;
 export type ComputeNode = Static<typeof ComputeNodeSchema>;
 export type JoinNode = Static<typeof JoinNodeSchema>;
 export type ConcatNode = Static<typeof ConcatNodeSchema>;
+export type ProjectNode = Static<typeof ProjectNodeSchema>;
+export type CollectNode = Static<typeof CollectNodeSchema>;
 export type ReturnNode = Static<typeof ReturnNodeSchema>;
 export type ExecutionNode = Static<typeof ExecutionNodeSchema>;
 export type ExecutionGraph = Static<typeof ExecutionGraphSchema>;

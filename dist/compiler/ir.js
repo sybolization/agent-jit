@@ -66,6 +66,26 @@ export const ConcatNodeSchema = Type.Object({
     kind: Type.Literal("concat"),
     sources: Type.Array(Type.String({ minLength: 1, maxLength: 200 }), { minItems: 2, maxItems: 20 }),
 }, { additionalProperties: false });
+/**
+ * project（字段投影）：从对象型变量取一个字段（`变量.字段` 引用，
+ * 多级 `a.b.c` 由编译器链式物化）。编译期对已知对象输出做静态字段校验，
+ * 运行时兜底（非对象 / 字段缺失 → 整体失败）。
+ */
+export const ProjectNodeSchema = Type.Object({
+    id: Type.String({ minLength: 1, maxLength: 200 }),
+    kind: Type.Literal("project"),
+    source: Type.String({ minLength: 1, maxLength: 200 }),
+    field: Type.String({ minLength: 1, maxLength: 200 }),
+}, { additionalProperties: false });
+/**
+ * collect：把任意值（对象 / 数组 / 标量）按顺序包成一个新数组——
+ * 与 concat 的分工：concat 拼数组，collect 把非数组值包成数组。
+ */
+export const CollectNodeSchema = Type.Object({
+    id: Type.String({ minLength: 1, maxLength: 200 }),
+    kind: Type.Literal("collect"),
+    sources: Type.Array(Type.String({ minLength: 1, maxLength: 200 }), { minItems: 1, maxItems: 20 }),
+}, { additionalProperties: false });
 export const ReturnNodeSchema = Type.Object({
     id: Type.String({ minLength: 1, maxLength: 200 }),
     kind: Type.Literal("return"),
@@ -77,6 +97,8 @@ export const ExecutionNodeSchema = Type.Union([
     ComputeNodeSchema,
     JoinNodeSchema,
     ConcatNodeSchema,
+    ProjectNodeSchema,
+    CollectNodeSchema,
     ReturnNodeSchema,
 ]);
 export const ExecutionGraphSchema = Type.Object({

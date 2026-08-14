@@ -58,6 +58,17 @@ export function mapCallBindings(call, prefix, tools, diagnostics) {
             ok = false;
             continue;
         }
+        if (field.includes(".")) {
+            // map 绑定是单层字段路径；多级投影（a.b.c）是顶层引用语法，不适用于元素绑定。
+            diagnostics.push({
+                line: arg.line,
+                code: "MAP_BINDING_REF_INVALID",
+                message: `map 绑定字段“${field}”含点号：绑定只支持单层字段（${prefix}.<字段>）`,
+                suggestion: "先对元素做单层绑定，再在后续语句里对结果做字段投影",
+            });
+            ok = false;
+            continue;
+        }
         bindings[arg.key] = field;
     }
     return ok ? bindings : undefined;

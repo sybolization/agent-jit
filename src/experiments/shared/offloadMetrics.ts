@@ -18,6 +18,8 @@ export function compressedPath(graph: ExecutionGraph, trace: readonly TraceEntry
   let computeNodes = 0;
   let mergeNodes = 0;
   let concatNodes = 0;
+  let projectNodes = 0;
+  let collectNodes = 0;
   let returnNodes = 0;
   for (const node of graph.nodes) {
     switch (node.kind) {
@@ -36,6 +38,12 @@ export function compressedPath(graph: ExecutionGraph, trace: readonly TraceEntry
       case "concat":
         concatNodes += 1;
         break;
+      case "project":
+        projectNodes += 1;
+        break;
+      case "collect":
+        collectNodes += 1;
+        break;
       case "return":
         returnNodes += 1;
         break;
@@ -49,8 +57,10 @@ export function compressedPath(graph: ExecutionGraph, trace: readonly TraceEntry
     computeNodes,
     mergeNodes,
     concatNodes,
+    projectNodes,
+    collectNodes,
     returnNodes,
-    atomicOps: toolNodes + fanoutSum + computeNodes + mergeNodes + concatNodes + returnNodes,
+    atomicOps: toolNodes + fanoutSum + computeNodes + mergeNodes + concatNodes + projectNodes + collectNodes + returnNodes,
   };
 }
 

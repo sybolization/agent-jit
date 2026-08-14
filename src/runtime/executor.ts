@@ -37,6 +37,10 @@ function nodeKindLabel(node: ExecutionNode): string {
       return "join";
     case "concat":
       return "concat";
+    case "project":
+      return "project";
+    case "collect":
+      return "collect";
   }
 }
 
@@ -250,6 +254,30 @@ async function runNode(node: ExecutionNode, ctx: ExecutionContext, trace: TraceE
       }
       trace.inputSize = total;
       return arrays.flat();
+    }
+    case "project": {
+      // 字段投影：source 必须是非 null 对象（非数组），字段缺失整体失败
+      const value = ctx.store.get(node.source);
+      if (value === null || typeof value !== "object" || Array.isArray(value)) {
+        const kind = value === null ? "null" : Array.isArray(value) ? "数组" : typeof value;
+        throw new Error(`project 的 source “${node.source}” 不是对象（得到 ${kind}）`);
+      }
+      const record = value as Record<string, unknown>;
+      // hasOwn：拒绝原型链字段（constructor / toString / __proto__ 等继承成员）
+      if (!Object.hasOwn(record, node.field)) {
+        const keys = Object.keys(record).sort().join(", ");
+        throw new Error(
+          `project 的 source “${node.source}” 缺少字段“${node.field}”（可用字段：${keys || "无"}）`,
+        );
+      }
+      trace.inputSize = 1;
+      return record[node.field];
+    }
+    case "collect": {
+      // 把任意值（对象 / 数组 / 标量）按顺序包成新数组
+      const values = node.sources.map((name) => ctx.store.get(name));
+      trace.inputSize = values.length;
+      return values;
     }
     case "return": {
       return ctx.store.get(node.value);

@@ -104,9 +104,9 @@ function returnDataflowPath(graph: ExecutionGraph): ExecutionNode[] {
     const node = nodesById.get(cursor);
     if (!node) break;
     path.push(node);
-    if (node.kind === "map" || node.kind === "compute") {
+    if (node.kind === "map" || node.kind === "compute" || node.kind === "project") {
       cursor = node.source;
-    } else if (node.kind === "join" || node.kind === "concat") {
+    } else if (node.kind === "join" || node.kind === "concat" || node.kind === "collect") {
       cursor = node.sources[0]; // 基准/首条链；分支 source 由 mergeSpec 单独检查（return 可达闭包）
     } else {
       break; // tool 节点无 source，数据流到头

@@ -39,8 +39,12 @@ export interface CompressedPath {
   mergeNodes: number;
   /** concat 节点数量 */
   concatNodes: number;
+  /** project（字段投影）节点数量；旧存储形态缺省 0 */
+  projectNodes?: number;
+  /** collect（值包装成数组）节点数量；旧存储形态缺省 0 */
+  collectNodes?: number;
   returnNodes: number;
-  /** 原子操作总数：tool 节点 + map 展开执行数 + compute/merge/concat/return 各一 */
+  /** 原子操作总数：tool 节点 + map 展开执行数 + compute/merge/concat/project/collect/return 各一 */
   atomicOps: number;
 }
 

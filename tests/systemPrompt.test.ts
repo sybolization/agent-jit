@@ -50,6 +50,15 @@ describe("buildDslSystemPrompt — 统一 DSL 系统提示词（契约按需获�
     expect(prompt).not.toContain("join(");
   });
 
+  test("collect / project 条目按需渲染，关键字列表含 collect", () => {
+    const prompt = buildDslSystemPrompt({
+      constructs: ["take", "collect", "project", "return"],
+    });
+    expect(prompt).toContain("both = collect(hits, proof)");
+    expect(prompt).toContain("top = take(files.paths, 3)");
+    expect(prompt).toContain("语言关键字 take / collect / return");
+  });
+
   test("默认硬约束自动编号，额外约束追加", () => {
     const prompt = buildDslSystemPrompt({
       constructs: ["map", "take"],

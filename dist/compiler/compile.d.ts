@@ -7,10 +7,13 @@ import { type ExecutionGraph } from "./ir.js";
  * 语言前端复用 `src/language/`（tokenizer / parser），本文件实现语义层：
  * - tool callee（registry 中的工具）→ `ToolNode`，参数校验
  *   （unknown_parameter / config_type_mismatch，LLM 幻觉参数名在编译期拒绝）；
- * - `map` / `take` / `filter` / `sort` / `compute` / `select` / `merge_by_key` / `concat` / `return`
- *   → 语言级 construct（`MapNode` / `ComputeNode` / `JoinNode` / `ConcatNode` / `ReturnNode`），
- *   `source` / `value` 必须是变量引用（引用即数据流边）；
- *   `join` 是 `merge_by_key` 的遗留别名（R1–R4 冻结产物兼容，编译产物同一节点）；
+ * - `map` / `take` / `filter` / `sort` / `compute` / `select` / `merge_by_key` / `concat` /
+ *   `collect` / `return` → 语言级 construct；`source` / `value` 必须是变量引用
+ *   （引用即数据流边）；
+ * - 字段投影：引用位置写 `变量.字段`（宿主工具包装对象解包，多级 `a.b.c`）。
+ *   编译循环对每条语句做引用预解析，把点号引用物化为隐式 ProjectNode
+ *   （id = `$project.<点号路径>`，`$` 不在 DSL ident 字符集内，与用户变量名零冲突；
+ *   同路径去重复用；精确变量名优先——含点号的已定义变量名不会被拆开）；
  * - 未注册 callee → `unknown_tool`。
  *
  * canonical 语法冻结：map 的第二个参数必须是嵌套工具调用绑定形态
