@@ -1,6 +1,5 @@
 import { Type } from "typebox";
 import type { Tool } from "@earendil-works/pi-ai";
-import type { LlmMessage, LlmToolCall } from "../llm/gateway.js";
 import type { ToolCatalog } from "./registry.js";
 import { renderToolContracts } from "./llmCatalog.js";
 
@@ -112,11 +111,26 @@ export function describeToolContracts(
   });
 }
 
+/** Pi gateway 工具调用消息的最小结构镜像（类型层）——避免把 pi gateway 拉进 dist 运行时图。 */
+interface LlmToolCallLike {
+  id: string;
+  arguments: Record<string, unknown>;
+}
+
+/** jit_describe_tools 的 toolResult 消息（与 gateway.LlmMessage 的 toolResult 变体同构）。 */
+export interface DescribeToolsResultMessage {
+  role: "toolResult";
+  toolCallId: string;
+  toolName: string;
+  content: string;
+  isError: boolean;
+}
+
 /** 把一次 jit_describe_tools 工具调用转成 toolResult 消息（供 DSL 臂 dispatch）。 */
 export function describeToolsResult(
   catalog: ToolCatalog,
-  call: LlmToolCall,
-): Extract<LlmMessage, { role: "toolResult" }> {
+  call: LlmToolCallLike,
+): DescribeToolsResultMessage {
   const names = Array.isArray(call.arguments["tool_names"])
     ? call.arguments["tool_names"].map(String)
     : [];

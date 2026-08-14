@@ -49,6 +49,35 @@ return top
 
 逐工具执行需要 **11 次** agent loop 往返；`jit_execute_program` **1 次**调用返回相同结果（有测试断言保护）。
 
+## 为什么有效：实验数据
+
+完整实验报告见 `experiment_result/`。核心结论：**对可提前表达为确定性程序的执行路径，把 orchestration state 从 LLM loop 迁移到 compiler/runtime，任务质量不变，token / 上下文暴露 / 往返轮次显著下降。**
+
+### R4b：一次程序提交 vs 迭代工具调用（真实 GitHub 工具，N=20）
+
+| 指标 | DSL/JIT | 迭代工具调用 | 差距 |
+| --- | ---: | ---: | ---: |
+| tokens | 941 | 8,904 | **9.5×** |
+| 模型往返轮次 | 1.0 | 4.0 | **4.0×** |
+| 暴露给模型的中间数据 | ~460 B | 4,196 B | **9.1×** |
+| 端到端延迟 | 4,711 ms | 18,844 ms | **4.0×** |
+
+### R4e：分支 + 重组（adversarial 数据集，N=15/30）
+
+token 差距 **6.9× / 8.1×**；工具契约完整时两臂 correctness 均为 100%。
+
+### R5：自主 offload（模型自己决定是否使用 JIT）
+
+| 臂 | adoption | offload precision | task 完成率 | tokens |
+| --- | ---: | ---: | ---: | ---: |
+| Control B（不提供 JIT） | — | — | 100% | 24,151 |
+| Treatment B（提供 JIT） | **90%** | **100%** | **100%** | **14,976（-38%）** |
+
+- 在"明显值得程序化"的任务上，模型自主选择 offload 9/10，且全部语义正确；
+- 在"不值得 JIT"的简单任务上 unnecessary offload 为 **0%**——DSL 参考按需加载，不使用 JIT 的成本接近零。
+
+机制不是"模型更聪明"，而是：**确定性数据流由 runtime 消费，而不是由 LLM context 消费。**
+
 ## 配置
 
 插件行 config（可被用户 patch 层覆盖）：
@@ -69,7 +98,7 @@ hostTools: []   # 可被 DSL 编排的 DSH 宿主工具名（如 run_bash），�
 
 ```sh
 npm run build   # 构建 dist/（bundle 入口 dist/integrations/dsh/index.js）
-npm test        # 541 个单测，含真实 DSH 服务树 smoke 测试（挂载 + 执行路径压缩断言）
+npm test        # 544 个单测，含真实 DSH 服务树 smoke 测试（挂载 + 执行路径压缩断言）
 ```
 
 开发环（在 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) checkout 内）：

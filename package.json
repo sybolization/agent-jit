@@ -41,8 +41,6 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "^0.84.0",
-    "@earendil-works/pi-agent-core": "^0.84.0",
     "typebox": "^1.3.11"
   },
   "peerDependencies": {
@@ -58,6 +56,8 @@
     "@deepseek-ai/dsh-tools": "file:../workbench/deepseek-harness/packages/core/tools",
     "@deepseek-ai/dsh-llm": "file:../workbench/deepseek-harness/packages/llm/llm",
     "@deepseek-ai/dsh-system-prompt": "file:../workbench/deepseek-harness/packages/core/system-prompt",
-    "@deepseek-ai/cordis-plugin-timer": "file:../workbench/deepseek-harness/vendor/timer"
+    "@deepseek-ai/cordis-plugin-timer": "file:../workbench/deepseek-harness/vendor/timer",
+    "@earendil-works/pi-ai": "^0.84.0",
+    "@earendil-works/pi-agent-core": "^0.84.0"
   }
 }
