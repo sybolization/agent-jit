@@ -39,9 +39,10 @@ function buildRegistry(config) {
     return new ToolRegistry(tools);
 }
 export function apply(ctx, config = {}) {
-    const registry = buildRegistry(config);
+    // 实验业务工具只在 experimentMode: true 时构建（生产缺省空 registry）。
+    const registry = config.experimentMode === true ? buildRegistry(config) : new ToolRegistry();
     const dsl = config.dsl ?? {};
-    // 1. 业务工具 → DSH 工具（host alias 名 + description 注入 DSL 函数式签名）。
+    // 1. 业务工具 → DSH 工具（host alias 名 + description 注入 DSL 函数式签名；仅实验模式）。
     for (const tool of registry.all()) {
         ctx.tools.register(adaptRegisteredTool(tool, { dslSignature: dsl.signatureInDescription ?? "inline" }));
     }

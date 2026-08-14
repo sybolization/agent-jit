@@ -29,15 +29,19 @@ dsh web                  # 之后每次启动都带插件
 
 ## 工具
 
-插件向 harness 注册三组工具（均走标准 `ctx.tools` 注册，遵守完整执行策略管线）：
+插件向 harness 注册的工具（均走标准 `ctx.tools` 注册，遵守完整执行策略管线）：
 
-| 工具 | 作用 |
-| --- | --- |
-| `github_*` ×6、`crm_*`、`users_*`、`email_*` | 业务工具（默认 mock，github 可切 real/`GITHUB_TOKEN`） |
-| `jit_describe_tools` | 点名工具 → 确定性函数式契约；首次调用附带 DSL 语言参考 |
-| `jit_execute_program` | DSL 源码 → 编译 → schema-validated IR → graph runtime 执行 |
+| 工具 | 作用 | 模式 |
+| --- | --- | --- |
+| `jit_describe_tools` | 点名工具 → 确定性函数式契约（与 inline 签名同源渲染） | 生产默认 |
+| `jit_execute_program` | DSL 源码 → 编译 → schema-validated IR → graph runtime 执行 | 生产默认 |
+| `github_*` ×6、`crm_*`、`users_*`、`email_*` | 实验业务工具（默认 mock，github 可切 real/`GITHUB_TOKEN`） | 仅 `experimentMode: true` |
 
-每个业务工具的 description 注入实验验证的函数式 DSL 签名：
+生产缺省**不注册实验业务工具**——插件使用者只拿到两个 JIT 元工具，自己注册进
+DSH 的工具经宿主工具活视图零配置即可被 DSL 编排。`experimentMode: true` 才向
+模型开放实验工具（供 benchmark / 演示任务），不会污染普通使用者的工具面。
+
+实验模式下每个业务工具的 description 注入实验验证的函数式 DSL 签名：
 
 ```text
 github_get_repository — 获取单个仓库的详细信息。
@@ -103,7 +107,9 @@ token 差距 **6.9× / 8.1×**；工具契约完整时两臂 correctness 均为 
 插件行 config（可被用户 patch 层覆盖）：
 
 ```yaml
-providers:
+experimentMode: false  # true = 注册实验业务工具（github_*/crm_*/users_*/email_*）；
+                       # false（缺省）= 生产：只挂 jit_* 元工具
+providers:             # 仅 experimentMode: true 时生效
   github: mock   # mock | real（GITHUB_TOKEN）| none
   domain: mock   # mock | none
 dsl:

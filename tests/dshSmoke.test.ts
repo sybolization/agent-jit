@@ -10,20 +10,24 @@ import { apply, inject, name } from "../src/integrations/dsh/index.js";
  * DSH 端到端 smoke 测试：在真实的 DSH 服务树（Timer + SystemPrompt +
  * ToolRegistry，与 cordis-host-runner 测试 helpers 相同的挂载方式）上挂载
  * agent-jit-dsl 插件，验证：
- * 1. 业务工具（github + domain）全部以 host alias 名注册进 ctx.tools，
- *    description 带实验验证的函数式 DSL 签名；
- * 2. jit_describe_tools / jit_execute_program 元工具注册可用；
- * 3. 执行路径压缩：同一份确定性编排，DSL 单次工具调用 ≡ 逐工具 11 次调用，
+ * 1. 生产缺省（experimentMode 未开）：不注册实验业务工具，只挂 jit_* 元工具；
+ * 2. experimentMode: true：业务工具（github + domain）全部以 host alias 名
+ *    注册进 ctx.tools，description 带实验验证的函数式 DSL 签名；
+ * 3. jit_describe_tools / jit_execute_program 元工具注册可用；
+ * 4. 执行路径压缩：同一份确定性编排，DSL 单次工具调用 ≡ 逐工具 11 次调用，
  *    最终结果一致（这是 JIT offload 的核心价值：把 agent loop 的
  *    N 轮工具往返压缩为 1 次）。
  */
 
-async function setup() {
+async function setup(config: Record<string, unknown> = {}): Promise<Context> {
   const ctx = new Context();
   await ctx.plugin(Timer);
   await ctx.plugin(SystemPrompt);
   await ctx.plugin(ToolRegistry);
-  await ctx.plugin({ name, inject, apply }, { providers: { github: "mock", domain: "mock" } });
+  await ctx.plugin(
+    { name, inject, apply },
+    { providers: { github: "mock", domain: "mock" }, experimentMode: true, ...config },
+  );
   return ctx;
 }
 
@@ -54,7 +58,16 @@ const PROVIDER_ALIASES = [
 ] as const;
 
 describe("agent-jit-dsl 在真实 DSH 服务树上的挂载", () => {
-  test("10 个业务工具全部注册（host alias 名），description 注入 DSL 函数式签名", async () => {
+  test("生产缺省（experimentMode 未开）：不注册实验业务工具，只挂 jit_* 元工具", async () => {
+    const ctx = await setup({ experimentMode: undefined, providers: undefined });
+    for (const alias of PROVIDER_ALIASES) {
+      expect(ctx.tools.get(alias), `${alias} 生产模式不应注册`).toBeUndefined();
+    }
+    expect(ctx.tools.get("jit_describe_tools")).toBeDefined();
+    expect(ctx.tools.get("jit_execute_program")).toBeDefined();
+  });
+
+  test("experimentMode: true：10 个业务工具全部注册（host alias 名），description 注入 DSL 函数式签名", async () => {
     const ctx = await setup();
     for (const alias of PROVIDER_ALIASES) {
       const definition = ctx.tools.get(alias);

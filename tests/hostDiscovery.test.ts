@@ -18,12 +18,13 @@ import { apply, inject, name } from "../src/integrations/dsh/index.js";
  * 4. 白名单 / 黑名单配置仍然生效（收紧场景）。
  */
 
-async function setup(): Promise<Context> {
+async function setup(config: Record<string, unknown> = {}): Promise<Context> {
   const ctx = new Context();
   await ctx.plugin(Timer);
   await ctx.plugin(SystemPrompt);
   await ctx.plugin(ToolRegistry);
-  await ctx.plugin({ name, inject, apply }, { providers: { github: "mock", domain: "mock" } });
+  // 生产缺省：experimentMode 未开（无实验业务工具），宿主工具全靠活视图发现
+  await ctx.plugin({ name, inject, apply }, { ...config });
   return ctx;
 }
 
@@ -134,14 +135,14 @@ describe("hostDiscovery 活视图：零配置自动发现 DSH 宿主工具", () 
   });
 
   test("白名单 hostTools 只开放列出的工具；黑名单 excludeHostTools 始终排除", async () => {
-    // 白名单：只允许 demo_calc，宿主工具列表里其他工具（如 jit 之外的业务）不可用。
+    // 白名单：只允许 demo_calc，宿主工具列表里其他工具不可用。
     const ctxAllow = new Context();
     await ctxAllow.plugin(Timer);
     await ctxAllow.plugin(SystemPrompt);
     await ctxAllow.plugin(ToolRegistry);
     await ctxAllow.plugin(
       { name, inject, apply },
-      { providers: { github: "mock", domain: "mock" }, hostTools: ["demo_calc"] },
+      { hostTools: ["demo_calc"] },
     );
     const allowedName = registerDemoTool(ctxAllow);
     const text = String(await call(ctxAllow, "jit_describe_tools", { tool_names: [allowedName] }));
@@ -154,7 +155,7 @@ describe("hostDiscovery 活视图：零配置自动发现 DSH 宿主工具", () 
     await ctxExclude.plugin(ToolRegistry);
     await ctxExclude.plugin(
       { name, inject, apply },
-      { providers: { github: "mock", domain: "mock" }, excludeHostTools: ["demo_calc"] },
+      { excludeHostTools: ["demo_calc"] },
     );
     const excludedName = registerDemoTool(ctxExclude);
     await expect(

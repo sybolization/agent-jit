@@ -6,6 +6,8 @@
     - id: agent-jit-dsl
       name: /Users/apple/Documents/agent-execution-dsl-seed/dist/integrations/dsh/index.js
       config:
+        # 开发环需要实验业务工具做演示任务 → 显式开实验模式
+        experimentMode: true
         providers:
           github: mock
           domain: mock

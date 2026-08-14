@@ -6,6 +6,10 @@
     - id: agent-jit-dsl
       name: agent-jit/dsh
       config:
+        # 实验模式：true 才注册实验业务工具（github_*/crm_*/users_*/email_*，
+        # 供 R5/R6 benchmark 与演示任务）。生产缺省 false——插件使用者只拿
+        # jit_* 元工具，自己注册进 DSH 的工具经活视图零配置可被 DSL 编排。
+        # experimentMode: false
         providers:
           github: mock
           domain: mock

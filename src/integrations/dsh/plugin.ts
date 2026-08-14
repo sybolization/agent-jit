@@ -37,7 +37,17 @@ export const inject = ["tools", "systemPrompt"];
 const DSL_GUIDANCE_SECTION_ORDER = 350;
 
 export interface AgentJitDshConfig {
-  /** 业务工具 provider 选择（缺省全部 mock，确定性、无外部依赖）。 */
+  /**
+   * 实验模式：true = 注册实验业务工具（github_* / crm_* / users_* / email_*，
+   * 默认 mock provider，供 R5/R6 benchmark 与演示任务使用）。
+   *
+   * 缺省 false（生产）**不注册任何业务工具**——插件使用者只拿到
+   * jit_describe_tools / jit_execute_program 两个元工具，自己注册进 DSH
+   * 的工具经 hostDiscovery 活视图零配置即可被 DSL 编排。实验工具绝不
+   * 污染普通使用者的工具面。
+   */
+  experimentMode?: boolean;
+  /** 业务工具 provider 选择（仅实验模式生效；缺省全部 mock，确定性、无外部依赖）。 */
   providers?: {
     github?: "mock" | "real" | "none";
     domain?: "mock" | "none";
@@ -82,10 +92,11 @@ function buildRegistry(config: AgentJitDshConfig): ToolRegistry<RegisteredTool> 
 }
 
 export function apply(ctx: Context, config: AgentJitDshConfig = {}): void {
-  const registry: RuntimeRegistry = buildRegistry(config);
+  // 实验业务工具只在 experimentMode: true 时构建（生产缺省空 registry）。
+  const registry: RuntimeRegistry = config.experimentMode === true ? buildRegistry(config) : new ToolRegistry<RegisteredTool>();
   const dsl = config.dsl ?? {};
 
-  // 1. 业务工具 → DSH 工具（host alias 名 + description 注入 DSL 函数式签名）。
+  // 1. 业务工具 → DSH 工具（host alias 名 + description 注入 DSL 函数式签名；仅实验模式）。
   for (const tool of registry.all()) {
     ctx.tools.register(adaptRegisteredTool(tool, { dslSignature: dsl.signatureInDescription ?? "inline" }));
   }
