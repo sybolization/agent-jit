@@ -16,6 +16,20 @@ import type { R5TaskId } from "../r5Tasks.js";
 export type R6ContractMode = "eager" | "compile-only" | "manifest" | "eager-signatures";
 
 /**
+ * R5/R6 历史实验的 contract acquisition 模式锚点（describe-first）。
+ * 历史 benchmark（R5 offloading、R6 describe/eager 的 eager 臂）必须显式使用
+ * 本常量，保证重跑时行为与历史基线一致——不要跟随生产默认漂移。
+ */
+export const HISTORICAL_R5_CONTRACT_MODE: R6ContractMode = "eager";
+
+/**
+ * 生产默认 contract acquisition 模式：active tools 已随定义携带 DSL signature，
+ * agent 决定 offload 后直接 jit_execute_program，不走 describe 往返。
+ * 新实验/生产入口必须显式传入本常量；绝不在代码里静默 `?? "eager"`。
+ */
+export const PRODUCTION_CONTRACT_MODE: R6ContractMode = "eager-signatures";
+
+/**
  * R6.2：compile failure 诊断按 code 归三类，回答"opaque 是否真正制造了 contract uncertainty"。
  * 分类依据是 `DslDiagnostic.code`（编译器原始 code，非 JIT 层大写 code）。
  */

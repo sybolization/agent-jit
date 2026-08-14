@@ -1,6 +1,10 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { RuntimeRegistry } from "../../runtime/runtime.js";
-import { DESCRIBE_TOOLS_TOOL, describeToolContracts } from "../../tools/jitTools.js";
+import {
+  DESCRIBE_TOOLS_TOOL,
+  describeToolContracts,
+  type DescribeContractFormat,
+} from "../../tools/jitTools.js";
 import { DEFAULT_DSL_GUIDANCE, renderDslReference, type DslGuidanceMode } from "./dslReference.js";
 import { renderCompositionBindings } from "../../tools/compositionHints.js";
 
@@ -26,16 +30,22 @@ function resolveCanonicalIds(catalog: RuntimeRegistry, toolNames: readonly strin
 /** jit_describe_tools 工具：tool_names → 确定性 DSL 契约文本（四段式：DSL manual + 契约 + bindings）。 */
 export function createJitDescribeTool(
   registry: RuntimeRegistry,
-  options: { guidance?: DslGuidanceMode } = {},
+  options: { guidance?: DslGuidanceMode; describeFormat?: DescribeContractFormat } = {},
 ): AgentTool<typeof DESCRIBE_TOOLS_TOOL.parameters> {
   let describeCalls = 0;
   const guidance = options.guidance ?? DEFAULT_DSL_GUIDANCE;
+  // 历史 eager 臂传 "legacy"（llmCatalog 四段式，逐字节复现历史输出）；
+  // production（eager-signatures）缺省 "signature"——与 active tool 内联签名同源。
+  const describeFormat = options.describeFormat ?? "signature";
   return {
     ...DESCRIBE_TOOLS_TOOL,
     label: "Describe DSL tool contracts",
     execute: async (_toolCallId, params) => {
       const toolNames = (params as { tool_names: string[] }).tool_names;
-      let text = describeToolContracts(registry, toolNames, { header: "# Requested Tool Contracts" });
+      let text = describeToolContracts(registry, toolNames, {
+        header: "# Requested Tool Contracts",
+        format: describeFormat,
+      });
       // 严格语义：任一 id 未知 → 整体失败（UNKNOWN_TOOL 全列 + 建议），抛给 Agent 转 toolResult
       if (text.startsWith("错误")) throw new Error(text);
       describeCalls += 1;

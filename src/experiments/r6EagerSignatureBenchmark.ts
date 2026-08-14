@@ -38,6 +38,7 @@ import {
   type R5RunMetrics,
   type R6ContractMode,
 } from "./r5OffloadingBenchmark.js";
+import { HISTORICAL_R5_CONTRACT_MODE } from "./shared/types.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
@@ -51,9 +52,9 @@ interface CellDef {
 }
 
 export const R6_EAGER_CELLS: Record<R6EagerCellId, CellDef> = {
-  "A-eager": { taskId: "A", contractMode: "eager", label: "A no-signature（普通 Agent baseline）" },
+  "A-eager": { taskId: "A", contractMode: HISTORICAL_R5_CONTRACT_MODE, label: "A no-signature（普通 Agent baseline）" },
   "A-sig": { taskId: "A", contractMode: "eager-signatures", label: "A eager-signature（常驻 signature tax）" },
-  "B-eager": { taskId: "B", contractMode: "eager", label: "B describe（当前 JIT baseline）" },
+  "B-eager": { taskId: "B", contractMode: HISTORICAL_R5_CONTRACT_MODE, label: "B describe（当前 JIT baseline）" },
   "B-sig": { taskId: "B", contractMode: "eager-signatures", label: "B eager-signature（省 describe round）" },
 };
 

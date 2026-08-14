@@ -36,6 +36,7 @@ import {
   type R5Aggregate,
   type R5JitGroupId,
 } from "./r5OffloadingBenchmark.js";
+import { HISTORICAL_R5_CONTRACT_MODE } from "./shared/types.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
@@ -49,9 +50,9 @@ export const R6_ARM_LABEL: Record<R6Arm | "control", string> = {
   C: "C: manifest（+ compact output shapes）",
 };
 
-/** arm → contractMode 映射（A/B/C 都是 treatment 形态，差异只在 contract acquisition）。 */
+/** arm → contractMode 映射（A/B/C 都是 treatment 形态，差异只在 contract acquisition）。A 用历史常量锚定 describe-first baseline。 */
 export const R6_ARM_CONTRACT_MODE: Record<R6Arm, R6ContractMode> = {
-  A: "eager",
+  A: HISTORICAL_R5_CONTRACT_MODE,
   B: "compile-only",
   C: "manifest",
 };

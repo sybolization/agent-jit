@@ -9,7 +9,7 @@ export interface DshHostToolsConfig {
     allow?: readonly string[];
     exclude?: readonly string[];
 }
-/** jit_describe_tools：tool_names → 确定性 DSL 函数式契约文本（同 Pi 四段式）。 */
+/** jit_describe_tools：tool_names → 确定性 DSL 函数式契约文本（production：signature 渲染，与 inline 签名同源）。 */
 export declare function createDshJitDescribeTool(registry: RuntimeRegistry, tools: ToolRuntime, options?: {
     guidance?: DslGuidanceMode;
     hostTools?: DshHostToolsConfig;

@@ -6,6 +6,7 @@ import { createJitExecuteProgramTool } from "./executeProgramTool.js";
 import { dslSignatureOf, renderDslSignature } from "../../tools/dslSignature.js";
 import type { DslGuidanceMode } from "./dslReference.js";
 import type { DslDiagnostic } from "../../language/diagnostics.js";
+import type { DescribeContractFormat } from "../../tools/jitTools.js";
 
 /**
  * ToolRegistry → Pi AgentTool 适配层。
@@ -73,6 +74,8 @@ export function createPiTools(
   options: {
     guidance?: DslGuidanceMode;
     describeTools?: boolean;
+    /** describe 契约渲染格式：历史 eager 臂传 "legacy"（llmCatalog 四段式）；production 缺省 "signature"。 */
+    describeFormat?: DescribeContractFormat;
     dslSignatures?: boolean;
     onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void;
   } = {},

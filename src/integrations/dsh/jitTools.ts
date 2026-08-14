@@ -80,7 +80,7 @@ export interface DshHostToolsConfig {
   exclude?: readonly string[];
 }
 
-/** jit_describe_tools：tool_names → 确定性 DSL 函数式契约文本（同 Pi 四段式）。 */
+/** jit_describe_tools：tool_names → 确定性 DSL 函数式契约文本（production：signature 渲染，与 inline 签名同源）。 */
 export function createDshJitDescribeTool(
   registry: RuntimeRegistry,
   tools: ToolRuntime,
@@ -94,8 +94,8 @@ export function createDshJitDescribeTool(
   return {
     name: "jit_describe_tools",
     description:
-      "获取工具在 DSL 程序中的用法契约（输入参数 + 输出字段，函数式签名）。"
-      + "决定把几个工具编排成 DSL 程序时，先调用本工具。",
+      "获取当前上下文中未提供或需要额外查询的工具 DSL 函数签名（输入参数 + 输出字段）。"
+      + "仅用于动态工具发现或大型工具集合中的按需查询；已随 active tool 定义提供 DSL signature 时无需调用。",
     parameters: {
       type: "object",
       properties: {

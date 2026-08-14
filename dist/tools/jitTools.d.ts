@@ -31,14 +31,24 @@ export declare const EXECUTE_PROGRAM_TOOL: Tool;
 /** DSL 臂注册到 gateway 的全部元工具（模型可动态调用：describe → 写程序 → execute）。 */
 export declare const JIT_META_TOOLS: readonly Tool[];
 /**
- * 确定性渲染：tool_names → ToolIdResolver（canonical / host alias 无感）→ SchemaView →
- * compact DSL 契约文本。保持请求顺序。
+ * describe 契约渲染格式：
+ * - "signature"（production 默认）：与 active tool 内联 DSL 签名同一渲染器
+ *   （dslSignatureOf → renderDslSignature），函数式单行签名；
+ * - "legacy"（历史 eager 臂）：llmCatalog 四段式（类型定义段 + 参数格式说明），
+ *   仅供历史实验逐字节复现，勿在新入口使用。
+ */
+export type DescribeContractFormat = "signature" | "legacy";
+/**
+ * 确定性渲染：tool_names → ToolIdResolver（canonical / host alias 无感）→
+ * 函数式 DSL 签名（format: "signature"，与 inline 签名同源）或历史四段式契约
+ * （format: "legacy"）。保持请求顺序。
  *
  * 严格语义：**不允许 partial success**——任一 id 未知即整体失败，一次性列出全部未知
  * （UNKNOWN_TOOL）+ 确定性近似建议，绝不返回部分契约。
  */
 export declare function describeToolContracts(catalog: ToolCatalog, toolNames: readonly string[], options?: {
     header?: string;
+    format?: DescribeContractFormat;
 }): string;
 /** Pi gateway 工具调用消息的最小结构镜像（类型层）——避免把 pi gateway 拉进 dist 运行时图。 */
 interface LlmToolCallLike {
@@ -53,6 +63,11 @@ export interface DescribeToolsResultMessage {
     content: string;
     isError: boolean;
 }
-/** 把一次 jit_describe_tools 工具调用转成 toolResult 消息（供 DSL 臂 dispatch）。 */
-export declare function describeToolsResult(catalog: ToolCatalog, call: LlmToolCallLike): DescribeToolsResultMessage;
+/**
+ * 把一次 jit_describe_tools 工具调用转成 toolResult 消息（供历史实验的 DSL 臂 dispatch：
+ * describeToolsCase / dslGenerationExperiment / programmaticBenchmark / r4eBenchmark /
+ * semanticBenchmark）。缺省 legacy 格式——这些 R1–R5 历史实验的 describe 输出逐字节
+ * 保持不变；新入口请直接用 describeToolContracts（缺省 signature）。
+ */
+export declare function describeToolsResult(catalog: ToolCatalog, call: LlmToolCallLike, format?: DescribeContractFormat): DescribeToolsResultMessage;
 export {};

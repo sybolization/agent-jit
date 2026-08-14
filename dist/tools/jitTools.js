@@ -1,5 +1,6 @@
 import { Type } from "typebox";
 import { renderToolContracts } from "./llmCatalog.js";
+import { dslSignatureOf, renderDslSignature } from "./dslSignature.js";
 /**
  * Agent JIT 元工具（jit_*）。
  *
@@ -27,7 +28,8 @@ export const MAX_DESCRIBE_TOOLS = 20;
 /** 获取指定工具在 DSL 中的用法契约（输入参数 + 输出字段）。 */
 export const DESCRIBE_TOOLS_TOOL = {
     name: "jit_describe_tools",
-    description: "获取工具在 DSL 程序中的用法契约（输入参数 + 输出字段）。决定把几个工具编排成 DSL 程序时，先调用本工具。",
+    description: "获取当前上下文中未提供或需要额外查询的工具 DSL 函数签名（输入参数 + 输出字段）。"
+        + "仅用于动态工具发现或大型工具集合中的按需查询；已随 active tool 定义提供 DSL signature 时无需调用。",
     parameters: Type.Object({
         tool_names: Type.Array(Type.String(), {
             description: '要获取 DSL 契约的工具 id 列表（canonical 与 host alias 等价，如 "github.search_repositories" / "github_search_repositories"）',
@@ -61,13 +63,15 @@ function suggestionLines(catalog, unknowns) {
     return lines.length > 0 ? `\n${lines.join("\n")}` : "";
 }
 /**
- * 确定性渲染：tool_names → ToolIdResolver（canonical / host alias 无感）→ SchemaView →
- * compact DSL 契约文本。保持请求顺序。
+ * 确定性渲染：tool_names → ToolIdResolver（canonical / host alias 无感）→
+ * 函数式 DSL 签名（format: "signature"，与 inline 签名同源）或历史四段式契约
+ * （format: "legacy"）。保持请求顺序。
  *
  * 严格语义：**不允许 partial success**——任一 id 未知即整体失败，一次性列出全部未知
  * （UNKNOWN_TOOL）+ 确定性近似建议，绝不返回部分契约。
  */
 export function describeToolContracts(catalog, toolNames, options = {}) {
+    const format = options.format ?? "signature";
     const names = [...new Set(toolNames.map((name) => name.trim()).filter((name) => name.length > 0))];
     if (names.length === 0) {
         return "错误：tool_names 为空。请传入要获取 DSL 契约的工具 id 列表（canonical 或 host alias 均可）。";
@@ -89,17 +93,36 @@ export function describeToolContracts(catalog, toolNames, options = {}) {
     if (unknowns.length > 0) {
         return `错误：UNKNOWN_TOOL: ${unknowns.join(", ")}${suggestionLines(catalog, unknowns)}`;
     }
-    return renderToolContracts(catalog, {
-        ids: canonicalIds,
-        ...(options.header !== undefined ? { header: options.header } : {}),
-    });
+    if (format === "legacy") {
+        return renderToolContracts(catalog, {
+            ids: canonicalIds,
+            ...(options.header !== undefined ? { header: options.header } : {}),
+        });
+    }
+    // signature（production）：与 active tool 内联 DSL 签名同一渲染器。
+    const signatures = canonicalIds
+        .map((id) => {
+        const tool = catalog.get(id);
+        if (!tool)
+            return "";
+        return renderDslSignature(dslSignatureOf(tool), { fieldLabels: true });
+    })
+        .filter((line) => line.length > 0)
+        .join("\n\n");
+    const header = options.header !== undefined ? `${options.header}\n\n` : "";
+    return `${header}${signatures}`;
 }
-/** 把一次 jit_describe_tools 工具调用转成 toolResult 消息（供 DSL 臂 dispatch）。 */
-export function describeToolsResult(catalog, call) {
+/**
+ * 把一次 jit_describe_tools 工具调用转成 toolResult 消息（供历史实验的 DSL 臂 dispatch：
+ * describeToolsCase / dslGenerationExperiment / programmaticBenchmark / r4eBenchmark /
+ * semanticBenchmark）。缺省 legacy 格式——这些 R1–R5 历史实验的 describe 输出逐字节
+ * 保持不变；新入口请直接用 describeToolContracts（缺省 signature）。
+ */
+export function describeToolsResult(catalog, call, format = "legacy") {
     const names = Array.isArray(call.arguments["tool_names"])
         ? call.arguments["tool_names"].map(String)
         : [];
-    const text = describeToolContracts(catalog, names);
+    const text = describeToolContracts(catalog, names, { format });
     return {
         role: "toolResult",
         toolCallId: call.id,

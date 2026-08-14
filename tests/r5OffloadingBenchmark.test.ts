@@ -1085,6 +1085,16 @@ describe("boundaryPolicy — r5TreatmentSystemPrompt 开关", () => {
     expect(prompt).toContain("jit_execute_program");
     expect(prompt).toContain("submit_answer");
   });
+
+  test("contract-aware 边界策略：eager 保留 describe handoff，eager-signatures 只写直接 execute", () => {
+    const eagerPrompt = r5TreatmentSystemPrompt({ boundaryPolicy: true, contractMode: "eager" });
+    expect(eagerPrompt).toContain("先 describe + execute");
+
+    const sigPrompt = r5TreatmentSystemPrompt({ boundaryPolicy: true, contractMode: "eager-signatures" });
+    expect(sigPrompt).not.toContain("先 describe + execute");
+    expect(sigPrompt).not.toContain("describe / execute");
+    expect(sigPrompt).toContain("直接提交完整的 JIT program");
+  });
 });
 
 describe("boundaryPolicy — parseFlags", () => {

@@ -63,6 +63,7 @@ import { compileErrorBreakdown } from "./shared/compileMetrics.js";
 import { createR5SubmitTool, SUBMIT_ANSWER_ID, submitAnswerTool } from "./shared/submitAnswer.js";
 import { writeR5Report } from "./shared/experimentReport.js";
 import type { R5Arm, R5ExecuteCallPhase, R5RunMetrics, R6ContractMode } from "./shared/types.js";
+import { HISTORICAL_R5_CONTRACT_MODE } from "./shared/types.js";
 
 export * from "./shared/types.js";
 export * from "./shared/compileMetrics.js";
@@ -105,11 +106,22 @@ export function r5ControlSystemPrompt(): string {
  * 只加两条规则，不写 JIT 教程：
  * 1. offload 的判断依据是"后续决策规则是否已确定"，不是"运行时数据是否已获得"；
  * 2. 决定 offload 后，不在同一个 assistant turn 里并行调用该片段涉及的普通业务工具。
+ *
+ * R6.1 起按 contractMode 渲染 handoff 行：
+ * - eager（历史）：先 describe + execute；
+ * - 其余（compile-only / manifest / eager-signatures）：直接提交完整 program，
+ *   不再出现 describe——防止 eager 模式的描述泄漏进无 describe 的臂。
  */
-export const BOUNDARY_POLICY_RULES: readonly string[] = [
-  "判断是否把一段后续工作交给 JIT：依据是这段工作的后续决策规则（过滤阈值、排序键、截取数量等）是否已经由任务确定——只要决策规则已确定，即使数据还没拿到，也可以立即把整段工作一次性程序化；不要在确定可程序化之后，还先用普通工具把数据逐个做一遍。",
-  "一旦决定把某个确定性片段 offload 给 JIT，就不要在同一个 assistant turn 里再并行调用该片段涉及的普通业务工具（包括与 describe / execute 同一轮发出的调用）——那会造成重复工作；先 describe + execute，看到 JIT 结果后再判断是否需要补救。",
-];
+export function boundaryPolicyRules(contractMode: R6ContractMode): readonly string[] {
+  const common = [
+    "判断是否把一段后续工作交给 JIT：依据是这段工作的后续决策规则（过滤阈值、排序键、截取数量等）是否已经由任务确定——只要决策规则已确定，即使数据还没拿到，也可以立即把整段工作一次性程序化；不要在确定可程序化之后，还先用普通工具把数据逐个做一遍。",
+  ];
+  const handoff =
+    contractMode === "eager"
+      ? "一旦决定把某个确定性片段 offload 给 JIT，就不要在同一个 assistant turn 里再并行调用该片段涉及的普通业务工具（包括与 describe / execute 同一轮发出的调用）——那会造成重复工作；先 describe + execute，看到 JIT 结果后再判断是否需要补救。"
+      : "一旦决定把某个确定性片段 offload 给 JIT，就不要在同一个 assistant turn 里再并行调用该片段涉及的普通业务工具（包括与 execute 同一轮发出的调用）——那会造成重复工作；直接提交完整的 JIT program，看到结果后再判断是否需要补救。";
+  return [...common, handoff];
+}
 
 /**
  * treatment 臂：普通工具 + Agent JIT；是否 offload 由模型自己决定。
@@ -124,7 +136,7 @@ export function r5TreatmentSystemPrompt(options?: {
   contractMode?: R6ContractMode;
   manifest?: string;
 }): string {
-  const contractMode = options?.contractMode ?? "eager";
+  const contractMode = options?.contractMode ?? HISTORICAL_R5_CONTRACT_MODE;
   // 各模式的 JIT 说明行：
   // - eager（历史）：先 describe 拿契约，再 execute；
   // - eager-signatures（production/default）：直接 execute，DSL 签名已随工具定义提供；
@@ -160,7 +172,7 @@ export function r5TreatmentSystemPrompt(options?: {
       : []),
     // 边界策略段最后追加（eager 下为空数组，顺序与现状一致 → 输出逐字节不变）
     ...(options?.boundaryPolicy === true
-      ? ["", "## Offload 边界策略", ...BOUNDARY_POLICY_RULES.map((rule, index) => `${index + 1}. ${rule}`)]
+      ? ["", "## Offload 边界策略", ...boundaryPolicyRules(contractMode).map((rule, index) => `${index + 1}. ${rule}`)]
       : []),
   ].join("\n");
 }
@@ -204,7 +216,7 @@ export async function runR5Run(
         guidance: options.dslGuidance,
         ...(options.contractMode === "compile-only" || options.contractMode === "manifest" || options.contractMode === "eager-signatures"
           ? {}
-          : { describeTools: true }),
+          : { describeTools: true, describeFormat: "legacy" as const }),
         // 只有 eager-signatures / production 才注入 inline DSL signature，保证历史臂的 contract visibility 隔离。
         dslSignatures: options.contractMode === "eager-signatures",
         onCompileFailure: (diagnostics) => compileDiagnostics.push(...diagnostics),
