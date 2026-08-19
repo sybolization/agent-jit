@@ -20,6 +20,8 @@ import type {
  *   提醒会漏进正在确定性执行的程序中间，而不是漏给模型。
  * - 成功结果：`result.isError === false`。
  * - 结果含列表：顶层数组，或对象里至少一个数组字段，长度 >= minListLength。
+ * - 不在排除名单内：缺省排除内容读取类工具（read/read_image），其数组字段
+ *   是内容细节而非可 fan-out 的实体列表（见 DEFAULT_REMINDER_EXCLUDE）。
  *
  * 去重（oncePerTurn，缺省开启）：每个 agent 每个用户回合最多提醒一次。
  * 在 `agent/pre-step` 上监听，当 claim 到一条真正的用户消息（source.kind
@@ -70,10 +72,30 @@ export interface RoutingReminderOptions {
   minListLength?: number;
   /** 每个 agent 每个用户回合最多提醒一次（缺省 true）。 */
   oncePerTurn?: boolean;
+  /**
+   * 排除不触发提醒的工具名（支持 `*` 通配符）。缺省排除"内容读取"类工具
+   * （read / read_image）——它们的数组字段是内容细节（read.lines），不是
+   * 可 fan-out 的实体列表；传空数组 `[]` 可关闭排除。
+   */
+  exclude?: readonly string[];
+}
+
+/**
+ * 缺省排除名单：内容读取类工具。`read` 的规范值是 `{path, offset, lines[],
+ * totalLines}`，`lines` 是数组但属于"单实体内容细节"，不是可被后续逐个
+ * fan-out 的实体列表——若不排除，每次 read 都会误触发提醒。
+ */
+export const DEFAULT_REMINDER_EXCLUDE: readonly string[] = ["read", "read_image"];
+
+/** `*` 通配符 → 锚定正则（其余正则元字符按字面匹配；与 repeat-tool-reminder 同规则）。 */
+function wildcardToRegExp(pattern: string): RegExp {
+  const escaped = pattern.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+  return new RegExp(`^${escaped.replaceAll("*", ".*")}$`);
 }
 
 /** gate 判定所需的最小 exec 视图（可单测，无需构造完整 ToolExecution）。 */
 export interface ReminderExecView {
+  name?: string;
   parent?: unknown;
   agent?: object;
 }
@@ -90,13 +112,18 @@ export interface ReminderResultView {
  */
 export class RoutingReminderGate {
   private readonly reminded = new WeakSet<object>();
+  private readonly exclude: readonly RegExp[];
 
-  constructor(private readonly options: Required<RoutingReminderOptions>) {}
+  constructor(private readonly options: Required<RoutingReminderOptions>) {
+    this.exclude = options.exclude.map(wildcardToRegExp);
+  }
 
   /** 返回本次顶层工具结果是否应触发提醒；命中时登记 once-per-turn 标记。 */
   shouldRemind(exec: ReminderExecView, result: ReminderResultView): boolean {
     if (result.isError) return false;
     if (exec.parent !== undefined) return false;
+    const toolName = exec.name;
+    if (toolName !== undefined && this.exclude.some((re) => re.test(toolName))) return false;
     if (!containsList(result.value, this.options.minListLength)) return false;
     if (!this.options.oncePerTurn) return true;
     // 程序化调用（无 agent）没有"回合"概念，不参与去重。
@@ -128,6 +155,7 @@ export function installRoutingReminder(
   const gate = new RoutingReminderGate({
     minListLength: options.minListLength ?? 2,
     oncePerTurn,
+    exclude: options.exclude ?? DEFAULT_REMINDER_EXCLUDE,
   });
 
   ctx.on(

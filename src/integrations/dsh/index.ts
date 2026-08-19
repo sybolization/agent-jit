@@ -23,6 +23,7 @@ export {
   containsList,
   buildListReminder,
   LIST_ROUTING_REMINDER,
+  DEFAULT_REMINDER_EXCLUDE,
   type RoutingReminderMode,
   type RoutingReminderOptions,
   type ReminderExecView,

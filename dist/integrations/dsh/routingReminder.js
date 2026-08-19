@@ -29,20 +29,36 @@ export function buildListReminder() {
     });
 }
 /**
+ * 缺省排除名单：内容读取类工具。`read` 的规范值是 `{path, offset, lines[],
+ * totalLines}`，`lines` 是数组但属于"单实体内容细节"，不是可被后续逐个
+ * fan-out 的实体列表——若不排除，每次 read 都会误触发提醒。
+ */
+export const DEFAULT_REMINDER_EXCLUDE = ["read", "read_image"];
+/** `*` 通配符 → 锚定正则（其余正则元字符按字面匹配；与 repeat-tool-reminder 同规则）。 */
+function wildcardToRegExp(pattern) {
+    const escaped = pattern.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+    return new RegExp(`^${escaped.replaceAll("*", ".*")}$`);
+}
+/**
  * once-per-turn 状态机（可单测）。`installRoutingReminder` 把它的两个方法
  * 接到 `tools/post-execute`（判定 + 登记）与 `agent/pre-step`（重置）上。
  */
 export class RoutingReminderGate {
     options;
     reminded = new WeakSet();
+    exclude;
     constructor(options) {
         this.options = options;
+        this.exclude = options.exclude.map(wildcardToRegExp);
     }
     /** 返回本次顶层工具结果是否应触发提醒；命中时登记 once-per-turn 标记。 */
     shouldRemind(exec, result) {
         if (result.isError)
             return false;
         if (exec.parent !== undefined)
+            return false;
+        const toolName = exec.name;
+        if (toolName !== undefined && this.exclude.some((re) => re.test(toolName)))
             return false;
         if (!containsList(result.value, this.options.minListLength))
             return false;
@@ -73,6 +89,7 @@ export function installRoutingReminder(ctx, options = {}) {
     const gate = new RoutingReminderGate({
         minListLength: options.minListLength ?? 2,
         oncePerTurn,
+        exclude: options.exclude ?? DEFAULT_REMINDER_EXCLUDE,
     });
     ctx.on("tools/post-execute", async (exec, result, next) => {
         const downstream = await next();

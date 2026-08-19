@@ -13,6 +13,8 @@ import type { Context } from "@deepseek-ai/cordis";
  *   提醒会漏进正在确定性执行的程序中间，而不是漏给模型。
  * - 成功结果：`result.isError === false`。
  * - 结果含列表：顶层数组，或对象里至少一个数组字段，长度 >= minListLength。
+ * - 不在排除名单内：缺省排除内容读取类工具（read/read_image），其数组字段
+ *   是内容细节而非可 fan-out 的实体列表（见 DEFAULT_REMINDER_EXCLUDE）。
  *
  * 去重（oncePerTurn，缺省开启）：每个 agent 每个用户回合最多提醒一次。
  * 在 `agent/pre-step` 上监听，当 claim 到一条真正的用户消息（source.kind
@@ -45,9 +47,22 @@ export interface RoutingReminderOptions {
     minListLength?: number;
     /** 每个 agent 每个用户回合最多提醒一次（缺省 true）。 */
     oncePerTurn?: boolean;
+    /**
+     * 排除不触发提醒的工具名（支持 `*` 通配符）。缺省排除"内容读取"类工具
+     * （read / read_image）——它们的数组字段是内容细节（read.lines），不是
+     * 可 fan-out 的实体列表；传空数组 `[]` 可关闭排除。
+     */
+    exclude?: readonly string[];
 }
+/**
+ * 缺省排除名单：内容读取类工具。`read` 的规范值是 `{path, offset, lines[],
+ * totalLines}`，`lines` 是数组但属于"单实体内容细节"，不是可被后续逐个
+ * fan-out 的实体列表——若不排除，每次 read 都会误触发提醒。
+ */
+export declare const DEFAULT_REMINDER_EXCLUDE: readonly string[];
 /** gate 判定所需的最小 exec 视图（可单测，无需构造完整 ToolExecution）。 */
 export interface ReminderExecView {
+    name?: string;
     parent?: unknown;
     agent?: object;
 }
@@ -63,6 +78,7 @@ export interface ReminderResultView {
 export declare class RoutingReminderGate {
     private readonly options;
     private readonly reminded;
+    private readonly exclude;
     constructor(options: Required<RoutingReminderOptions>);
     /** 返回本次顶层工具结果是否应触发提醒；命中时登记 once-per-turn 标记。 */
     shouldRemind(exec: ReminderExecView, result: ReminderResultView): boolean;

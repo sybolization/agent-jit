@@ -69,6 +69,8 @@ export interface AgentJitDshConfig {
         routingReminder?: RoutingReminderMode;
         /** 触发 routingReminder 的最小列表长度（缺省 2）。 */
         routingReminderMinListLength?: number;
+        /** 排除不触发提醒的工具名（支持 `*` 通配符；缺省 read/read_image，见 DEFAULT_REMINDER_EXCLUDE）。 */
+        routingReminderExclude?: readonly string[];
     };
     /**
      * DSL 程序可编排的 DSH 宿主工具（ctx.tools 里已注册的工具）。

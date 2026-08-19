@@ -8,6 +8,7 @@ import {
   apply,
   buildListReminder,
   containsList,
+  DEFAULT_REMINDER_EXCLUDE,
   inject,
   name,
   RoutingReminderGate,
@@ -17,9 +18,9 @@ import {
  * routingReminder（soft hook）测试：
  * 1. 纯函数：containsList 的列表判定（顶层数组 / 对象含数组字段 / 空 / 标量 / 阈值）；
  * 2. buildListReminder 的消息形态（user 角色、plugin 来源、引用 jit_* 元工具）；
- * 3. 集成：开启 dsl.routingReminder: "on-list" 后，返回列表的工具在
- *    tools/post-execute 上被附加 additionalContexts；标量结果不附加；
- * 4. 默认关闭：不配置时绝不注入（保持生产行为不变）；
+ * 3. 集成：返回列表的工具在 tools/post-execute 上被附加 additionalContexts；
+ *    标量结果不附加；默认开启、显式 none 关闭；
+ * 4. 排除名单：read/read_image（内容读取）默认不触发；
  * 5. 嵌套执行（jit_execute_program 内部经 hostDiscovery 分发）不注入。
  */
 
@@ -109,8 +110,15 @@ describe("RoutingReminderGate（once-per-turn 状态机）", () => {
   const listResult = { isError: false, value: { items: ["a", "b"] } };
   const scalarResult = { isError: false, value: { sum: 1 } };
 
-  function gate(overrides: Partial<{ minListLength: number; oncePerTurn: boolean }> = {}) {
-    return new RoutingReminderGate({ minListLength: 2, oncePerTurn: true, ...overrides });
+  function gate(
+    overrides: Partial<{ minListLength: number; oncePerTurn: boolean; exclude: readonly string[] }> = {},
+  ) {
+    return new RoutingReminderGate({
+      minListLength: 2,
+      oncePerTurn: true,
+      exclude: DEFAULT_REMINDER_EXCLUDE,
+      ...overrides,
+    });
   }
 
   test("同一 agent 同一回合：第一个列表触发，后续列表被去重", () => {
@@ -161,6 +169,25 @@ describe("RoutingReminderGate（once-per-turn 状态机）", () => {
     expect(g.shouldRemind({}, listResult)).toBe(true);
     expect(g.shouldRemind({}, listResult)).toBe(true);
   });
+
+  test("排除名单：read / read_image 默认不触发；通配符与空名单生效", () => {
+    const g = gate();
+    const agent = {};
+    // 默认排除 read / read_image（内容读取类，数组字段是内容细节）
+    expect(g.shouldRemind({ agent, name: "read" }, listResult)).toBe(false);
+    expect(g.shouldRemind({ agent, name: "read_image" }, listResult)).toBe(false);
+    // glob / grep 等枚举类工具仍触发
+    expect(g.shouldRemind({ agent, name: "glob" }, listResult)).toBe(true);
+
+    // 通配符：exclude=["read_*"] 命中 read_image
+    const gWild = gate({ exclude: ["read_*"] });
+    expect(gWild.shouldRemind({ agent, name: "read_image" }, listResult)).toBe(false);
+    expect(gWild.shouldRemind({ agent, name: "glob" }, listResult)).toBe(true);
+
+    // 空名单：不排除任何工具
+    const gNone = gate({ exclude: [] });
+    expect(gNone.shouldRemind({ agent, name: "read" }, listResult)).toBe(true);
+  });
 });
 
 describe("routingReminder soft hook 集成", () => {
@@ -201,6 +228,30 @@ describe("routingReminder soft hook 集成", () => {
     const ctx = await setup({ dsl: { routingReminder: "on-list", routingReminderMinListLength: 3 } });
     const listTool = registerListTool(ctx, ["a", "b"]); // 长度 2 < 3
     const result = await callFull(ctx, listTool, {});
+    expect(result.isError).toBe(false);
+    expect(result.additionalContexts).toBeUndefined();
+  });
+
+  test("内容读取类工具（read 形态）默认不触发提醒", async () => {
+    const ctx = await setup({ dsl: { routingReminder: "on-list" } });
+    ctx.tools.register({
+      name: "read",
+      description: "演示：模拟 read（lines 数组是内容细节）。",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+      output: {
+        schema: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+            lines: { type: "array", items: { type: "object" } },
+          },
+          required: ["path", "lines"],
+        },
+        render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }],
+      },
+      execute: async () => ({ path: "/f", lines: [{ number: 1, text: "a" }, { number: 2, text: "b" }] }),
+    });
+    const result = await callFull(ctx, "read", {});
     expect(result.isError).toBe(false);
     expect(result.additionalContexts).toBeUndefined();
   });
