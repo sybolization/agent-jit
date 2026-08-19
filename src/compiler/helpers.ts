@@ -37,11 +37,13 @@ export function suggestToolNames(tools: ToolCatalog | undefined, name: string): 
 export interface ToolParamSpec {
   key: string;
   /** "unknown" 表示非原始类型（union/array/object/null/record）——编译器跳过字面量类型检查，不误报也不当 string 放行。 */
-  kind: "string" | "int" | "number" | "boolean" | "unknown";
+  kind: "string" | "int" | "number" | "boolean" | "enum" | "unknown";
+  /** kind === "enum" 时的合法取值（供字面量成员校验与诊断渲染）。 */
+  legalValues?: readonly (string | number)[];
   required: boolean;
 }
 
-/** 原始类型 → ToolParamSpec.kind；其余（含 union/array/object/null/record）→ "unknown"。 */
+/** 原始类型 → ToolParamSpec.kind；enum → "enum"；其余（含 union/array/object/null/record）→ "unknown"。 */
 function kindOfParam(view: SchemaView): ToolParamSpec["kind"] {
   switch (view.kind) {
     case "string":
@@ -52,6 +54,8 @@ function kindOfParam(view: SchemaView): ToolParamSpec["kind"] {
       return "number";
     case "boolean":
       return "boolean";
+    case "enum":
+      return "enum";
     default:
       return "unknown";
   }
@@ -61,11 +65,15 @@ export function toolParams(tool: ToolContract): ToolParamSpec[] {
   const view = schemaViewOf(tool.inputSchema);
   if (view.kind !== "object") return [];
   const required = new Set(view.required);
-  return Object.entries(view.properties).map(([key, prop]) => ({
-    key,
-    kind: kindOfParam(prop),
-    required: required.has(key),
-  }));
+  return Object.entries(view.properties).map(([key, prop]) => {
+    const kind = kindOfParam(prop);
+    return {
+      key,
+      kind,
+      ...(kind === "enum" && prop.kind === "enum" ? { legalValues: prop.values } : {}),
+      required: required.has(key),
+    };
+  });
 }
 
 /**
@@ -198,9 +206,20 @@ export function normalizeLiteral(value: LiteralValue, kind: string): LiteralValu
   return value;
 }
 
-export function literalKindError(value: LiteralValue, parameterKey: string, kind: string): string | null {
+export function literalKindError(
+  value: LiteralValue,
+  parameterKey: string,
+  kind: string,
+  legalValues?: readonly (string | number)[],
+): string | null {
   if (value === null || value === undefined) return null;
   const normalized = kind.toLowerCase();
+  // enum：字面量必须属于合法取值集（错误从运行时提前到编译期）；无 legalValues 时放行（防御，不误报）
+  if (normalized === "enum") {
+    if (legalValues === undefined) return null;
+    if (legalValues.includes(value as string | number)) return null;
+    return `参数“${parameterKey}”期望取值 ${legalValues.map((item) => JSON.stringify(item)).join(" | ")}，得到 ${JSON.stringify(value)}`;
+  }
   // "unknown"（非原始类型参数）：不校验类型，保留 unknown（不误报，也不当 string 放行）
   if (normalized === "unknown") return null;
   if (normalized === "int" || normalized === "integer") {

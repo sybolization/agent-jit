@@ -1,0 +1,784 @@
+{
+  "mode": "r7-routing-discovery",
+  "config": {
+    "task": "B",
+    "arms": [
+      "C0"
+    ],
+    "samples": 1,
+    "rounds": 6,
+    "protocol": {
+      "reasoning": "off",
+      "stopAfterSubmit": true,
+      "boundaryPolicy": "none-in-system-prompt"
+    }
+  },
+  "model": "deepseek-v4-flash",
+  "timestamp": "2026-08-17T08:28:28.895Z",
+  "armDefs": [
+    {
+      "id": "C0",
+      "label": "C0 control（无 JIT）",
+      "kind": "control",
+      "routingPrompt": null,
+      "describeDslReference": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "B",
+      "name": "repo-score-pipeline",
+      "prompt": "搜索 GitHub 上活跃的 agent 框架仓库（查询条件用 agent framework），取前 30 个。对每个仓库获取它的详细数据（star 数与 fork 数）。然后按 fork/star 比值（ratio = forks / stars）分支：比值 > 0.15 的仓库获取贡献者路径的分数，其余仓库获取提交路径的分数（两条路径返回的分数同一尺度，可直接比较）。把每条分数对应回它所属的仓库，只保留分数 >= 100 的仓库，按分数从高到低取前 3 个，返回它们的完整名称（owner/repo）。",
+      "oracle": [
+        "adv/org-repo-0",
+        "adv/org-repo-1",
+        "adv/org-repo-17"
+      ]
+    }
+  ],
+  "aggregates": {
+    "C0": {
+      "B": {
+        "arm": "control",
+        "taskId": "B",
+        "runs": 1,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "earlyOffloadDecisionRate": 0,
+        "timelyOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 4,
+        "avgTokens": 18964,
+        "avgUncachedInputTokens": 2930,
+        "avgCacheReadTokens": 10624,
+        "avgOutputTokens": 5410,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 24404,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 18964
+      }
+    }
+  },
+  "runs": [
+    {
+      "arm": "control",
+      "taskId": "B",
+      "rounds": 4,
+      "maxedOut": false,
+      "tokens": {
+        "input": 2930,
+        "output": 5410,
+        "cacheRead": 10624,
+        "total": 18964
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 637,
+          "cacheRead": 256,
+          "output": 104,
+          "total": 997,
+          "toolCalls": [
+            "github_search_repositories"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 474,
+          "cacheRead": 896,
+          "output": 1257,
+          "total": 2627,
+          "toolCalls": [
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository",
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 3,
+          "input": 1095,
+          "cacheRead": 2560,
+          "output": 3287,
+          "total": 6942,
+          "toolCalls": [
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_get_contributor_stats",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits",
+            "github_list_commits"
+          ]
+        },
+        {
+          "round": 4,
+          "input": 724,
+          "cacheRead": 6912,
+          "output": 762,
+          "total": 8398,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 24404,
+      "toolTimeline": [
+        {
+          "name": "github_search_repositories",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "query": "agent framework",
+            "limit": 30
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-0"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-1"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-3"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-4"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-5"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-6"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-7"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-8"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-9"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-10"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-11"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-12"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-13"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-14"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-15"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-16"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-17"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-18"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-19"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-20"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-21"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-22"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-23"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-24"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-25"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-26"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-27"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-28"
+          }
+        },
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "full_name": "adv/org-repo-29"
+          }
+        },
+        {
+          "name": "github_get_contributor_stats",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-0"
+          }
+        },
+        {
+          "name": "github_get_contributor_stats",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "github_get_contributor_stats",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-5"
+          }
+        },
+        {
+          "name": "github_get_contributor_stats",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-6"
+          }
+        },
+        {
+          "name": "github_get_contributor_stats",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-11"
+          }
+        },
+        {
+          "name": "github_get_contributor_stats",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-12"
+          }
+        },
+        {
+          "name": "github_get_contributor_stats",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-13"
+          }
+        },
+        {
+          "name": "github_get_contributor_stats",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-16"
+          }
+        },
+        {
+          "name": "github_get_contributor_stats",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-27"
+          }
+        },
+        {
+          "name": "github_get_contributor_stats",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-28"
+          }
+        },
+        {
+          "name": "github_get_contributor_stats",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-29"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-1"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-3"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-4"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-7"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-8"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-9"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-10"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-14"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-15"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-17"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-18"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-19"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-20"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-21"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-22"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-23"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-24"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-25"
+          }
+        },
+        {
+          "name": "github_list_commits",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "full_name": "adv/org-repo-26"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 4,
+          "arguments": {
+            "answer": "adv/org-repo-0, adv/org-repo-1, adv/org-repo-17"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_search_repositories",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_repository",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_get_contributor_stats",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits",
+        "github_list_commits"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "adv/org-repo-0, adv/org-repo-1, adv/org-repo-17",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": ""
+    }
+  ]
+}

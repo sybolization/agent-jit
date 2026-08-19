@@ -7,6 +7,7 @@ import { createMockDomainTools } from "../src/tools/providers/domain/mock.js";
 import { adaptRegisteredTool, dshToolAsRegisteredTool } from "../src/integrations/dsh/toolAdapter.js";
 import { createDshJitDescribeTool, createDshJitExecuteProgramTool } from "../src/integrations/dsh/jitTools.js";
 import { jsonSchemaFromTypebox, typeboxFromJsonSchema } from "../src/integrations/dsh/schema.js";
+import { dslSignatureOf, renderDslSignature } from "../src/tools/dslSignature.js";
 import type { ToolRuntime } from "@deepseek-ai/dsh-tools";
 
 /** 与 piIntegration.test.ts 同构的注册表（github + domain mock）。 */
@@ -151,6 +152,23 @@ describe("schema 转换层", () => {
     expect(JSON.stringify(schema)).toContain('"a"');
     const anySchema = typeboxFromJsonSchema({ patternProperties: { "^.*$": { type: "number" } } });
     expect(JSON.stringify(anySchema)).toBe("{}");
+  });
+
+  test("typeboxFromJsonSchema：DSH 形态 enum/const 反向导入为 Type.Enum（值不丢失）", () => {
+    const enumSchema = typeboxFromJsonSchema({ type: "string", enum: ["workspace-write", "danger-full-access"] });
+    expect(JSON.stringify(enumSchema)).toContain('"enum"');
+    const constSchema = typeboxFromJsonSchema({ type: "string", const: "x" });
+    expect(JSON.stringify(constSchema)).toContain('"enum"');
+    // 经签名层渲染出字面量联合（修复前 type 分支先行吞掉 enum → 渲染 str/unknown）
+    const tool = defineTool({
+      id: "edit",
+      label: "Edit",
+      inputSchema: Type.Object({ sandbox_permissions: Type.Optional(enumSchema) }, { additionalProperties: false }),
+      outputSchema: Type.Object({ ok: Type.Boolean() }, { additionalProperties: false }),
+    });
+    expect(renderDslSignature(dslSignatureOf(tool))).toBe(
+      'edit(sandbox_permissions?: "workspace-write" | "danger-full-access") -> {ok: bool}',
+    );
   });
 });
 

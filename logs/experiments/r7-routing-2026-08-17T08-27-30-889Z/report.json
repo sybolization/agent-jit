@@ -1,0 +1,991 @@
+{
+  "mode": "r7-routing-discovery",
+  "config": {
+    "task": "H",
+    "arms": [
+      "T0",
+      "T3",
+      "T4",
+      "P0"
+    ],
+    "samples": 1,
+    "rounds": 8,
+    "protocol": {
+      "reasoning": "off",
+      "stopAfterSubmit": true,
+      "boundaryPolicy": "none-in-system-prompt"
+    }
+  },
+  "model": "deepseek-v4-flash",
+  "timestamp": "2026-08-17T08:27:30.890Z",
+  "armDefs": [
+    {
+      "id": "T0",
+      "label": "T0 baseline（无提示词 + 现状描述）",
+      "kind": "tool-surface",
+      "routingPrompt": "baseline",
+      "describeDslReference": "none"
+    },
+    {
+      "id": "T3",
+      "label": "T3 tool-embedded（trigger + 完整 manual）",
+      "kind": "tool-surface",
+      "routingPrompt": "tool-embedded",
+      "describeDslReference": "none"
+    },
+    {
+      "id": "T4",
+      "label": "T4 tool-embedded-mini（trigger + 极简 manual）",
+      "kind": "tool-surface",
+      "routingPrompt": "tool-embedded-mini",
+      "describeDslReference": "none"
+    },
+    {
+      "id": "P0",
+      "label": "P0 positive（system prompt neutral + inline signatures）",
+      "kind": "positive",
+      "routingPrompt": null,
+      "describeDslReference": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "H",
+      "name": "shipment-tracking-pipeline",
+      "prompt": "查询国际订单（query 用 international），取前 12 个。对每个订单，用订单号作为 order_no、目的国作为 country 获取物流跟踪。只保留状态为 active 且预计到达天数不超过 7 天的订单，按预计到达天数从短到长取前 3 个，返回订单号。",
+      "oracle": [
+        "ORD-3009",
+        "ORD-3003",
+        "ORD-3001"
+      ]
+    }
+  ],
+  "aggregates": {
+    "T0": {
+      "H": {
+        "arm": "treatment",
+        "taskId": "H",
+        "runs": 1,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 3,
+        "avgTokens": 6362,
+        "avgUncachedInputTokens": 1508,
+        "avgCacheReadTokens": 3328,
+        "avgOutputTokens": 1526,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 8276,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 6362
+      }
+    },
+    "T3": {
+      "H": {
+        "arm": "treatment",
+        "taskId": "H",
+        "runs": 1,
+        "adoptionRate": 1,
+        "jitExecutionSucceededRate": 1,
+        "jitSemanticCorrectRate": 1,
+        "jitFinishedWithoutFallbackRate": 1,
+        "offloadPrecision": 1,
+        "avgOffloadDecisionRound": 1,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "avgPreOffloadPipelineCalls": 0,
+        "avgSameRoundPipelineCalls": 0,
+        "avgPreExecutePipelineCalls": 0,
+        "cleanOffloadRate": 1,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 0,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 18,
+        "avgCorrectlyCompressedOps": 18,
+        "avgRounds": 3,
+        "avgTokens": 8694,
+        "avgUncachedInputTokens": 1899,
+        "avgCacheReadTokens": 5632,
+        "avgOutputTokens": 1163,
+        "firstPassCompileRateOverall": 1,
+        "firstPassCompileRateAmongAttempts": 1,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 1,
+        "eventualSemanticCorrectRate": 1,
+        "eventualCompileRate": 1,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 2,
+        "avgLatencyMs": 8724,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 8694
+      }
+    },
+    "T4": {
+      "H": {
+        "arm": "treatment",
+        "taskId": "H",
+        "runs": 1,
+        "adoptionRate": 1,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 1,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 13,
+        "avgPreOffloadPipelineCalls": 0,
+        "avgSameRoundPipelineCalls": 0,
+        "avgPreExecutePipelineCalls": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 1,
+        "lateOffloadRate": 0,
+        "noJitRate": 0,
+        "fallbackRate": 1,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 4,
+        "avgTokens": 12333,
+        "avgUncachedInputTokens": 1761,
+        "avgCacheReadTokens": 8448,
+        "avgOutputTokens": 2124,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 3,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgRepairTokens": 12333,
+        "avgCompileAttempts": 1,
+        "avgLatencyMs": 14006,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0.125,
+        "syntaxCompletenessErrorRate": 0.5,
+        "efficiencyScore": 12333
+      }
+    },
+    "P0": {
+      "H": {
+        "arm": "treatment",
+        "taskId": "H",
+        "runs": 1,
+        "adoptionRate": 1,
+        "jitExecutionSucceededRate": 1,
+        "jitSemanticCorrectRate": 1,
+        "jitFinishedWithoutFallbackRate": 1,
+        "offloadPrecision": 1,
+        "avgOffloadDecisionRound": 1,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "avgPreOffloadPipelineCalls": 0,
+        "avgSameRoundPipelineCalls": 0,
+        "avgPreExecutePipelineCalls": 0,
+        "cleanOffloadRate": 1,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 0,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 18,
+        "avgCorrectlyCompressedOps": 18,
+        "avgRounds": 2,
+        "avgTokens": 5355,
+        "avgUncachedInputTokens": 824,
+        "avgCacheReadTokens": 3456,
+        "avgOutputTokens": 1075,
+        "firstPassCompileRateOverall": 1,
+        "firstPassCompileRateAmongAttempts": 1,
+        "firstPassExecutionRate": 1,
+        "eventualExecutionRate": 1,
+        "eventualSemanticCorrectRate": 1,
+        "eventualCompileRate": 1,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 1,
+        "avgLatencyMs": 7550,
+        "firstPassSemanticSuccessRate": 1,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 5355
+      }
+    }
+  },
+  "runs": [
+    {
+      "arm": "treatment",
+      "taskId": "H",
+      "rounds": 3,
+      "maxedOut": false,
+      "tokens": {
+        "input": 1508,
+        "output": 1526,
+        "cacheRead": 3328,
+        "total": 6362
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 769,
+          "cacheRead": 256,
+          "output": 94,
+          "total": 1119,
+          "toolCalls": [
+            "shipment_search_orders"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 348,
+          "cacheRead": 1024,
+          "output": 689,
+          "total": 2061,
+          "toolCalls": [
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking"
+          ]
+        },
+        {
+          "round": 3,
+          "input": 391,
+          "cacheRead": 2048,
+          "output": 743,
+          "total": 3182,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 8276,
+      "toolTimeline": [
+        {
+          "name": "shipment_search_orders",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "query": "international",
+            "limit": 12
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3001",
+            "country": "DE"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3002",
+            "country": "FR"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3003",
+            "country": "NL"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3004",
+            "country": "DE"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3005",
+            "country": "IT"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3006",
+            "country": "ES"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3007",
+            "country": "DE"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3008",
+            "country": "FR"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3009",
+            "country": "NL"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3010",
+            "country": "PL"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3011",
+            "country": "SE"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "order_no": "ORD-3012",
+            "country": "BE"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "answer": "[\"ORD-3009\", \"ORD-3003\", \"ORD-3001\"]"
+          }
+        }
+      ],
+      "businessCalls": [
+        "shipment_search_orders",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "[\"ORD-3009\", \"ORD-3003\", \"ORD-3001\"]",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": ""
+    },
+    {
+      "arm": "treatment",
+      "taskId": "H",
+      "rounds": 3,
+      "maxedOut": false,
+      "tokens": {
+        "input": 1899,
+        "output": 1163,
+        "cacheRead": 5632,
+        "total": 8694
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 1594,
+          "cacheRead": 256,
+          "output": 788,
+          "total": 2638,
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 109,
+          "cacheRead": 2560,
+          "output": 261,
+          "total": 2930,
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 3,
+          "input": 196,
+          "cacheRead": 2816,
+          "output": 114,
+          "total": 3126,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 8724,
+      "toolTimeline": [
+        {
+          "name": "jit_execute_program",
+          "isError": true,
+          "round": 1,
+          "arguments": {
+            "source": "orders = shipment_search_orders(query=\"international\", limit=12)\ntrackings = map(orders, shipment_get_tracking(order_no=_.order_id, country=_.country))\nactive_orders = filter(trackings, status=\"active\")\nfast_orders = select(active_orders, \"eta_days <= 7\")\nsorted_orders = sort(fast_orders, key=\"eta_days\")\ntop3 = take(sorted_orders, 3)\nreturn top3.order_id"
+          }
+        },
+        {
+          "name": "jit_execute_program",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "source": "orders = shipment_search_orders(query=\"international\", limit=12)\ntrackings = map(orders, shipment_get_tracking(order_no=_.order_id, country=_.country))\nactive_orders = filter(trackings, status=\"active\")\nfast_orders = select(active_orders, \"eta_days <= 7\")\nsorted_orders = sort(fast_orders, key=\"eta_days\")\ntop3 = take(sorted_orders, 3)\nreturn top3"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "answer": "ORD-3009, ORD-3003, ORD-3001"
+          }
+        }
+      ],
+      "businessCalls": [],
+      "describeCalls": 0,
+      "executeCalls": 2,
+      "compileAttempts": 2,
+      "firstPassCompileSuccess": true,
+      "firstPassExecutionSuccess": false,
+      "compileSucceeded": true,
+      "executeCallPhases": [
+        {
+          "round": 1,
+          "compileSuccess": true,
+          "executionSuccess": false
+        },
+        {
+          "round": 2,
+          "compileSuccess": true,
+          "executionSuccess": true
+        }
+      ],
+      "repairRounds": 0,
+      "describeFallbackUsed": false,
+      "tokensBeforeFirstCompile": 0,
+      "tokensAfterSuccessfulExecution": 3126,
+      "jitAttempted": true,
+      "jitExecutionSucceeded": true,
+      "jitSemanticCorrect": true,
+      "jitFinishedWithoutFallback": true,
+      "fallbackUsed": false,
+      "offloadDecisionRound": 1,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "preOffloadPipelineCalls": 0,
+      "sameRoundPipelineCalls": [],
+      "sameRoundPipelineCallCount": 0,
+      "preExecutePipelineCalls": 0,
+      "submittedAnswer": "ORD-3009, ORD-3003, ORD-3001",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "executeErrors": [
+        "执行失败：project 的 source “top3” 不是对象（得到 数组）"
+      ],
+      "finalText": "",
+      "firstPassSemanticSuccess": false,
+      "lastProgram": {
+        "source": "orders = shipment_search_orders(query=\"international\", limit=12)\ntrackings = map(orders, shipment_get_tracking(order_no=_.order_id, country=_.country))\nactive_orders = filter(trackings, status=\"active\")\nfast_orders = select(active_orders, \"eta_days <= 7\")\nsorted_orders = sort(fast_orders, key=\"eta_days\")\ntop3 = take(sorted_orders, 3)\nreturn top3",
+        "dslCorrect": true,
+        "compressed": {
+          "toolNodes": 1,
+          "mapNodes": 1,
+          "fanoutSum": 12,
+          "computeNodes": 4,
+          "mergeNodes": 0,
+          "concatNodes": 0,
+          "returnNodes": 1,
+          "atomicOps": 18
+        },
+        "correctlyCompressedOps": 18
+      }
+    },
+    {
+      "arm": "treatment",
+      "taskId": "H",
+      "rounds": 4,
+      "maxedOut": false,
+      "tokens": {
+        "input": 1761,
+        "output": 2124,
+        "cacheRead": 8448,
+        "total": 12333
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 519,
+          "cacheRead": 768,
+          "output": 407,
+          "total": 1694,
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 468,
+          "cacheRead": 1664,
+          "output": 473,
+          "total": 2605,
+          "toolCalls": [
+            "shipment_search_orders"
+          ]
+        },
+        {
+          "round": 3,
+          "input": 298,
+          "cacheRead": 2560,
+          "output": 696,
+          "total": 3554,
+          "toolCalls": [
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking",
+            "shipment_get_tracking"
+          ]
+        },
+        {
+          "round": 4,
+          "input": 476,
+          "cacheRead": 3456,
+          "output": 548,
+          "total": 4480,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 14006,
+      "toolTimeline": [
+        {
+          "name": "jit_execute_program",
+          "isError": true,
+          "round": 1,
+          "arguments": {
+            "source": "orders = shipment_search_orders(query=\"international\", limit=12)\ntrackings = map(orders, shipment_get_tracking(order_no=_.order_id, country=_.country))\nactive = filter(trackings, _.status == \"active\" and _.eta_days <= 7)\nsorted_t = sort(active, by=_.eta_days)\ntop = take(sorted_t, 3)\nreturn top"
+          }
+        },
+        {
+          "name": "shipment_search_orders",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "query": "international",
+            "limit": 12
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3001",
+            "country": "DE"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3002",
+            "country": "FR"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3003",
+            "country": "NL"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3004",
+            "country": "DE"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3005",
+            "country": "IT"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3006",
+            "country": "ES"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3007",
+            "country": "DE"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3008",
+            "country": "FR"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3009",
+            "country": "NL"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3010",
+            "country": "PL"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3011",
+            "country": "SE"
+          }
+        },
+        {
+          "name": "shipment_get_tracking",
+          "isError": false,
+          "round": 3,
+          "arguments": {
+            "order_no": "ORD-3012",
+            "country": "BE"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 4,
+          "arguments": {
+            "answer": "ORD-3009, ORD-3003, ORD-3001"
+          }
+        }
+      ],
+      "businessCalls": [
+        "shipment_search_orders",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 1,
+      "compileAttempts": 1,
+      "firstPassCompileSuccess": false,
+      "firstPassExecutionSuccess": false,
+      "compileSucceeded": false,
+      "executeCallPhases": [
+        {
+          "round": 1,
+          "compileSuccess": false,
+          "executionSuccess": false
+        }
+      ],
+      "repairRounds": 3,
+      "describeFallbackUsed": false,
+      "repairTokens": 12333,
+      "tokensBeforeFirstCompile": 0,
+      "tokensInRepairRounds": 12333,
+      "jitAttempted": true,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": true,
+      "offloadDecisionRound": 1,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [
+        "shipment_search_orders",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking",
+        "shipment_get_tracking"
+      ],
+      "postExecuteBusinessCallCount": 13,
+      "preOffloadPipelineCalls": 0,
+      "sameRoundPipelineCalls": [],
+      "sameRoundPipelineCallCount": 0,
+      "preExecutePipelineCalls": 0,
+      "submittedAnswer": "ORD-3009, ORD-3003, ORD-3001",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "executeErrors": [
+        "编译失败：\nL4 UNKNOWN_ARGUMENT:  → 合法参数: []\nL3: syntax: 无法识别的字符：<（只允许标识符（含点号命名空间）、数字、双引号字符串、注释（#）和符号 = ( ) , [ ] :）——期望：语句形如 <变量> = <调用>(<参数>, ...)，检查标点、引号与参数形式\nL3: syntax: 参数值必须是字符串、数字、布尔、null、数组或前面已定义节点的名称（引用节点：reference_image=img；字面量：prompt=\"一只猫\"）——期望：语句形如 <变量> = <调用>(<参数>, ...)，检查标点、引号与参数形式\nL3: synta"
+      ],
+      "finalText": "",
+      "firstPassSemanticSuccess": false,
+      "compileErrorBreakdown": {
+        "syntaxOrCompleteness": 4,
+        "outputContractRelated": 1,
+        "other": 3
+      }
+    },
+    {
+      "arm": "treatment",
+      "taskId": "H",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 824,
+        "output": 1075,
+        "cacheRead": 3456,
+        "total": 5355
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 629,
+          "cacheRead": 1024,
+          "output": 892,
+          "total": 2545,
+          "toolCalls": [
+            "jit_execute_program"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 195,
+          "cacheRead": 2432,
+          "output": 183,
+          "total": 2810,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 7550,
+      "toolTimeline": [
+        {
+          "name": "jit_execute_program",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "source": "orders = shipment.search_orders(query=\"international\", limit=12)\ntrackings = map(orders, shipment.get_tracking(order_no=_.order_id, country=_.country))\nactive = filter(trackings, status=\"active\")\nquick = select(active, \"eta_days <= 7\")\nranked = sort(quick, key=\"eta_days\", desc=false)\ntop = take(ranked, 3)\nreturn top"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "ORD-3009, ORD-3003, ORD-3001"
+          }
+        }
+      ],
+      "businessCalls": [],
+      "describeCalls": 0,
+      "executeCalls": 1,
+      "compileAttempts": 1,
+      "firstPassCompileSuccess": true,
+      "firstPassExecutionSuccess": true,
+      "compileSucceeded": true,
+      "executeCallPhases": [
+        {
+          "round": 1,
+          "compileSuccess": true,
+          "executionSuccess": true
+        }
+      ],
+      "repairRounds": 0,
+      "describeFallbackUsed": false,
+      "tokensBeforeFirstCompile": 0,
+      "tokensAfterSuccessfulExecution": 2810,
+      "jitAttempted": true,
+      "jitExecutionSucceeded": true,
+      "jitSemanticCorrect": true,
+      "jitFinishedWithoutFallback": true,
+      "fallbackUsed": false,
+      "offloadDecisionRound": 1,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "preOffloadPipelineCalls": 0,
+      "sameRoundPipelineCalls": [],
+      "sameRoundPipelineCallCount": 0,
+      "preExecutePipelineCalls": 0,
+      "submittedAnswer": "ORD-3009, ORD-3003, ORD-3001",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures",
+      "firstPassSemanticSuccess": true,
+      "lastProgram": {
+        "source": "orders = shipment.search_orders(query=\"international\", limit=12)\ntrackings = map(orders, shipment.get_tracking(order_no=_.order_id, country=_.country))\nactive = filter(trackings, status=\"active\")\nquick = select(active, \"eta_days <= 7\")\nranked = sort(quick, key=\"eta_days\", desc=false)\ntop = take(ranked, 3)\nreturn top",
+        "dslCorrect": true,
+        "compressed": {
+          "toolNodes": 1,
+          "mapNodes": 1,
+          "fanoutSum": 12,
+          "computeNodes": 4,
+          "mergeNodes": 0,
+          "concatNodes": 0,
+          "returnNodes": 1,
+          "atomicOps": 18
+        },
+        "correctlyCompressedOps": 18
+      }
+    }
+  ]
+}

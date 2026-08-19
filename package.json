@@ -34,7 +34,13 @@
     "experiment:r5-token-profile": "tsx src/experiments/r5TokenProfile.ts",
     "experiment:r6": "tsx src/experiments/r6DescribeBenchmark.ts",
     "experiment:r6-output-contract": "tsx src/experiments/r6OutputContractBenchmark.ts",
-    "experiment:r6-eager-signature": "tsx src/experiments/r6EagerSignatureBenchmark.ts"
+    "experiment:r6-eager-signature": "tsx src/experiments/r6EagerSignatureBenchmark.ts",
+    "experiment:r7": "tsx src/experiments/r7RoutingBenchmark.ts",
+    "experiment:r7-analyze": "tsx src/experiments/r7AnalyzeReport.ts",
+    "experiment:r7-progress": "tsx src/experiments/r7Progress.ts",
+    "experiment:r7-audit": "tsx src/experiments/r7OverfitReport.ts",
+    "experiment:r7-report": "tsx src/experiments/r7FinalReport.ts",
+    "experiment:r7-validate": "tsx src/experiments/r7ValidateReportCli.ts"
   },
   "engines": {
     "node": ">=20"

@@ -5,6 +5,10 @@ import type { DslDiagnostic } from "../../language/diagnostics.js";
 import { execute, type RuntimeRegistry } from "../../runtime/runtime.js";
 import type { TraceEntry } from "../../runtime/trace.js";
 import { EXECUTE_PROGRAM_TOOL } from "../../tools/jitTools.js";
+import {
+  executeProgramDescription,
+  type RoutingPromptVariant,
+} from "../../prompt/routingToolPrompts.js";
 import { renderCompileFailure } from "./compileDiagnostics.js";
 
 /** jit_execute_program 成功执行后的结构化记录（供 benchmark 测量，不进模型上下文）。 */
@@ -17,13 +21,23 @@ export interface JitExecuteProgramDetails {
   totalDurationMs: number;
 }
 
-/** jit_execute_program 工具：source → 编译（同一 registry）→ 执行（同一 registry）→ 结果。 */
+/** jit_execute_program 工具：source → 编译（同一 registry）→ 执行（同一 registry）→ 结果。
+ *
+ * R7 路由实验：`routingPrompt` 显式传入时使用对应工具描述变体；
+ * 缺省保持 `EXECUTE_PROGRAM_TOOL` 契约层描述（历史行为不变）。
+ */
 export function createJitExecuteProgramTool(
   registry: RuntimeRegistry,
-  options: { onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void } = {},
+  options: {
+    routingPrompt?: RoutingPromptVariant;
+    onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void;
+  } = {},
 ): AgentTool<typeof EXECUTE_PROGRAM_TOOL.parameters> {
   return {
     ...EXECUTE_PROGRAM_TOOL,
+    ...(options.routingPrompt === undefined
+      ? {}
+      : { description: executeProgramDescription(options.routingPrompt) }),
     label: "Compile and execute a DSL program",
     execute: async (_toolCallId, params) => {
       const source = (params as { source: string }).source.trim();

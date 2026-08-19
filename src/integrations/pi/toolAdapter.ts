@@ -6,6 +6,7 @@ import { createJitExecuteProgramTool } from "./executeProgramTool.js";
 import { dslSignatureOf, renderDslSignature } from "../../tools/dslSignature.js";
 import type { DslGuidanceMode } from "./dslReference.js";
 import type { DslDiagnostic } from "../../language/diagnostics.js";
+import type { DescribeDslReferenceMode, RoutingPromptVariant } from "../../prompt/routingToolPrompts.js";
 import type { DescribeContractFormat } from "../../tools/jitTools.js";
 
 /**
@@ -74,11 +75,15 @@ export function createPiTools(
   options: {
     guidance?: DslGuidanceMode;
     describeTools?: boolean;
-    /** describe 契约渲染格式：历史 eager 臂传 "legacy"（llmCatalog 四段式）；production 缺省 "signature"。 */
+    /** describe 契约渲染格式：历史 eager 臂传 "legacy"；production 缺省 "signature"。 */
     describeFormat?: DescribeContractFormat;
-    /** 历史 eager 臂传 true（describe 捆绑 DSL manual + bindings）；production 缺省 false（纯契约）。 */
+    /** 历史 eager 臂传 true（describe 捆绑 DSL manual + bindings）；production 缺省 false。 */
     legacyBundle?: boolean;
     dslSignatures?: boolean;
+    /** R7 路由实验：jit_* 工具描述文案变体（缺省 undefined = 历史文案）。 */
+    routingPrompt?: RoutingPromptVariant;
+    /** R7 lazy-manual 臂：首次 describe 附带中性 DSL 参考（缺省 undefined = 历史行为）。 */
+    describeDslReference?: DescribeDslReferenceMode;
     onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void;
   } = {},
 ): AgentTool<any>[] {

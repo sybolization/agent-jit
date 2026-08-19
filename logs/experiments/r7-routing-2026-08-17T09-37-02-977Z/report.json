@@ -1,0 +1,5812 @@
+{
+  "mode": "r7-routing-discovery",
+  "config": {
+    "task": "A",
+    "arms": [
+      "C0",
+      "T0",
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "P0"
+    ],
+    "samples": 10,
+    "rounds": 10,
+    "protocol": {
+      "reasoning": "off",
+      "stopAfterSubmit": true,
+      "boundaryPolicy": "none-in-system-prompt"
+    }
+  },
+  "model": "deepseek-v4-flash",
+  "timestamp": "2026-08-17T09:39:23.094Z",
+  "armDefs": [
+    {
+      "id": "C0",
+      "label": "C0 control（无 JIT）",
+      "kind": "control",
+      "routingPrompt": null,
+      "describeDslReference": null
+    },
+    {
+      "id": "T0",
+      "label": "T0 baseline（无提示词 + 现状描述）",
+      "kind": "tool-surface",
+      "routingPrompt": "baseline",
+      "describeDslReference": "none"
+    },
+    {
+      "id": "T1",
+      "label": "T1 trigger（只补 when/why）",
+      "kind": "tool-surface",
+      "routingPrompt": "trigger",
+      "describeDslReference": "none"
+    },
+    {
+      "id": "T2",
+      "label": "T2 lazy-manual（trigger + describe 附 manual）",
+      "kind": "tool-surface",
+      "routingPrompt": "trigger",
+      "describeDslReference": "first-call"
+    },
+    {
+      "id": "T3",
+      "label": "T3 tool-embedded（trigger + 完整 manual）",
+      "kind": "tool-surface",
+      "routingPrompt": "tool-embedded",
+      "describeDslReference": "none"
+    },
+    {
+      "id": "T4",
+      "label": "T4 tool-embedded-mini（trigger + 极简 manual）",
+      "kind": "tool-surface",
+      "routingPrompt": "tool-embedded-mini",
+      "describeDslReference": "none"
+    },
+    {
+      "id": "P0",
+      "label": "P0 positive（system prompt neutral + inline signatures）",
+      "kind": "positive",
+      "routingPrompt": null,
+      "describeDslReference": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "A",
+      "name": "single-repo-detail",
+      "prompt": "查询仓库 adv/org-repo-2 的详细情况，返回它的 star 数与主要编程语言。",
+      "oracle": [
+        "/1[,，]?600/",
+        "TypeScript"
+      ]
+    }
+  ],
+  "aggregates": {
+    "C0": {
+      "A": {
+        "arm": "control",
+        "taskId": "A",
+        "runs": 10,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 2,
+        "avgTokens": 1349,
+        "avgUncachedInputTokens": 156.4,
+        "avgCacheReadTokens": 1011.2,
+        "avgOutputTokens": 181.4,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 2130.5,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 1349
+      }
+    },
+    "T0": {
+      "A": {
+        "arm": "treatment",
+        "taskId": "A",
+        "runs": 10,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 2,
+        "avgTokens": 1930.1,
+        "avgUncachedInputTokens": 104.7,
+        "avgCacheReadTokens": 1625.6,
+        "avgOutputTokens": 199.8,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 2036.8,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 1930.1
+      }
+    },
+    "T1": {
+      "A": {
+        "arm": "treatment",
+        "taskId": "A",
+        "runs": 10,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 2,
+        "avgTokens": 2138.2,
+        "avgUncachedInputTokens": 160.1,
+        "avgCacheReadTokens": 1804.8,
+        "avgOutputTokens": 173.3,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 1917,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 2138.2
+      }
+    },
+    "T2": {
+      "A": {
+        "arm": "treatment",
+        "taskId": "A",
+        "runs": 10,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 2,
+        "avgTokens": 2139.5,
+        "avgUncachedInputTokens": 122.4,
+        "avgCacheReadTokens": 1843.2,
+        "avgOutputTokens": 173.9,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 1936.1,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 2139.5
+      }
+    },
+    "T3": {
+      "A": {
+        "arm": "treatment",
+        "taskId": "A",
+        "runs": 10,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 2,
+        "avgTokens": 3564.9,
+        "avgUncachedInputTokens": 176.1,
+        "avgCacheReadTokens": 3200,
+        "avgOutputTokens": 188.8,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 1991,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 3564.9
+      }
+    },
+    "T4": {
+      "A": {
+        "arm": "treatment",
+        "taskId": "A",
+        "runs": 10,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 2,
+        "avgTokens": 2442,
+        "avgUncachedInputTokens": 136.9,
+        "avgCacheReadTokens": 2112,
+        "avgOutputTokens": 193.1,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 2019.6,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 2442
+      }
+    },
+    "P0": {
+      "A": {
+        "arm": "treatment",
+        "taskId": "A",
+        "runs": 10,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 2,
+        "avgTokens": 3162.1,
+        "avgUncachedInputTokens": 156.2,
+        "avgCacheReadTokens": 2828.8,
+        "avgOutputTokens": 177.1,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 1972.3,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 3162.1
+      }
+    }
+  },
+  "runs": [
+    {
+      "arm": "control",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 399,
+        "output": 183,
+        "cacheRead": 768,
+        "total": 1350
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 264,
+          "cacheRead": 256,
+          "output": 88,
+          "total": 608,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 135,
+          "cacheRead": 512,
+          "output": 95,
+          "total": 742,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2193,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "C0",
+      "sampleIndex": 1
+    },
+    {
+      "arm": "control",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 144,
+        "output": 183,
+        "cacheRead": 1024,
+        "total": 1351
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 8,
+          "cacheRead": 512,
+          "output": 89,
+          "total": 609,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 136,
+          "cacheRead": 512,
+          "output": 94,
+          "total": 742,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1962,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "C0",
+      "sampleIndex": 2
+    },
+    {
+      "arm": "control",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 142,
+        "output": 181,
+        "cacheRead": 1024,
+        "total": 1347
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 8,
+          "cacheRead": 512,
+          "output": 87,
+          "total": 607,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 134,
+          "cacheRead": 512,
+          "output": 94,
+          "total": 740,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1980,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "C0",
+      "sampleIndex": 3
+    },
+    {
+      "arm": "control",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 143,
+        "output": 177,
+        "cacheRead": 1024,
+        "total": 1344
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 8,
+          "cacheRead": 512,
+          "output": 88,
+          "total": 608,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 135,
+          "cacheRead": 512,
+          "output": 89,
+          "total": 736,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2192,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "C0",
+      "sampleIndex": 4
+    },
+    {
+      "arm": "control",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 143,
+        "output": 184,
+        "cacheRead": 1024,
+        "total": 1351
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 8,
+          "cacheRead": 512,
+          "output": 88,
+          "total": 608,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 135,
+          "cacheRead": 512,
+          "output": 96,
+          "total": 743,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2009,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "C0",
+      "sampleIndex": 5
+    },
+    {
+      "arm": "control",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 145,
+        "output": 178,
+        "cacheRead": 1024,
+        "total": 1347
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 8,
+          "cacheRead": 512,
+          "output": 90,
+          "total": 610,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 137,
+          "cacheRead": 512,
+          "output": 88,
+          "total": 737,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2359,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "C0",
+      "sampleIndex": 6
+    },
+    {
+      "arm": "control",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 142,
+        "output": 153,
+        "cacheRead": 1024,
+        "total": 1319
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 8,
+          "cacheRead": 512,
+          "output": 87,
+          "total": 607,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 134,
+          "cacheRead": 512,
+          "output": 66,
+          "total": 712,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1836,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "C0",
+      "sampleIndex": 7
+    },
+    {
+      "arm": "control",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 144,
+        "output": 217,
+        "cacheRead": 1024,
+        "total": 1385
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 8,
+          "cacheRead": 512,
+          "output": 89,
+          "total": 609,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 136,
+          "cacheRead": 512,
+          "output": 128,
+          "total": 776,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2286,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "C0",
+      "sampleIndex": 8
+    },
+    {
+      "arm": "control",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 17,
+        "output": 180,
+        "cacheRead": 1152,
+        "total": 1349
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 8,
+          "cacheRead": 512,
+          "output": 90,
+          "total": 610,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 9,
+          "cacheRead": 640,
+          "output": 90,
+          "total": 739,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2441,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言是 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言是 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "C0",
+      "sampleIndex": 9
+    },
+    {
+      "arm": "control",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 145,
+        "output": 178,
+        "cacheRead": 1024,
+        "total": 1347
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 8,
+          "cacheRead": 512,
+          "output": 90,
+          "total": 610,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 137,
+          "cacheRead": 512,
+          "output": 88,
+          "total": 737,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2047,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "C0",
+      "sampleIndex": 10
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 187,
+        "output": 184,
+        "cacheRead": 1536,
+        "total": 1907
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 30,
+          "cacheRead": 768,
+          "output": 88,
+          "total": 886,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 157,
+          "cacheRead": 768,
+          "output": 96,
+          "total": 1021,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2003,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T0",
+      "sampleIndex": 1
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 70,
+        "output": 195,
+        "cacheRead": 1664,
+        "total": 1929
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 30,
+          "cacheRead": 768,
+          "output": 99,
+          "total": 897,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 40,
+          "cacheRead": 896,
+          "output": 96,
+          "total": 1032,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1909,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T0",
+      "sampleIndex": 2
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 70,
+        "output": 194,
+        "cacheRead": 1664,
+        "total": 1928
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 30,
+          "cacheRead": 768,
+          "output": 99,
+          "total": 897,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 40,
+          "cacheRead": 896,
+          "output": 95,
+          "total": 1031,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1816,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T0",
+      "sampleIndex": 3
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 59,
+        "output": 214,
+        "cacheRead": 1664,
+        "total": 1937
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 30,
+          "cacheRead": 768,
+          "output": 88,
+          "total": 886,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 29,
+          "cacheRead": 896,
+          "output": 126,
+          "total": 1051,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2043,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数 = 1600，主要编程语言 = TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数 = 1600，主要编程语言 = TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T0",
+      "sampleIndex": 4
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 59,
+        "output": 185,
+        "cacheRead": 1664,
+        "total": 1908
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 30,
+          "cacheRead": 768,
+          "output": 88,
+          "total": 886,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 29,
+          "cacheRead": 896,
+          "output": 97,
+          "total": 1022,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2385,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T0",
+      "sampleIndex": 5
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 111,
+        "output": 271,
+        "cacheRead": 1664,
+        "total": 2046
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 30,
+          "cacheRead": 768,
+          "output": 140,
+          "total": 938,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 81,
+          "cacheRead": 896,
+          "output": 131,
+          "total": 1108,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2331,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 Star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 Star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T0",
+      "sampleIndex": 6
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 59,
+        "output": 167,
+        "cacheRead": 1664,
+        "total": 1890
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 30,
+          "cacheRead": 768,
+          "output": 88,
+          "total": 886,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 29,
+          "cacheRead": 896,
+          "output": 79,
+          "total": 1004,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1832,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T0",
+      "sampleIndex": 7
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 59,
+        "output": 184,
+        "cacheRead": 1664,
+        "total": 1907
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 30,
+          "cacheRead": 768,
+          "output": 88,
+          "total": 886,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 29,
+          "cacheRead": 896,
+          "output": 96,
+          "total": 1021,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2197,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T0",
+      "sampleIndex": 8
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 186,
+        "output": 220,
+        "cacheRead": 1536,
+        "total": 1942
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 30,
+          "cacheRead": 768,
+          "output": 87,
+          "total": 885,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 156,
+          "cacheRead": 768,
+          "output": 133,
+          "total": 1057,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1921,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：Star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：Star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T0",
+      "sampleIndex": 9
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 187,
+        "output": 184,
+        "cacheRead": 1536,
+        "total": 1907
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 30,
+          "cacheRead": 768,
+          "output": 88,
+          "total": 886,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 157,
+          "cacheRead": 768,
+          "output": 96,
+          "total": 1021,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1931,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T0",
+      "sampleIndex": 10
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 813,
+        "output": 206,
+        "cacheRead": 1152,
+        "total": 2171
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 663,
+          "cacheRead": 256,
+          "output": 88,
+          "total": 1007,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 150,
+          "cacheRead": 896,
+          "output": 118,
+          "total": 1164,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2456,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：Star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：Star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T1",
+      "sampleIndex": 1
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 45,
+        "output": 180,
+        "cacheRead": 1920,
+        "total": 2145
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 88,
+          "total": 1007,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 22,
+          "cacheRead": 1024,
+          "output": 92,
+          "total": 1138,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2088,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T1",
+      "sampleIndex": 2
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 45,
+        "output": 154,
+        "cacheRead": 1920,
+        "total": 2119
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 88,
+          "total": 1007,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 22,
+          "cacheRead": 1024,
+          "output": 66,
+          "total": 1112,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1942,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T1",
+      "sampleIndex": 3
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 45,
+        "output": 154,
+        "cacheRead": 1920,
+        "total": 2119
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 88,
+          "total": 1007,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 22,
+          "cacheRead": 1024,
+          "output": 66,
+          "total": 1112,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1795,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T1",
+      "sampleIndex": 4
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 171,
+        "output": 151,
+        "cacheRead": 1792,
+        "total": 2114
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 86,
+          "total": 1005,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 148,
+          "cacheRead": 896,
+          "output": 65,
+          "total": 1109,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1670,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T1",
+      "sampleIndex": 5
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 172,
+        "output": 153,
+        "cacheRead": 1792,
+        "total": 2117
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 87,
+          "total": 1006,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 149,
+          "cacheRead": 896,
+          "output": 66,
+          "total": 1111,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1595,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T1",
+      "sampleIndex": 6
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 176,
+        "output": 181,
+        "cacheRead": 1792,
+        "total": 2149
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 91,
+          "total": 1010,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 153,
+          "cacheRead": 896,
+          "output": 90,
+          "total": 1139,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1679,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T1",
+      "sampleIndex": 7
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 45,
+        "output": 230,
+        "cacheRead": 1920,
+        "total": 2195
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 88,
+          "total": 1007,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 22,
+          "cacheRead": 1024,
+          "output": 142,
+          "total": 1188,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2256,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T1",
+      "sampleIndex": 8
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 44,
+        "output": 170,
+        "cacheRead": 1920,
+        "total": 2134
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 87,
+          "total": 1006,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 21,
+          "cacheRead": 1024,
+          "output": 83,
+          "total": 1128,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1996,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T1",
+      "sampleIndex": 9
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 45,
+        "output": 154,
+        "cacheRead": 1920,
+        "total": 2119
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 88,
+          "total": 1007,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 22,
+          "cacheRead": 1024,
+          "output": 66,
+          "total": 1112,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1693,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T1",
+      "sampleIndex": 10
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 172,
+        "output": 181,
+        "cacheRead": 1792,
+        "total": 2145
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 87,
+          "total": 1006,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 149,
+          "cacheRead": 896,
+          "output": 94,
+          "total": 1139,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1774,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T2",
+      "sampleIndex": 1
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 172,
+        "output": 153,
+        "cacheRead": 1792,
+        "total": 2117
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 87,
+          "total": 1006,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 149,
+          "cacheRead": 896,
+          "output": 66,
+          "total": 1111,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1481,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T2",
+      "sampleIndex": 2
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 173,
+        "output": 167,
+        "cacheRead": 1792,
+        "total": 2132
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 88,
+          "total": 1007,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 150,
+          "cacheRead": 896,
+          "output": 79,
+          "total": 1125,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1746,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T2",
+      "sampleIndex": 3
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 175,
+        "output": 192,
+        "cacheRead": 1792,
+        "total": 2159
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 90,
+          "total": 1009,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 152,
+          "cacheRead": 896,
+          "output": 102,
+          "total": 1150,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1839,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T2",
+      "sampleIndex": 4
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 172,
+        "output": 180,
+        "cacheRead": 1792,
+        "total": 2144
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 87,
+          "total": 1006,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 149,
+          "cacheRead": 896,
+          "output": 93,
+          "total": 1138,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2066,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T2",
+      "sampleIndex": 5
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 45,
+        "output": 154,
+        "cacheRead": 1920,
+        "total": 2119
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 88,
+          "total": 1007,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 22,
+          "cacheRead": 1024,
+          "output": 66,
+          "total": 1112,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2445,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T2",
+      "sampleIndex": 6
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 45,
+        "output": 178,
+        "cacheRead": 1920,
+        "total": 2143
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 88,
+          "total": 1007,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 22,
+          "cacheRead": 1024,
+          "output": 90,
+          "total": 1136,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1994,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T2",
+      "sampleIndex": 7
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 180,
+        "output": 178,
+        "cacheRead": 1792,
+        "total": 2150
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 95,
+          "total": 1014,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 157,
+          "cacheRead": 896,
+          "output": 83,
+          "total": 1136,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1708,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T2",
+      "sampleIndex": 8
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 45,
+        "output": 183,
+        "cacheRead": 1920,
+        "total": 2148
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 88,
+          "total": 1007,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 22,
+          "cacheRead": 1024,
+          "output": 95,
+          "total": 1141,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2005,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T2",
+      "sampleIndex": 9
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 45,
+        "output": 173,
+        "cacheRead": 1920,
+        "total": 2138
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 23,
+          "cacheRead": 896,
+          "output": 88,
+          "total": 1007,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 22,
+          "cacheRead": 1024,
+          "output": 85,
+          "total": 1131,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2303,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T2",
+      "sampleIndex": 10
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 173,
+        "output": 175,
+        "cacheRead": 3200,
+        "total": 3548
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 87,
+          "cacheRead": 1536,
+          "output": 88,
+          "total": 1711,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 86,
+          "cacheRead": 1664,
+          "output": 87,
+          "total": 1837,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1624,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T3",
+      "sampleIndex": 1
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 192,
+        "output": 256,
+        "cacheRead": 3200,
+        "total": 3648
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 87,
+          "cacheRead": 1536,
+          "output": 107,
+          "total": 1730,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 105,
+          "cacheRead": 1664,
+          "output": 149,
+          "total": 1918,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2640,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：Star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：Star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T3",
+      "sampleIndex": 2
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 172,
+        "output": 178,
+        "cacheRead": 3200,
+        "total": 3550
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 87,
+          "cacheRead": 1536,
+          "output": 87,
+          "total": 1710,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 85,
+          "cacheRead": 1664,
+          "output": 91,
+          "total": 1840,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2241,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T3",
+      "sampleIndex": 3
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 173,
+        "output": 173,
+        "cacheRead": 3200,
+        "total": 3546
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 87,
+          "cacheRead": 1536,
+          "output": 88,
+          "total": 1711,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 86,
+          "cacheRead": 1664,
+          "output": 85,
+          "total": 1835,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1676,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T3",
+      "sampleIndex": 4
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 173,
+        "output": 183,
+        "cacheRead": 3200,
+        "total": 3556
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 87,
+          "cacheRead": 1536,
+          "output": 88,
+          "total": 1711,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 86,
+          "cacheRead": 1664,
+          "output": 95,
+          "total": 1845,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1871,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T3",
+      "sampleIndex": 5
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 188,
+        "output": 196,
+        "cacheRead": 3200,
+        "total": 3584
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 87,
+          "cacheRead": 1536,
+          "output": 103,
+          "total": 1726,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 101,
+          "cacheRead": 1664,
+          "output": 93,
+          "total": 1858,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2054,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T3",
+      "sampleIndex": 6
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 172,
+        "output": 177,
+        "cacheRead": 3200,
+        "total": 3549
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 87,
+          "cacheRead": 1536,
+          "output": 87,
+          "total": 1710,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 85,
+          "cacheRead": 1664,
+          "output": 90,
+          "total": 1839,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2211,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T3",
+      "sampleIndex": 7
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 173,
+        "output": 179,
+        "cacheRead": 3200,
+        "total": 3552
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 87,
+          "cacheRead": 1536,
+          "output": 88,
+          "total": 1711,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 86,
+          "cacheRead": 1664,
+          "output": 91,
+          "total": 1841,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1853,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T3",
+      "sampleIndex": 8
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 173,
+        "output": 182,
+        "cacheRead": 3200,
+        "total": 3555
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 87,
+          "cacheRead": 1536,
+          "output": 88,
+          "total": 1711,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 86,
+          "cacheRead": 1664,
+          "output": 94,
+          "total": 1844,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1784,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T3",
+      "sampleIndex": 9
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 172,
+        "output": 189,
+        "cacheRead": 3200,
+        "total": 3561
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 87,
+          "cacheRead": 1536,
+          "output": 87,
+          "total": 1710,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 85,
+          "cacheRead": 1664,
+          "output": 102,
+          "total": 1851,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1956,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T3",
+      "sampleIndex": 10
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 199,
+        "output": 182,
+        "cacheRead": 2048,
+        "total": 2429
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 36,
+          "cacheRead": 1024,
+          "output": 88,
+          "total": 1148,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 163,
+          "cacheRead": 1024,
+          "output": 94,
+          "total": 1281,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2094,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T4",
+      "sampleIndex": 1
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 200,
+        "output": 192,
+        "cacheRead": 2048,
+        "total": 2440
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 36,
+          "cacheRead": 1024,
+          "output": 89,
+          "total": 1149,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 164,
+          "cacheRead": 1024,
+          "output": 103,
+          "total": 1291,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1951,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T4",
+      "sampleIndex": 2
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 198,
+        "output": 181,
+        "cacheRead": 2048,
+        "total": 2427
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 36,
+          "cacheRead": 1024,
+          "output": 87,
+          "total": 1147,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 162,
+          "cacheRead": 1024,
+          "output": 94,
+          "total": 1280,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2090,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T4",
+      "sampleIndex": 3
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 71,
+        "output": 153,
+        "cacheRead": 2176,
+        "total": 2400
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 36,
+          "cacheRead": 1024,
+          "output": 88,
+          "total": 1148,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 35,
+          "cacheRead": 1152,
+          "output": 65,
+          "total": 1252,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2016,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T4",
+      "sampleIndex": 4
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 71,
+        "output": 184,
+        "cacheRead": 2176,
+        "total": 2431
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 36,
+          "cacheRead": 1024,
+          "output": 88,
+          "total": 1148,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 35,
+          "cacheRead": 1152,
+          "output": 96,
+          "total": 1283,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1790,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T4",
+      "sampleIndex": 5
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 71,
+        "output": 184,
+        "cacheRead": 2176,
+        "total": 2431
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 36,
+          "cacheRead": 1024,
+          "output": 88,
+          "total": 1148,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 35,
+          "cacheRead": 1152,
+          "output": 96,
+          "total": 1283,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2139,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T4",
+      "sampleIndex": 6
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 198,
+        "output": 179,
+        "cacheRead": 2048,
+        "total": 2425
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 36,
+          "cacheRead": 1024,
+          "output": 87,
+          "total": 1147,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 162,
+          "cacheRead": 1024,
+          "output": 92,
+          "total": 1278,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2271,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T4",
+      "sampleIndex": 7
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 202,
+        "output": 216,
+        "cacheRead": 2048,
+        "total": 2466
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 36,
+          "cacheRead": 1024,
+          "output": 91,
+          "total": 1151,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 166,
+          "cacheRead": 1024,
+          "output": 125,
+          "total": 1315,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1946,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T4",
+      "sampleIndex": 8
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 84,
+        "output": 244,
+        "cacheRead": 2176,
+        "total": 2504
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 36,
+          "cacheRead": 1024,
+          "output": 101,
+          "total": 1161,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 48,
+          "cacheRead": 1152,
+          "output": 143,
+          "total": 1343,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2021,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T4",
+      "sampleIndex": 9
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 75,
+        "output": 216,
+        "cacheRead": 2176,
+        "total": 2467
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 36,
+          "cacheRead": 1024,
+          "output": 92,
+          "total": 1152,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 39,
+          "cacheRead": 1152,
+          "output": 124,
+          "total": 1315,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1878,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "r7Arm": "T4",
+      "sampleIndex": 10
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 168,
+        "output": 186,
+        "cacheRead": 2816,
+        "total": 3170
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 18,
+          "cacheRead": 1408,
+          "output": 93,
+          "total": 1519,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 150,
+          "cacheRead": 1408,
+          "output": 93,
+          "total": 1651,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1861,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures",
+      "r7Arm": "P0",
+      "sampleIndex": 1
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 169,
+        "output": 185,
+        "cacheRead": 2816,
+        "total": 3170
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 18,
+          "cacheRead": 1408,
+          "output": 94,
+          "total": 1520,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 151,
+          "cacheRead": 1408,
+          "output": 91,
+          "total": 1650,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1999,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言是 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言是 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures",
+      "r7Arm": "P0",
+      "sampleIndex": 2
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 166,
+        "output": 174,
+        "cacheRead": 2816,
+        "total": 3156
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 18,
+          "cacheRead": 1408,
+          "output": 91,
+          "total": 1517,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 148,
+          "cacheRead": 1408,
+          "output": 83,
+          "total": 1639,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2165,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures",
+      "r7Arm": "P0",
+      "sampleIndex": 3
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 166,
+        "output": 156,
+        "cacheRead": 2816,
+        "total": 3138
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 18,
+          "cacheRead": 1408,
+          "output": 91,
+          "total": 1517,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 148,
+          "cacheRead": 1408,
+          "output": 65,
+          "total": 1621,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1781,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures",
+      "r7Arm": "P0",
+      "sampleIndex": 4
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 170,
+        "output": 189,
+        "cacheRead": 2816,
+        "total": 3175
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 18,
+          "cacheRead": 1408,
+          "output": 95,
+          "total": 1521,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 152,
+          "cacheRead": 1408,
+          "output": 94,
+          "total": 1654,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1735,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures",
+      "r7Arm": "P0",
+      "sampleIndex": 5
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 164,
+        "output": 155,
+        "cacheRead": 2816,
+        "total": 3135
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 18,
+          "cacheRead": 1408,
+          "output": 89,
+          "total": 1515,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 146,
+          "cacheRead": 1408,
+          "output": 66,
+          "total": 1620,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 1525,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures",
+      "r7Arm": "P0",
+      "sampleIndex": 6
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 166,
+        "output": 182,
+        "cacheRead": 2816,
+        "total": 3164
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 18,
+          "cacheRead": 1408,
+          "output": 91,
+          "total": 1517,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 148,
+          "cacheRead": 1408,
+          "output": 91,
+          "total": 1647,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2372,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures",
+      "r7Arm": "P0",
+      "sampleIndex": 7
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 166,
+        "output": 180,
+        "cacheRead": 2816,
+        "total": 3162
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 18,
+          "cacheRead": 1408,
+          "output": 91,
+          "total": 1517,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 148,
+          "cacheRead": 1408,
+          "output": 89,
+          "total": 1645,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2047,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures",
+      "r7Arm": "P0",
+      "sampleIndex": 8
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 162,
+        "output": 153,
+        "cacheRead": 2816,
+        "total": 3131
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 18,
+          "cacheRead": 1408,
+          "output": 87,
+          "total": 1513,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 144,
+          "cacheRead": 1408,
+          "output": 66,
+          "total": 1618,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2116,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures",
+      "r7Arm": "P0",
+      "sampleIndex": 9
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 65,
+        "output": 211,
+        "cacheRead": 2944,
+        "total": 3220
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 18,
+          "cacheRead": 1408,
+          "output": 118,
+          "total": 1544,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 47,
+          "cacheRead": 1536,
+          "output": 93,
+          "total": 1676,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2122,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures",
+      "r7Arm": "P0",
+      "sampleIndex": 10
+    }
+  ]
+}

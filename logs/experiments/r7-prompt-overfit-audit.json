@@ -1,0 +1,241 @@
+{
+  "generatedAt": "2026-08-17T10:01:19.627Z",
+  "rows": [
+    {
+      "armId": "C0",
+      "armLabel": "C0 control（无 JIT）",
+      "promptText": "你是一个自主 Agent，需要完成用户交给的任务。\n使用提供的工具逐步完成；工具名与参数见工具定义。\n完成所有工具调用后，调用 submit_answer(answer=\"...\") 提交最终答案（最终答案的唯一提交通道，不要只写在普通文本里）。",
+      "audits": {
+        "A": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " A",
+          "longestCommonSubstringLength": 2,
+          "sharedCharacterBigrams": 0,
+          "sharedWordTokens": []
+        },
+        "B": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " Agent",
+          "longestCommonSubstringLength": 6,
+          "sharedCharacterBigrams": 9,
+          "sharedWordTokens": [
+            "agent"
+          ]
+        },
+        "H": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " A",
+          "longestCommonSubstringLength": 2,
+          "sharedCharacterBigrams": 2,
+          "sharedWordTokens": []
+        }
+      }
+    },
+    {
+      "armId": "T0",
+      "armLabel": "T0 baseline（无提示词 + 现状描述）",
+      "promptText": "你是一个自主 Agent，需要完成用户交给的任务。\n使用提供的工具逐步完成；工具名与参数见工具定义。\n完成所有工具调用后，调用 submit_answer(answer=\"...\") 提交最终答案（最终答案的唯一提交通道，不要只写在普通文本里）。\n提交一段 Agent Execution DSL 程序源码给 Harness 编译执行（把完整程序放在 source 参数里）。\n获取当前上下文中未提供或需要额外查询的工具 DSL 函数签名（输入参数 + 输出字段）。仅用于动态工具发现或大型工具集合中的按需查询；已随 active tool 定义提供 DSL signature 时无需调用。",
+      "audits": {
+        "A": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " A",
+          "longestCommonSubstringLength": 2,
+          "sharedCharacterBigrams": 4,
+          "sharedWordTokens": []
+        },
+        "B": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " Agent ",
+          "longestCommonSubstringLength": 7,
+          "sharedCharacterBigrams": 21,
+          "sharedWordTokens": [
+            "agent"
+          ]
+        },
+        "H": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " active ",
+          "longestCommonSubstringLength": 8,
+          "sharedCharacterBigrams": 16,
+          "sharedWordTokens": [
+            "active"
+          ]
+        }
+      }
+    },
+    {
+      "armId": "T1",
+      "armLabel": "T1 trigger（只补 when/why）",
+      "promptText": "你是一个自主 Agent，需要完成用户交给的任务。\n使用提供的工具逐步完成；工具名与参数见工具定义。\n完成所有工具调用后，调用 submit_answer(answer=\"...\") 提交最终答案（最终答案的唯一提交通道，不要只写在普通文本里）。\n提交一段 Agent Execution DSL 程序源码给 Harness 编译执行（把完整程序放在 source 参数里）。\n\n当剩余工作可以确定为多步数据流时使用本工具： 1. 对列表中的每个元素执行相同的工具调用； 2. 后续筛选 / 排序 / 合并 / 取前 N 的规则已经由任务确定，不需要在步骤之间检查中间结果； 3. 一段程序可替代多次普通工具调用。 一次提交可减少模型往返轮次，中间结果不会进入上下文。\n获取当前上下文中未提供或需要额外查询的工具 DSL 函数签名（输入参数 + 输出字段）。仅用于动态工具发现或大型工具集合中的按需查询；已随 active tool 定义提供 DSL signature 时无需调用。 当 jit_execute_program 用于多步确定性数据流时，先调用本工具获取相关工具的 DSL 契约。",
+      "audits": {
+        "A": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " A",
+          "longestCommonSubstringLength": 2,
+          "sharedCharacterBigrams": 4,
+          "sharedWordTokens": []
+        },
+        "B": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " Agent ",
+          "longestCommonSubstringLength": 7,
+          "sharedCharacterBigrams": 26,
+          "sharedWordTokens": [
+            "agent",
+            "取前"
+          ]
+        },
+        "H": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " active ",
+          "longestCommonSubstringLength": 8,
+          "sharedCharacterBigrams": 18,
+          "sharedWordTokens": [
+            "active",
+            "取前"
+          ]
+        }
+      }
+    },
+    {
+      "armId": "T2",
+      "armLabel": "T2 lazy-manual（trigger + describe 附 manual）",
+      "promptText": "你是一个自主 Agent，需要完成用户交给的任务。\n使用提供的工具逐步完成；工具名与参数见工具定义。\n完成所有工具调用后，调用 submit_answer(answer=\"...\") 提交最终答案（最终答案的唯一提交通道，不要只写在普通文本里）。\n提交一段 Agent Execution DSL 程序源码给 Harness 编译执行（把完整程序放在 source 参数里）。\n\n当剩余工作可以确定为多步数据流时使用本工具： 1. 对列表中的每个元素执行相同的工具调用； 2. 后续筛选 / 排序 / 合并 / 取前 N 的规则已经由任务确定，不需要在步骤之间检查中间结果； 3. 一段程序可替代多次普通工具调用。 一次提交可减少模型往返轮次，中间结果不会进入上下文。\n获取当前上下文中未提供或需要额外查询的工具 DSL 函数签名（输入参数 + 输出字段）。仅用于动态工具发现或大型工具集合中的按需查询；已随 active tool 定义提供 DSL signature 时无需调用。 当 jit_execute_program 用于多步确定性数据流时，先调用本工具获取相关工具的 DSL 契约。\n## Agent Execution DSL 参考（核心语言语义）\n程序是 newline 分隔的语句序列：<变量> = <调用>(...)，最后一行必须是 return <变量>。\n\n## 1. Tool calls\n普通工具调用遵循随 active tool 提供的 DSL signature：参数名、参数类型与返回类型由签名决定，不得自创参数。\n函数式签名示例：service.lookup(key: str) -> {id: str, count: int}\n枚举参数在签名中渲染为字面量联合（如 mode: \"a\" | \"b\"），只能传列出的值。\n\n例：\nitems = service.search(\n    query=\"example\",\n    limit=10\n)\n\n工具 id 两种写法等价：service.search 与 service_search。\n\n## 2. Array dataflow operators\nmap / filter / select / compute / sort / take / concat / merge_by_key / collect\n\n这些操作消费先前产生的数组变量，并生成新的数组变量；变量引用同时定义数据依赖。\n\n- map(列表, 工具(参数=_.字段))：对列表每个元素执行一次工具调用，返回结果数组。_.字段 引用当前元素字段。\n  例：details = map(items, service.get_detail(id=_.id))\n- take(列表, N)：截取前 N 条。例：top = take(details, 5)\n- sort(列表, key=\"字段\", desc=true)：按字段排序（默认升序）。例：ranked = sort(details, key=\"field\", desc=true)\n- filter(列表, 字段=值)：保留\"字段 等于 值\"的元素（等值过滤）。例：ts = filter(details, field=\"value\")\n- compute(列表, 新字段=\"表达式\")：给每个元素计算新字段（表达式 = 字段引用 + 数字 + 四则运算 + 括号）。例：r = compute(details, density=\"field_a / field_b\")\n- select(列表, \"谓词\")：按比较谓词（> >= < <= == !=）过滤。例：hot = select(r, \"density > 0.3\")\n- merge_by_key(基准列表, 附加列表..., key=\"字段\")：给每条基准记录附加另一批数据的字段（基准已有字段不覆盖），不是对称合并。\n  例：enriched = merge_by_key(users, ratings, key=\"user_id\")\n- concat(列表1, 列表2, ...)：按顺序把多个列表拼成一个大列表（真正的列表拼接）。例：both = concat(left, right)\n- collect(值1, 值2, ...)：把任意值（对象 / 数组 / 标量）按顺序包成一个新数组。例：both = collect(a, b)\n- 字段投影：引用处写 变量.字段 取出对象的一个字段（多级 a.b.c；数组字段可直接接 take / filter / map；若存在同名含点变量则精确变量名优先）。例：top = take(files.paths, 3)\n\n## 3. Return\n程序最后使用：\nreturn variable\n\n注意：上面示例中的查询词 / 截取数 / 阈值只是演示语法，不代表任何任务的真实参数。",
+      "audits": {
+        "A": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " st",
+          "longestCommonSubstringLength": 3,
+          "sharedCharacterBigrams": 15,
+          "sharedWordTokens": []
+        },
+        "B": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " Agent ",
+          "longestCommonSubstringLength": 7,
+          "sharedCharacterBigrams": 59,
+          "sharedWordTokens": [
+            "agent",
+            "取前"
+          ]
+        },
+        "H": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " active ",
+          "longestCommonSubstringLength": 8,
+          "sharedCharacterBigrams": 36,
+          "sharedWordTokens": [
+            "active",
+            "query",
+            "取前"
+          ]
+        }
+      }
+    },
+    {
+      "armId": "T3",
+      "armLabel": "T3 tool-embedded（trigger + 完整 manual）",
+      "promptText": "你是一个自主 Agent，需要完成用户交给的任务。\n使用提供的工具逐步完成；工具名与参数见工具定义。\n完成所有工具调用后，调用 submit_answer(answer=\"...\") 提交最终答案（最终答案的唯一提交通道，不要只写在普通文本里）。\n提交一段 Agent Execution DSL 程序源码给 Harness 编译执行（把完整程序放在 source 参数里）。\n\n当剩余工作可以确定为多步数据流时使用本工具： 1. 对列表中的每个元素执行相同的工具调用； 2. 后续筛选 / 排序 / 合并 / 取前 N 的规则已经由任务确定，不需要在步骤之间检查中间结果； 3. 一段程序可替代多次普通工具调用。 一次提交可减少模型往返轮次，中间结果不会进入上下文。\n\n## Agent Execution DSL 参考（核心语言语义）\n程序是 newline 分隔的语句序列：<变量> = <调用>(...)，最后一行必须是 return <变量>。\n\n## 1. Tool calls\n普通工具调用遵循随 active tool 提供的 DSL signature：参数名、参数类型与返回类型由签名决定，不得自创参数。\n函数式签名示例：service.lookup(key: str) -> {id: str, count: int}\n枚举参数在签名中渲染为字面量联合（如 mode: \"a\" | \"b\"），只能传列出的值。\n\n例：\nitems = service.search(\n    query=\"example\",\n    limit=10\n)\n\n工具 id 两种写法等价：service.search 与 service_search。\n\n## 2. Array dataflow operators\nmap / filter / select / compute / sort / take / concat / merge_by_key / collect\n\n这些操作消费先前产生的数组变量，并生成新的数组变量；变量引用同时定义数据依赖。\n\n- map(列表, 工具(参数=_.字段))：对列表每个元素执行一次工具调用，返回结果数组。_.字段 引用当前元素字段。\n  例：details = map(items, service.get_detail(id=_.id))\n- take(列表, N)：截取前 N 条。例：top = take(details, 5)\n- sort(列表, key=\"字段\", desc=true)：按字段排序（默认升序）。例：ranked = sort(details, key=\"field\", desc=true)\n- filter(列表, 字段=值)：保留\"字段 等于 值\"的元素（等值过滤）。例：ts = filter(details, field=\"value\")\n- compute(列表, 新字段=\"表达式\")：给每个元素计算新字段（表达式 = 字段引用 + 数字 + 四则运算 + 括号）。例：r = compute(details, density=\"field_a / field_b\")\n- select(列表, \"谓词\")：按比较谓词（> >= < <= == !=）过滤。例：hot = select(r, \"density > 0.3\")\n- merge_by_key(基准列表, 附加列表..., key=\"字段\")：给每条基准记录附加另一批数据的字段（基准已有字段不覆盖），不是对称合并。\n  例：enriched = merge_by_key(users, ratings, key=\"user_id\")\n- concat(列表1, 列表2, ...)：按顺序把多个列表拼成一个大列表（真正的列表拼接）。例：both = concat(left, right)\n- collect(值1, 值2, ...)：把任意值（对象 / 数组 / 标量）按顺序包成一个新数组。例：both = collect(a, b)\n- 字段投影：引用处写 变量.字段 取出对象的一个字段（多级 a.b.c；数组字段可直接接 take / filter / map；若存在同名含点变量则精确变量名优先）。例：top = take(files.paths, 3)\n\n## 3. Return\n程序最后使用：\nreturn variable\n\n注意：上面示例中的查询词 / 截取数 / 阈值只是演示语法，不代表任何任务的真实参数。\n获取当前上下文中未提供或需要额外查询的工具 DSL 函数签名（输入参数 + 输出字段）。仅用于动态工具发现或大型工具集合中的按需查询；已随 active tool 定义提供 DSL signature 时无需调用。",
+      "audits": {
+        "A": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " st",
+          "longestCommonSubstringLength": 3,
+          "sharedCharacterBigrams": 15,
+          "sharedWordTokens": []
+        },
+        "B": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " Agent ",
+          "longestCommonSubstringLength": 7,
+          "sharedCharacterBigrams": 59,
+          "sharedWordTokens": [
+            "agent",
+            "取前"
+          ]
+        },
+        "H": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " active ",
+          "longestCommonSubstringLength": 8,
+          "sharedCharacterBigrams": 36,
+          "sharedWordTokens": [
+            "active",
+            "query",
+            "取前"
+          ]
+        }
+      }
+    },
+    {
+      "armId": "T4",
+      "armLabel": "T4 tool-embedded-mini（trigger + 极简 manual）",
+      "promptText": "你是一个自主 Agent，需要完成用户交给的任务。\n使用提供的工具逐步完成；工具名与参数见工具定义。\n完成所有工具调用后，调用 submit_answer(answer=\"...\") 提交最终答案（最终答案的唯一提交通道，不要只写在普通文本里）。\n提交一段 Agent Execution DSL 程序源码给 Harness 编译执行（把完整程序放在 source 参数里）。\n\n当剩余工作可以确定为多步数据流时使用本工具： 1. 对列表中的每个元素执行相同的工具调用； 2. 后续筛选 / 排序 / 合并 / 取前 N 的规则已经由任务确定，不需要在步骤之间检查中间结果； 3. 一段程序可替代多次普通工具调用。 一次提交可减少模型往返轮次，中间结果不会进入上下文。\n\n## Agent Execution DSL（极简）\n程序为逐行语句：<名> = <调用>(...)，最后一行必须 return <名>。\n- map(列表, 工具(参数=_.字段))：对列表每个元素执行一次工具调用。\n- filter / sort / select / compute / take / concat / merge_by_key / collect 用于确定性筛选、排序、合并与截取。\n- 工具参数名与输出字段以工具定义中的 DSL: 行或 jit_describe_tools 返回的签名为准。\n例：\nitems = service.search(query=\"example\")\ndetails = map(items, service.get_detail(id=_.id))\ntop = take(details, 3)\nreturn top\n获取当前上下文中未提供或需要额外查询的工具 DSL 函数签名（输入参数 + 输出字段）。仅用于动态工具发现或大型工具集合中的按需查询；已随 active tool 定义提供 DSL signature 时无需调用。",
+      "audits": {
+        "A": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": "escri",
+          "longestCommonSubstringLength": 5,
+          "sharedCharacterBigrams": 11,
+          "sharedWordTokens": []
+        },
+        "B": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " Agent ",
+          "longestCommonSubstringLength": 7,
+          "sharedCharacterBigrams": 39,
+          "sharedWordTokens": [
+            "agent",
+            "取前"
+          ]
+        },
+        "H": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " active ",
+          "longestCommonSubstringLength": 8,
+          "sharedCharacterBigrams": 28,
+          "sharedWordTokens": [
+            "active",
+            "query",
+            "取前"
+          ]
+        }
+      }
+    },
+    {
+      "armId": "P0",
+      "armLabel": "P0 positive（system prompt neutral + inline signatures）",
+      "promptText": "你是一个自主 Agent，需要完成用户交给的任务。你有两类工具：\n- 普通业务工具：直接调用（工具名与参数见工具定义），适合单次查询/操作。\n- Agent JIT：将已经确定的多步工具操作编译执行——直接调用 jit_execute_program 提交程序；每个工具的 DSL 签名（输入参数与输出字段）已随工具定义提供。\n\n是否使用 JIT 由你决定：单个查询用普通工具即可；一段后续工作可以确定性程序化（对列表每个元素做同样处理、过滤/排序/合并/取前 N 等）时再考虑 JIT。\n完成所有工具调用后，调用 submit_answer(answer=\"...\") 提交最终答案（最终答案的唯一提交通道，不要只写在普通文本里）。\n\n## Agent Execution DSL 参考（核心语言语义）\n程序是 newline 分隔的语句序列：<变量> = <调用>(...)，最后一行必须是 return <变量>。\n\n## 1. Tool calls\n普通工具调用遵循随 active tool 提供的 DSL signature：参数名、参数类型与返回类型由签名决定，不得自创参数。\n函数式签名示例：service.lookup(key: str) -> {id: str, count: int}\n枚举参数在签名中渲染为字面量联合（如 mode: \"a\" | \"b\"），只能传列出的值。\n\n例：\nitems = service.search(\n    query=\"example\",\n    limit=10\n)\n\n工具 id 两种写法等价：service.search 与 service_search。\n\n## 2. Array dataflow operators\nmap / filter / select / compute / sort / take / concat / merge_by_key / collect\n\n这些操作消费先前产生的数组变量，并生成新的数组变量；变量引用同时定义数据依赖。\n\n- map(列表, 工具(参数=_.字段))：对列表每个元素执行一次工具调用，返回结果数组。_.字段 引用当前元素字段。\n  例：details = map(items, service.get_detail(id=_.id))\n- take(列表, N)：截取前 N 条。例：top = take(details, 5)\n- sort(列表, key=\"字段\", desc=true)：按字段排序（默认升序）。例：ranked = sort(details, key=\"field\", desc=true)\n- filter(列表, 字段=值)：保留\"字段 等于 值\"的元素（等值过滤）。例：ts = filter(details, field=\"value\")\n- compute(列表, 新字段=\"表达式\")：给每个元素计算新字段（表达式 = 字段引用 + 数字 + 四则运算 + 括号）。例：r = compute(details, density=\"field_a / field_b\")\n- select(列表, \"谓词\")：按比较谓词（> >= < <= == !=）过滤。例：hot = select(r, \"density > 0.3\")\n- merge_by_key(基准列表, 附加列表..., key=\"字段\")：给每条基准记录附加另一批数据的字段（基准已有字段不覆盖），不是对称合并。\n  例：enriched = merge_by_key(users, ratings, key=\"user_id\")\n- concat(列表1, 列表2, ...)：按顺序把多个列表拼成一个大列表（真正的列表拼接）。例：both = concat(left, right)\n- collect(值1, 值2, ...)：把任意值（对象 / 数组 / 标量）按顺序包成一个新数组。例：both = collect(a, b)\n- 字段投影：引用处写 变量.字段 取出对象的一个字段（多级 a.b.c；数组字段可直接接 take / filter / map；若存在同名含点变量则精确变量名优先）。例：top = take(files.paths, 3)\n\n## 3. Return\n程序最后使用：\nreturn variable\n\n注意：上面示例中的查询词 / 截取数 / 阈值只是演示语法，不代表任何任务的真实参数。",
+      "audits": {
+        "A": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " st",
+          "longestCommonSubstringLength": 3,
+          "sharedCharacterBigrams": 16,
+          "sharedWordTokens": []
+        },
+        "B": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " Agent ",
+          "longestCommonSubstringLength": 7,
+          "sharedCharacterBigrams": 58,
+          "sharedWordTokens": [
+            "agent",
+            "取前"
+          ]
+        },
+        "H": {
+          "forbiddenTokenHits": [],
+          "longestCommonSubstring": " active ",
+          "longestCommonSubstringLength": 8,
+          "sharedCharacterBigrams": 35,
+          "sharedWordTokens": [
+            "active",
+            "query",
+            "取前"
+          ]
+        }
+      }
+    }
+  ]
+}

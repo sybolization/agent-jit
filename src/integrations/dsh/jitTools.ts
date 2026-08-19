@@ -7,6 +7,13 @@ import { execute, type RuntimeRegistry } from "../../runtime/runtime.js";
 import type { TraceEntry } from "../../runtime/trace.js";
 import { renderCompileFailure } from "../pi/compileDiagnostics.js";
 import {
+  describeProgramDescription,
+  executeProgramDescription,
+  renderRoutingDslReference,
+  type DescribeDslReferenceMode,
+  type RoutingPromptVariant,
+} from "../../prompt/routingToolPrompts.js";
+import {
   describeToolContracts,
   MAX_DESCRIBE_TOOLS,
 } from "../../tools/jitTools.js";
@@ -78,20 +85,26 @@ export interface DshHostToolsConfig {
   exclude?: readonly string[];
 }
 
-/** jit_describe_tools：tool_names → 确定性 DSL 函数式契约文本（production：纯契约 discovery，
- *  与 inline 签名同源；DSL 语言参考由 system prompt section 提供，不再随 describe 捆绑）。 */
+/** jit_describe_tools：tool_names → 确定性 DSL 函数式契约文本。
+ *
+ * 默认（production）仍是纯契约 discovery；R7 的 lazy-manual 臂可配置
+ * `describeDslReference: "first-call"`，让首次成功 describe 顺带返回
+ * **中性** DSL 语言参考（service.*，不含 benchmark 工具/字段）。
+ */
 export function createDshJitDescribeTool(
   registry: RuntimeRegistry,
   tools: ToolRuntime,
   options: {
     hostTools?: DshHostToolsConfig;
+    routingPrompt?: RoutingPromptVariant;
+    describeDslReference?: DescribeDslReferenceMode;
   } = {},
 ): ToolDefinition {
+  const routingPrompt = options.routingPrompt ?? "baseline";
+  let referenceReturned = false;
   return {
     name: "jit_describe_tools",
-    description:
-      "获取当前上下文中未提供或需要额外查询的工具 DSL 函数签名（输入参数 + 输出字段）。"
-      + "仅用于动态工具发现或大型工具集合中的按需查询；已随 active tool 定义提供 DSL signature 时无需调用。",
+    description: describeProgramDescription(routingPrompt),
     parameters: {
       type: "object",
       properties: {
@@ -122,10 +135,14 @@ export function createDshJitDescribeTool(
         exclude: options.hostTools?.exclude,
       });
       const executionRegistry = new ExecutionRegistry(registry, host);
-      const text = describeToolContracts(executionRegistry, names, { header: "# Requested Tool Contracts" });
+      const contracts = describeToolContracts(executionRegistry, names, { header: "# Requested Tool Contracts" });
       // 严格语义：任一 id 未知 → 整体失败（UNKNOWN_TOOL 全列 + 建议），抛给 DSH 转 toolResult
-      if (text.startsWith("错误")) throw new Error(text);
-      return text;
+      if (contracts.startsWith("错误")) throw new Error(contracts);
+      if (options.describeDslReference === "first-call" && !referenceReturned) {
+        referenceReturned = true;
+        return `${renderRoutingDslReference()}\n\n${contracts}`;
+      }
+      return contracts;
     },
   };
 }
@@ -140,19 +157,23 @@ export interface JitExecuteProgramDetails {
   totalDurationMs: number;
 }
 
-/** jit_execute_program：source → 编译（执行期 registry）→ 执行（同一 registry）→ 结果。 */
+/** jit_execute_program：source → 编译（执行期 registry）→ 执行（同一 registry）→ 结果。
+ *
+ * R7 路由优化入口：`routingPrompt` 切换工具描述文案（缺省 baseline =
+ * 当前生产文案，行为逐字节不变），用于 no-system-prompt 的 discovery 实验。
+ */
 export function createDshJitExecuteProgramTool(
   registry: RuntimeRegistry,
   tools: ToolRuntime,
   options: {
     hostTools?: DshHostToolsConfig;
+    routingPrompt?: RoutingPromptVariant;
     onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void;
   } = {},
 ): ToolDefinition {
   return {
     name: "jit_execute_program",
-    description:
-      "提交一段 Agent Execution DSL 程序源码给 Harness 编译执行（把完整程序放在 source 参数里）。",
+    description: executeProgramDescription(options.routingPrompt ?? "baseline"),
     parameters: {
       type: "object",
       properties: {
@@ -222,6 +243,10 @@ export function createDshJitTools(
   options: {
     describeTools?: boolean;
     hostTools?: DshHostToolsConfig;
+    /** R7 routing prompt variant（缺省 baseline = 当前生产文案）。 */
+    routingPrompt?: RoutingPromptVariant;
+    /** R7 lazy-manual 臂：首次 describe 附带中性 DSL 参考（缺省 none）。 */
+    describeDslReference?: DescribeDslReferenceMode;
     onCompileFailure?: (diagnostics: readonly DslDiagnostic[]) => void;
   } = {},
 ): readonly ToolDefinition[] {

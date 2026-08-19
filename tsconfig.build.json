@@ -13,6 +13,7 @@
     "src/compiler",
     "src/runtime",
     "src/tools",
+    "src/prompt",
     "src/integrations/dsh",
     "src/integrations/pi/dslReference.ts",
     "src/integrations/pi/compileDiagnostics.ts"

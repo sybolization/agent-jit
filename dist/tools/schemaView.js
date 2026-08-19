@@ -8,9 +8,25 @@
  * record<T> / union<...> / unknown（识别 anyOf / oneOf、嵌套 items / properties /
  * patternProperties / additionalProperties）。
  */
+/** enum 值的基类型：全字符串 → "string"；全数字 → "number"；混编 → "mixed"（values 非空）。 */
+export function enumBaseOf(values) {
+    const hasString = values.some((value) => typeof value === "string");
+    const hasNumber = values.some((value) => typeof value === "number");
+    if (hasString && hasNumber)
+        return "mixed";
+    return hasString ? "string" : "number";
+}
 /** 从 raw 节点提取语义标签（schema property 的 description；非空字符串才保留）。 */
 function descriptionOf(node) {
     return typeof node.description === "string" && node.description.length > 0 ? node.description : undefined;
+}
+/** 提取合法 enum 成员（enum 数组或 const 单值；过滤到 string|number，非空才构成 enum）。 */
+function enumMembersOf(node) {
+    const raw = Array.isArray(node.enum) ? node.enum : node.const !== undefined ? [node.const] : undefined;
+    if (raw === undefined)
+        return undefined;
+    const members = raw.filter((item) => typeof item === "string" || typeof item === "number");
+    return members.length > 0 ? members : undefined;
 }
 /**
  * 把 JSON Schema / TypeBox schema 归一为 SchemaView；无法识别 → unknown。
@@ -21,6 +37,13 @@ function descriptionOf(node) {
 export function schemaViewOf(schema) {
     const node = (schema ?? {});
     const description = descriptionOf(node);
+    // enum / const：字面量枚举——覆盖 TypeBox Type.Enum 的无 type 形态（{enum:[...]}）、
+    // DSH JSON Schema 形态（{type:..., enum:[...]}）与 const 单值（{type:..., const: 值}）。
+    // 必须先于 union：任一形态都要保留合法取值，而不是把成员抹成 base 类型。
+    const enumMembers = enumMembersOf(node);
+    if (enumMembers !== undefined) {
+        return { kind: "enum", values: enumMembers, ...(description !== undefined ? { description } : {}) };
+    }
     // union：anyOf / oneOf 取成员（typebox Type.Union 输出 anyOf）
     const unionMembers = node.anyOf ?? node.oneOf;
     if (Array.isArray(unionMembers) && unionMembers.length > 0) {
@@ -99,6 +122,8 @@ export function schemaViewText(view) {
             return `Record<string, ${schemaViewText(view.value)}>`;
         case "union":
             return view.members.map(schemaViewText).join(" | ");
+        case "enum":
+            return view.values.map((value) => JSON.stringify(value)).join(" | ");
         case "unknown":
             return "unknown";
     }

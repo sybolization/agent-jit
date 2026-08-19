@@ -84,6 +84,15 @@ export function typeboxFromJsonSchema(schema) {
     if (raw.type === "array") {
         return Type.Array(raw.items === undefined ? Type.Any() : typeboxFromJsonSchema(raw.items));
     }
+    // enum / const 必须先于标量 type 分支：DSH 形态 {type:'string', enum:[...]} 若先命中
+    // type 分支，enum 成员会在导入时丢失——取值既进不了编译期校验，也进不了签名渲染。
+    const enumSource = Array.isArray(raw.enum) && raw.enum.length > 0 ? raw.enum : raw.const !== undefined ? [raw.const] : undefined;
+    if (enumSource !== undefined) {
+        // Type.Enum 接受 string | number 字面量数组；过滤后为空则回退（放行原 type 分支语义）。
+        const members = enumSource.filter((item) => typeof item === "string" || typeof item === "number");
+        if (members.length > 0)
+            return Type.Enum(members);
+    }
     if (raw.type === "string")
         return Type.String();
     if (raw.type === "integer")
@@ -94,11 +103,6 @@ export function typeboxFromJsonSchema(schema) {
         return Type.Boolean();
     if (raw.type === "null")
         return Type.Null();
-    if (Array.isArray(raw.enum) && raw.enum.length > 0) {
-        // Type.Enum 接受 string | number 字面量数组；运行时收敛的 enum 数组在类型层强制。
-        const members = raw.enum.filter((item) => typeof item === "string" || typeof item === "number");
-        return Type.Enum(members);
-    }
     const union = raw.oneOf ?? raw.anyOf;
     if (Array.isArray(union) && union.length >= 2) {
         return Type.Union(union.map((member) => typeboxFromJsonSchema(member)));

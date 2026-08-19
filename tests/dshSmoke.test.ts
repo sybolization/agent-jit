@@ -67,6 +67,17 @@ describe("agent-jit-dsl 在真实 DSH 服务树上的挂载", () => {
     expect(ctx.tools.get("jit_execute_program")).toBeDefined();
   });
 
+    test("生产默认 = R7 T3：jit_execute_program 工具面自描述（trigger + 完整中性 manual）", async () => {
+      const ctx = await setup();
+      const execute = ctx.tools.get("jit_execute_program")!;
+      expect(execute.description).toContain("当剩余工作可以确定为多步数据流时使用本工具");
+      expect(execute.description).toContain("## Agent Execution DSL 参考（核心语言语义）");
+      expect(execute.description).toContain("merge_by_key");
+      // 中性 manual：不出现 benchmark 的 GitHub 工具/字段示例。
+      expect(execute.description).not.toContain("github.search_repositories");
+      expect(execute.description).not.toContain("full_name");
+    });
+
   test("experimentMode: true：10 个业务工具全部注册（host alias 名），description 注入 DSL 函数式签名", async () => {
     const ctx = await setup();
     for (const alias of PROVIDER_ALIASES) {
@@ -88,6 +99,29 @@ describe("agent-jit-dsl 在真实 DSH 服务树上的挂载", () => {
     expect(String(text)).toContain("github.get_repository");
     expect(String(text)).toContain("crm.get_customer");
     expect(String(text)).toContain("->");
+  });
+
+  test("R7 配置：systemPrompt:false + 工具面文案变体 + lazy manual 在真实服务树上生效", async () => {
+    const ctx = await setup({
+      dsl: {
+        systemPrompt: false,
+        routingPrompt: "tool-embedded-mini",
+        describeDslReference: "first-call",
+        signatureInDescription: "inline",
+      },
+    });
+
+    const executeDefinition = ctx.tools.get("jit_execute_program")!;
+    expect(executeDefinition.description).toContain("## Agent Execution DSL（极简）");
+    expect(executeDefinition.description).toContain("当剩余工作可以确定为多步数据流时使用本工具");
+
+    const first = String(await call(ctx, "jit_describe_tools", { tool_names: ["github.get_repository"] }));
+    expect(first.startsWith("## Agent Execution DSL 参考（核心语言语义）")).toBe(true);
+    expect(first).toContain("# Requested Tool Contracts");
+
+    const second = String(await call(ctx, "jit_describe_tools", { tool_names: ["github.get_repository"] }));
+    expect(second.startsWith("# Requested Tool Contracts")).toBe(true);
+    expect(second).not.toContain("## Agent Execution DSL 参考（核心语言语义）");
   });
 
   test("执行路径压缩：DSL 单次调用 ≡ 逐工具 11 次调用，结果一致", async () => {

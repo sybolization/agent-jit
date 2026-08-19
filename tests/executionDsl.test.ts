@@ -1,9 +1,11 @@
 import { describe, expect, test } from "vitest";
+import { Type } from "typebox";
 import { Value } from "typebox/value";
 
 import { compileExecutionDsl, ExecutionDslCompileError } from "../src/compiler/compile.js";
 import { compileExecutionDslLegacy } from "../src/experiments/languageVariants/legacyCompile.js";
 import { ExecutionGraphSchema, type ComputeNode, type ExecutionNode } from "../src/compiler/ir.js";
+import { defineTool } from "../src/tools/definition.js";
 import { githubTools } from "../src/tools/providers/github/contracts.js";
 import { ToolRegistry } from "../src/tools/registry.js";
 
@@ -621,5 +623,92 @@ describe("compileExecutionDsl — terminal return 完整性校验", () => {
   test("return 引用未定义变量 → undefined_reference", () => {
     const codes = collectCodes(() => compileWithGithub('a = github.search_repositories(query="x")\nreturn unknown_var'));
     expect(codes).toContain("undefined_reference");
+  });
+});
+
+describe("compileExecutionDsl — enum 参数字面量成员校验", () => {
+  const editTool = defineTool({
+    id: "demo.edit",
+    label: "Edit",
+    description: "编辑文件",
+    inputSchema: Type.Object(
+      { sandbox_permissions: Type.Optional(Type.Enum(["workspace-write", "danger-full-access"])) },
+      { additionalProperties: false },
+    ),
+    outputSchema: Type.Object({ ok: Type.Boolean() }, { additionalProperties: false }),
+  });
+  const enumTools = new ToolRegistry([editTool]);
+  const compileEnum = (dsl: string) => compileExecutionDsl(dsl, { tools: enumTools });
+
+  test("非法枚举值 → config_type_mismatch，expected 列出合法取值", () => {
+    let caught: unknown;
+    try {
+      compileEnum('r = demo.edit(sandbox_permissions="full-access")\nreturn r');
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ExecutionDslCompileError);
+    const diag = (caught as ExecutionDslCompileError).diagnostics.find((item) => item.code === "config_type_mismatch");
+    expect(diag).toBeDefined();
+    expect(diag?.tool).toBe("demo.edit");
+    expect(diag?.argument).toBe("sandbox_permissions");
+    expect(diag?.expected).toBe('"workspace-write" | "danger-full-access"');
+    expect(diag?.message).toContain('"full-access"');
+  });
+
+  test("合法枚举值 → 编译通过、零诊断", () => {
+    const { diagnostics } = compileEnum('r = demo.edit(sandbox_permissions="workspace-write")\nreturn r');
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("数值枚举：字符串字面量拒绝、数值字面量通过", () => {
+    const levelTool = defineTool({
+      id: "demo.level",
+      label: "Level",
+      inputSchema: Type.Object({ level: Type.Enum([1, 2, 3]) }, { additionalProperties: false }),
+      outputSchema: Type.Boolean(),
+    });
+    const levelTools = new ToolRegistry([levelTool]);
+    const compileLevel = (dsl: string) => compileExecutionDsl(dsl, { tools: levelTools });
+    expect(collectCodes(() => compileLevel('r = demo.level(level="2")\nreturn r'))).toContain("config_type_mismatch");
+    expect(compileLevel("r = demo.level(level=2)\nreturn r").diagnostics).toEqual([]);
+  });
+
+  test("map 绑定 enum 兼容规则：enum 字段与 string 字段（字符串枚举）通过；string 字段 → 数值枚举拒绝", () => {
+    const sourceTool = defineTool({
+      id: "demo.sources",
+      label: "Sources",
+      inputSchema: Type.Object({}, { additionalProperties: false }),
+      outputSchema: Type.Array(
+        Type.Object(
+          { mode: Type.Enum(["a", "b"]), name: Type.String() },
+          { additionalProperties: false },
+        ),
+      ),
+    });
+    const stringEnumSink = defineTool({
+      id: "demo.string_enum_sink",
+      label: "Sink",
+      inputSchema: Type.Object({ mode: Type.Enum(["a", "b"]) }, { additionalProperties: false }),
+      outputSchema: Type.Boolean(),
+    });
+    const numericEnumSink = defineTool({
+      id: "demo.numeric_enum_sink",
+      label: "Sink",
+      inputSchema: Type.Object({ mode: Type.Enum([1, 2]) }, { additionalProperties: false }),
+      outputSchema: Type.Boolean(),
+    });
+    const mapTools = new ToolRegistry([sourceTool, stringEnumSink, numericEnumSink]);
+    const compileMap = (dsl: string) => compileExecutionDsl(dsl, { tools: mapTools });
+
+    // enum 字段 → 字符串枚举参数：兼容
+    expect(compileMap("x = demo.sources()\ny = map(x, demo.string_enum_sink(mode=_.mode))\nreturn y").diagnostics).toEqual([]);
+    // string 字段 → 字符串枚举参数：超集方向保守放行（与 int/number 先例一致）
+    expect(compileMap("x = demo.sources()\ny = map(x, demo.string_enum_sink(mode=_.name))\nreturn y").diagnostics).toEqual([]);
+    // string 字段 → 数值枚举参数：值域无交集 → config_type_mismatch
+    const codes = collectCodes(() =>
+      compileMap("x = demo.sources()\ny = map(x, demo.numeric_enum_sink(mode=_.name))\nreturn y"),
+    );
+    expect(codes).toContain("config_type_mismatch");
   });
 });

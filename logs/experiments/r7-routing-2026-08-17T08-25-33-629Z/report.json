@@ -1,0 +1,551 @@
+{
+  "mode": "r7-routing-discovery",
+  "config": {
+    "task": "A",
+    "arms": [
+      "T0",
+      "T3",
+      "T4",
+      "P0"
+    ],
+    "samples": 1,
+    "rounds": 6,
+    "protocol": {
+      "reasoning": "off",
+      "stopAfterSubmit": true,
+      "boundaryPolicy": "none-in-system-prompt"
+    }
+  },
+  "model": "deepseek-v4-flash",
+  "timestamp": "2026-08-17T08:25:33.632Z",
+  "armDefs": [
+    {
+      "id": "T0",
+      "label": "T0 baseline（无提示词 + 现状描述）",
+      "kind": "tool-surface",
+      "routingPrompt": "baseline",
+      "describeDslReference": "none"
+    },
+    {
+      "id": "T3",
+      "label": "T3 tool-embedded（trigger + 完整 manual）",
+      "kind": "tool-surface",
+      "routingPrompt": "tool-embedded",
+      "describeDslReference": "none"
+    },
+    {
+      "id": "T4",
+      "label": "T4 tool-embedded-mini（trigger + 极简 manual）",
+      "kind": "tool-surface",
+      "routingPrompt": "tool-embedded-mini",
+      "describeDslReference": "none"
+    },
+    {
+      "id": "P0",
+      "label": "P0 positive（system prompt neutral + inline signatures）",
+      "kind": "positive",
+      "routingPrompt": null,
+      "describeDslReference": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "A",
+      "name": "single-repo-detail",
+      "prompt": "查询仓库 adv/org-repo-2 的详细情况，返回它的 star 数与主要编程语言。",
+      "oracle": [
+        "/1[,，]?600/",
+        "TypeScript"
+      ]
+    }
+  ],
+  "aggregates": {
+    "T0": {
+      "A": {
+        "arm": "treatment",
+        "taskId": "A",
+        "runs": 4,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 2,
+        "avgTokens": 2770.75,
+        "avgUncachedInputTokens": 1143.25,
+        "avgCacheReadTokens": 1440,
+        "avgOutputTokens": 187.5,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 2750.25,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 2770.75
+      }
+    },
+    "T3": {
+      "A": {
+        "arm": "treatment",
+        "taskId": "A",
+        "runs": 4,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 2,
+        "avgTokens": 2770.75,
+        "avgUncachedInputTokens": 1143.25,
+        "avgCacheReadTokens": 1440,
+        "avgOutputTokens": 187.5,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 2750.25,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 2770.75
+      }
+    },
+    "T4": {
+      "A": {
+        "arm": "treatment",
+        "taskId": "A",
+        "runs": 4,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 2,
+        "avgTokens": 2770.75,
+        "avgUncachedInputTokens": 1143.25,
+        "avgCacheReadTokens": 1440,
+        "avgOutputTokens": 187.5,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 2750.25,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 2770.75
+      }
+    },
+    "P0": {
+      "A": {
+        "arm": "treatment",
+        "taskId": "A",
+        "runs": 4,
+        "adoptionRate": 0,
+        "jitExecutionSucceededRate": 0,
+        "jitSemanticCorrectRate": 0,
+        "jitFinishedWithoutFallbackRate": 0,
+        "offloadPrecision": 0,
+        "avgOffloadDecisionRound": 0,
+        "avgPreOffloadBusinessCallCount": 0,
+        "avgSameRoundBusinessCallCount": 0,
+        "avgPostExecuteBusinessCallCount": 0,
+        "unnecessaryOffloadRate": 0,
+        "cleanOffloadRate": 0,
+        "earlyDirtyOffloadRate": 0,
+        "lateOffloadRate": 0,
+        "noJitRate": 1,
+        "fallbackRate": 0,
+        "maxedOutRate": 0,
+        "taskCompletionRate": 1,
+        "avgCompressedOps": 0,
+        "avgCorrectlyCompressedOps": 0,
+        "avgRounds": 2,
+        "avgTokens": 2770.75,
+        "avgUncachedInputTokens": 1143.25,
+        "avgCacheReadTokens": 1440,
+        "avgOutputTokens": 187.5,
+        "firstPassCompileRateOverall": 0,
+        "firstPassCompileRateAmongAttempts": 0,
+        "firstPassExecutionRate": 0,
+        "eventualExecutionRate": 0,
+        "eventualSemanticCorrectRate": 0,
+        "eventualCompileRate": 0,
+        "avgRepairRounds": 0,
+        "describeFallbackRate": 0,
+        "preDescribeUsedRate": 0,
+        "avgCompileAttempts": 0,
+        "avgLatencyMs": 2750.25,
+        "firstPassSemanticSuccessRate": 0,
+        "outputContractErrorRate": 0,
+        "syntaxCompletenessErrorRate": 0,
+        "efficiencyScore": 2770.75
+      }
+    }
+  },
+  "runs": [
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 961,
+        "output": 186,
+        "cacheRead": 768,
+        "total": 1915
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 798,
+          "cacheRead": 0,
+          "output": 94,
+          "total": 892,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 163,
+          "cacheRead": 768,
+          "output": 92,
+          "total": 1023,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2638,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": ""
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 1452,
+        "output": 216,
+        "cacheRead": 1920,
+        "total": 3588
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 1367,
+          "cacheRead": 256,
+          "output": 87,
+          "total": 1710,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 85,
+          "cacheRead": 1664,
+          "output": 129,
+          "total": 1878,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 3295,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 Star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 Star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": ""
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 583,
+        "output": 189,
+        "cacheRead": 1664,
+        "total": 2436
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 420,
+          "cacheRead": 640,
+          "output": 88,
+          "total": 1148,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 163,
+          "cacheRead": 1024,
+          "output": 101,
+          "total": 1288,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2638,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2 的 star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": ""
+    },
+    {
+      "arm": "treatment",
+      "taskId": "A",
+      "rounds": 2,
+      "maxedOut": false,
+      "tokens": {
+        "input": 1577,
+        "output": 159,
+        "cacheRead": 1408,
+        "total": 3144
+      },
+      "tokenRounds": [
+        {
+          "round": 1,
+          "input": 1426,
+          "cacheRead": 0,
+          "output": 94,
+          "total": 1520,
+          "toolCalls": [
+            "github_get_repository"
+          ]
+        },
+        {
+          "round": 2,
+          "input": 151,
+          "cacheRead": 1408,
+          "output": 65,
+          "total": 1624,
+          "toolCalls": [
+            "submit_answer"
+          ]
+        }
+      ],
+      "latencyMs": 2430,
+      "toolTimeline": [
+        {
+          "name": "github_get_repository",
+          "isError": false,
+          "round": 1,
+          "arguments": {
+            "full_name": "adv/org-repo-2"
+          }
+        },
+        {
+          "name": "submit_answer",
+          "isError": false,
+          "round": 2,
+          "arguments": {
+            "answer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。"
+          }
+        }
+      ],
+      "businessCalls": [
+        "github_get_repository"
+      ],
+      "describeCalls": 0,
+      "executeCalls": 0,
+      "compileAttempts": 0,
+      "compileSucceeded": false,
+      "describeFallbackUsed": false,
+      "jitAttempted": false,
+      "jitExecutionSucceeded": false,
+      "jitFinishedWithoutFallback": false,
+      "fallbackUsed": false,
+      "preOffloadBusinessCalls": [],
+      "preOffloadBusinessCallCount": 0,
+      "sameRoundBusinessCalls": [],
+      "sameRoundBusinessCallCount": 0,
+      "postExecuteBusinessCalls": [],
+      "postExecuteBusinessCallCount": 0,
+      "submittedAnswer": "仓库 adv/org-repo-2：star 数为 1600，主要编程语言为 TypeScript。",
+      "answerCorrect": true,
+      "taskCompleted": true,
+      "finalText": "",
+      "contractMode": "eager-signatures"
+    }
+  ]
+}

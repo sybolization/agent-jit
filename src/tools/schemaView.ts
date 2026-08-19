@@ -19,6 +19,7 @@ export type SchemaView =
   | { kind: "object"; properties: Record<string, SchemaView>; required: readonly string[]; description?: string }
   | { kind: "record"; value: SchemaView; description?: string }
   | { kind: "union"; members: readonly SchemaView[]; description?: string }
+  | { kind: "enum"; values: readonly (string | number)[]; description?: string }
   | { kind: "unknown"; description?: string };
 
 interface RawSchema {
@@ -31,11 +32,29 @@ interface RawSchema {
   additionalProperties?: unknown;
   required?: string[];
   description?: unknown;
+  enum?: unknown;
+  const?: unknown;
+}
+
+/** enum 值的基类型：全字符串 → "string"；全数字 → "number"；混编 → "mixed"（values 非空）。 */
+export function enumBaseOf(values: readonly (string | number)[]): "string" | "number" | "mixed" {
+  const hasString = values.some((value) => typeof value === "string");
+  const hasNumber = values.some((value) => typeof value === "number");
+  if (hasString && hasNumber) return "mixed";
+  return hasString ? "string" : "number";
 }
 
 /** 从 raw 节点提取语义标签（schema property 的 description；非空字符串才保留）。 */
 function descriptionOf(node: RawSchema): string | undefined {
   return typeof node.description === "string" && node.description.length > 0 ? node.description : undefined;
+}
+
+/** 提取合法 enum 成员（enum 数组或 const 单值；过滤到 string|number，非空才构成 enum）。 */
+function enumMembersOf(node: RawSchema): readonly (string | number)[] | undefined {
+  const raw = Array.isArray(node.enum) ? node.enum : node.const !== undefined ? [node.const] : undefined;
+  if (raw === undefined) return undefined;
+  const members = raw.filter((item): item is string | number => typeof item === "string" || typeof item === "number");
+  return members.length > 0 ? members : undefined;
 }
 
 /**
@@ -47,6 +66,14 @@ function descriptionOf(node: RawSchema): string | undefined {
 export function schemaViewOf(schema: unknown): SchemaView {
   const node = (schema ?? {}) as RawSchema;
   const description = descriptionOf(node);
+
+  // enum / const：字面量枚举——覆盖 TypeBox Type.Enum 的无 type 形态（{enum:[...]}）、
+  // DSH JSON Schema 形态（{type:..., enum:[...]}）与 const 单值（{type:..., const: 值}）。
+  // 必须先于 union：任一形态都要保留合法取值，而不是把成员抹成 base 类型。
+  const enumMembers = enumMembersOf(node);
+  if (enumMembers !== undefined) {
+    return { kind: "enum", values: enumMembers, ...(description !== undefined ? { description } : {}) };
+  }
 
   // union：anyOf / oneOf 取成员（typebox Type.Union 输出 anyOf）
   const unionMembers = node.anyOf ?? node.oneOf;
@@ -127,6 +154,8 @@ export function schemaViewText(view: SchemaView): string {
       return `Record<string, ${schemaViewText(view.value)}>`;
     case "union":
       return view.members.map(schemaViewText).join(" | ");
+    case "enum":
+      return view.values.map((value) => JSON.stringify(value)).join(" | ");
     case "unknown":
       return "unknown";
   }

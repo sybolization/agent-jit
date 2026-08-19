@@ -173,3 +173,59 @@ describe("renderDslSignature — 紧凑渲染", () => {
     ).toBe("github.get_repository(full_name: str) -> {full_name: str, forks: int, stars: int}\n# 获取单个仓库");
   });
 });
+
+describe("enum 字面量联合", () => {
+  test("Type.Enum（无 type 形态）→ DslType enum", () => {
+    expect(dslTypeOf(Type.Enum(["workspace-write", "danger-full-access"]))).toEqual({
+      kind: "enum",
+      values: ["workspace-write", "danger-full-access"],
+    });
+  });
+
+  test("DSH 形态 {type:'string', enum:[...]} → enum", () => {
+    expect(dslTypeOf({ type: "string", enum: ["a", "b"] })).toEqual({ kind: "enum", values: ["a", "b"] });
+  });
+
+  test("const 单值 → enum", () => {
+    expect(dslTypeOf({ type: "string", const: "x" })).toEqual({ kind: "enum", values: ["x"] });
+  });
+
+  test("渲染为字面量联合（字符串 / 数值）", () => {
+    expect(renderDslType(dslTypeOf(Type.Enum(["workspace-write", "danger-full-access"])))).toBe(
+      '"workspace-write" | "danger-full-access"',
+    );
+    expect(renderDslType(dslTypeOf(Type.Enum([1, 2, 3])))).toBe("1 | 2 | 3");
+  });
+
+  test("enum 参数完整签名（必填 / 可选）", () => {
+    const tool = defineTool({
+      id: "demo.edit",
+      label: "Edit",
+      inputSchema: Type.Object(
+        {
+          required_mode: Type.Enum(["a", "b"]),
+          optional_mode: Type.Optional(Type.Enum(["a", "b"])),
+        },
+        { additionalProperties: false },
+      ),
+      outputSchema: Type.Object({ ok: Type.Boolean() }, { additionalProperties: false }),
+    });
+    expect(renderDslSignature(dslSignatureOf(tool))).toBe(
+      'demo.edit(required_mode: "a" | "b", optional_mode?: "a" | "b") -> {ok: bool}',
+    );
+  });
+
+  test("enum 输出字段（含 label）", () => {
+    const tool = defineTool({
+      id: "demo.status",
+      label: "Status",
+      inputSchema: Type.Object({}, { additionalProperties: false }),
+      outputSchema: Type.Object(
+        { status: Type.Enum(["ok", "fail"], { description: "result state" }) },
+        { additionalProperties: false },
+      ),
+    });
+    const text = renderDslSignature(dslSignatureOf(tool), { fieldLabels: true });
+    expect(text).toContain('status: "ok" | "fail"[result state]');
+  });
+});

@@ -1,5 +1,5 @@
 import { literalKindError, normalizeLiteral, pushMissing, toolParams, } from "./helpers.js";
-import { schemaViewText } from "../tools/schemaView.js";
+import { enumBaseOf, schemaViewText } from "../tools/schemaView.js";
 /**
  * 工具调用构建（`buildToolNode`）与 map 绑定校验（`mapCallBindings` /
  * `validateMapBindings`）。canonical 语法中 map 只用调用绑定形态，
@@ -118,16 +118,21 @@ export function buildToolNode(statement, tool, defined, diagnostics) {
         }
         const literal = arg.value.literal ?? null;
         const normalized = normalizeLiteral(literal, parameter.kind);
-        const error = literalKindError(normalized, key, parameter.kind);
+        const error = literalKindError(normalized, key, parameter.kind, parameter.legalValues);
         if (error) {
+            const expectedText = parameter.kind === "enum" && parameter.legalValues
+                ? parameter.legalValues.map((value) => JSON.stringify(value)).join(" | ")
+                : parameter.kind;
             diagnostics.push({
                 line: arg.line,
                 code: "config_type_mismatch",
                 message: error,
-                suggestion: `检查字面量类型与声明 kind（${parameter.kind}）是否匹配`,
+                suggestion: parameter.kind === "enum" && parameter.legalValues
+                    ? `合法取值：${expectedText}`
+                    : `检查字面量类型与声明 kind（${parameter.kind}）是否匹配`,
                 tool: tool.id,
                 argument: key,
-                expected: parameter.kind,
+                expected: expectedText,
                 actual: literalKindText(normalized),
             });
             continue;
@@ -178,26 +183,55 @@ export function validateMapBindings(node, tools, symbols, diagnostics, line) {
         const paramSpec = paramByKey.get(param);
         if (!paramSpec)
             continue; // unknown_parameter 已另行报错
-        if (!fieldCompatibleWithParam(prop, paramSpec.kind)) {
+        if (!fieldCompatibleWithParam(prop, paramSpec)) {
+            const expectedText = paramSpec.kind === "enum" && paramSpec.legalValues
+                ? paramSpec.legalValues.map((value) => JSON.stringify(value)).join(" | ")
+                : paramSpec.kind;
             diagnostics.push({
                 line,
                 code: "config_type_mismatch",
-                message: `map 绑定字段 _.${field}（类型 ${schemaViewText(prop)}）与参数 ${param}（期望 ${paramSpec.kind}）类型不匹配`,
-                suggestion: `改绑一个 ${paramSpec.kind} 类型的字段`,
+                message: `map 绑定字段 _.${field}（类型 ${schemaViewText(prop)}）与参数 ${param}（期望 ${expectedText}）类型不匹配`,
+                suggestion: `改绑一个 ${expectedText} 类型的字段`,
                 tool: node.tool,
                 field,
-                expected: paramSpec.kind,
+                expected: expectedText,
                 actual: schemaViewText(prop),
             });
         }
     }
 }
-/** 字段 SchemaView 与参数 kind 是否兼容：union 任一成员匹配即可；unknown（任一侧）跳过检查。 */
-function fieldCompatibleWithParam(view, kind) {
+/**
+ * 字段 SchemaView 与参数 spec 是否兼容（保守不误报）：
+ * - unknown（任一侧）跳过；union 任一成员匹配即可；
+ * - enum 视图按基类型兼容：字符串枚举配 string/enum，数值枚举配 int/number/enum，混编只配 enum；
+ * - enum 参数接受能证明值域的视图：string 视图仅当枚举含字符串，int/number 视图仅当枚举含数字。
+ */
+function fieldCompatibleWithParam(view, spec) {
+    const kind = spec.kind;
     if (view.kind === "unknown" || kind === "unknown")
         return true; // 无法判断 → 跳过（不误报）
     const numeric = new Set(["integer", "number"]);
-    const matches = (candidate) => kind === "int" || kind === "number" ? numeric.has(candidate.kind) : candidate.kind === kind;
+    const matches = (candidate) => {
+        if (candidate.kind === "enum") {
+            const base = enumBaseOf(candidate.values);
+            if (base === "string")
+                return kind === "string" || kind === "enum";
+            if (base === "number")
+                return kind === "int" || kind === "number" || kind === "enum";
+            return kind === "enum";
+        }
+        if (kind === "enum") {
+            const legalValues = spec.legalValues ?? [];
+            const hasString = legalValues.some((value) => typeof value === "string");
+            const hasNumber = legalValues.some((value) => typeof value === "number");
+            if (candidate.kind === "string")
+                return hasString;
+            if (numeric.has(candidate.kind))
+                return hasNumber;
+            return false;
+        }
+        return kind === "int" || kind === "number" ? numeric.has(candidate.kind) : candidate.kind === kind;
+    };
     if (view.kind === "union")
         return view.members.some(matches);
     return matches(view);

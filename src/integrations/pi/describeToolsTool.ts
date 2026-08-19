@@ -5,6 +5,12 @@ import {
   describeToolContracts,
   type DescribeContractFormat,
 } from "../../tools/jitTools.js";
+import {
+  describeProgramDescription,
+  renderRoutingDslReference,
+  type DescribeDslReferenceMode,
+  type RoutingPromptVariant,
+} from "../../prompt/routingToolPrompts.js";
 import { DEFAULT_DSL_GUIDANCE, renderDslReference, type DslGuidanceMode } from "./dslReference.js";
 import { renderCompositionBindings } from "../../tools/compositionHints.js";
 
@@ -37,7 +43,13 @@ function resolveCanonicalIds(catalog: RuntimeRegistry, toolNames: readonly strin
  */
 export function createJitDescribeTool(
   registry: RuntimeRegistry,
-  options: { guidance?: DslGuidanceMode; describeFormat?: DescribeContractFormat; legacyBundle?: boolean } = {},
+  options: {
+    guidance?: DslGuidanceMode;
+    describeFormat?: DescribeContractFormat;
+    legacyBundle?: boolean;
+    routingPrompt?: RoutingPromptVariant;
+    describeDslReference?: DescribeDslReferenceMode;
+  } = {},
 ): AgentTool<typeof DESCRIBE_TOOLS_TOOL.parameters> {
   let describeCalls = 0;
   const guidance = options.guidance ?? DEFAULT_DSL_GUIDANCE;
@@ -45,8 +57,12 @@ export function createJitDescribeTool(
   // production（eager-signatures）缺省 "signature"——与 active tool 内联签名同源。
   const describeFormat = options.describeFormat ?? "signature";
   const legacyBundle = options.legacyBundle === true;
+  let routingReferenceReturned = false;
   return {
     ...DESCRIBE_TOOLS_TOOL,
+    ...(options.routingPrompt === undefined
+      ? {}
+      : { description: describeProgramDescription(options.routingPrompt) }),
     label: "Describe DSL tool contracts",
     execute: async (_toolCallId, params) => {
       const toolNames = (params as { tool_names: string[] }).tool_names;
@@ -57,6 +73,11 @@ export function createJitDescribeTool(
       // 严格语义：任一 id 未知 → 整体失败（UNKNOWN_TOOL 全列 + 建议），抛给 Agent 转 toolResult
       if (text.startsWith("错误")) throw new Error(text);
       if (!legacyBundle) {
+        // R7 lazy-manual: production pure contracts + first-call neutral manual.
+        if (options.describeDslReference === 'first-call' && !routingReferenceReturned) {
+          routingReferenceReturned = true;
+          text = `${renderRoutingDslReference()}\n\n${text}`;
+        }
         // production：纯契约，不捆绑语言教学（manual 由 stable system context 提供）
         return {
           content: [{ type: "text", text }],

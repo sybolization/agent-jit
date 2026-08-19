@@ -2,7 +2,7 @@ import { createMockGithubTools } from "../../tools/providers/github/mock.js";
 import { createRealGithubTools } from "../../tools/providers/github/real.js";
 import { createMockDomainTools } from "../../tools/providers/domain/mock.js";
 import { ToolRegistry } from "../../tools/registry.js";
-import { DEFAULT_DSL_GUIDANCE, renderDslReference } from "../pi/dslReference.js";
+import { DEFAULT_DSL_GUIDANCE, renderDslReference, renderNeutralDslReference } from "../pi/dslReference.js";
 import { adaptRegisteredTool } from "./toolAdapter.js";
 import { createDshJitTools } from "./jitTools.js";
 /**
@@ -42,6 +42,10 @@ export function apply(ctx, config = {}) {
     // 实验业务工具只在 experimentMode: true 时构建（生产缺省空 registry）。
     const registry = config.experimentMode === true ? buildRegistry(config) : new ToolRegistry();
     const dsl = config.dsl ?? {};
+    // 生产默认（R7 胜出臂 T3）：不挂 system prompt；jit_execute_program 自描述。
+    const routingPrompt = dsl.routingPrompt ?? "tool-embedded";
+    const describeDslReference = dsl.describeDslReference ?? "none";
+    const systemPromptEnabled = dsl.systemPrompt === true;
     // 1. 业务工具 → DSH 工具（host alias 名 + description 注入 DSL 函数式签名；仅实验模式）。
     for (const tool of registry.all()) {
         ctx.tools.register(adaptRegisteredTool(tool, { dslSignature: dsl.signatureInDescription ?? "inline" }));
@@ -55,15 +59,19 @@ export function apply(ctx, config = {}) {
     for (const metaTool of createDshJitTools(registry, ctx.tools, {
         describeTools: dsl.describeTools,
         hostTools,
+        routingPrompt,
+        describeDslReference,
     })) {
         ctx.tools.register(metaTool);
     }
-    // 4. 可选：DSL 语言参考 section（primitive 为生产默认）。
-    if (dsl.systemPrompt !== false) {
+    // 4. 可选：DSL 语言参考 section（生产默认关闭；显式 systemPrompt:true 才挂，neutral 为默认）。
+    if (systemPromptEnabled) {
         ctx.systemPrompt.section({
             name: "agent-jit-dsl",
             order: DSL_GUIDANCE_SECTION_ORDER,
-            text: () => renderDslReference(dsl.guidance ?? DEFAULT_DSL_GUIDANCE),
+            text: () => dsl.systemPromptReference === "standard"
+                ? renderDslReference(dsl.guidance ?? DEFAULT_DSL_GUIDANCE)
+                : renderNeutralDslReference(),
         });
     }
 }

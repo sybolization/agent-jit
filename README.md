@@ -102,6 +102,15 @@ token 差距 **6.9× / 8.1×**；工具契约完整时两臂 correctness 均为 
 
 机制不是"模型更聪明"，而是：**确定性数据流由 runtime 消费，而不是由 LLM context 消费。**
 
+### R7：工具面自描述（当前生产默认）
+
+把 system prompt 完全关闭后，仅靠 `jit_execute_program` 工具描述中的
+when/why trigger + 完整中性 DSL manual（service.* 示例），在 development
+（N=20）和跨域 holdout（N=20）上均恢复 100% adoption / precision / task
+completion；holdout efficiency 不劣于 system prompt 正对照。因此当前生产
+默认配置为 `systemPrompt:false + routingPrompt:tool-embedded`。完整数据见
+`experiment_result/r7-routing-development-report.md`。
+
 ## 配置
 
 插件行 config（可被用户 patch 层覆盖）：
@@ -114,9 +123,12 @@ providers:             # 仅 experimentMode: true 时生效
   domain: mock   # mock | none
 dsl:
   signatureInDescription: inline   # 业务工具 description 注入 DSL 签名（inline | none）
-  systemPrompt: true               # 常驻 DSL 语言参考 system prompt section
+  systemPrompt: false              # 生产默认不挂 DSL system prompt（R7 T3）
+  systemPromptReference: neutral   # 若 systemPrompt:true，使用 service.* 中性参考
   guidance: primitive              # primitive | patterns | full-example
   describeTools: true              # 是否注册 jit_describe_tools
+  routingPrompt: tool-embedded     # jit_execute_program 描述含 trigger + 完整中性 DSL manual
+  describeDslReference: none       # describe 只返回契约（first-call = 历史懒加载 manual）
 # hostTools: []         # 缺省（不写）= 自动发现全部 DSH 宿主工具（describe 即用）；
 #                        # [] 显式关闭；写名字数组 = 白名单
 # excludeHostTools: []  # 黑名单：始终排除（如不想开放 bash 给 DSL）
@@ -132,7 +144,7 @@ pre-execute / post-execute / 超时 / 沙箱），scope = 调用方 agent。`jit
 
 ```sh
 npm run build   # 构建 dist/（bundle 入口 dist/integrations/dsh/index.js）
-npm test        # 544 个单测，含真实 DSH 服务树 smoke 测试（挂载 + 执行路径压缩断言）
+npm test        # 642 个单测，含真实 DSH 服务树 smoke 测试（挂载 + 执行路径压缩断言）
 ```
 
 开发环（在 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) checkout 内）：

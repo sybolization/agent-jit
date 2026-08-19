@@ -36,6 +36,8 @@ export function dslTypeFromSchemaView(view) {
             return { kind: "record", value: dslTypeFromSchemaView(view.value) };
         case "union":
             return { kind: "union", members: view.members.map((member) => dslTypeFromSchemaView(member)) };
+        case "enum":
+            return { kind: "enum", values: view.values };
         case "unknown":
             return { kind: "unknown" };
     }
@@ -93,6 +95,8 @@ export function renderDslType(type, options = {}) {
             return `Record<string, ${renderDslType(type.value, options)}>`;
         case "union":
             return type.members.map((member) => renderDslType(member, options)).join(" | ");
+        case "enum":
+            return type.values.map((value) => JSON.stringify(value)).join(" | ");
         case "unknown":
             return "unknown";
     }

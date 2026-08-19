@@ -33,6 +33,9 @@ export type DslType = {
     kind: "union";
     members: readonly DslType[];
 } | {
+    kind: "enum";
+    values: readonly (string | number)[];
+} | {
     kind: "unknown";
 };
 export interface DslField {

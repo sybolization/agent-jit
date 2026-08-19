@@ -27,7 +27,9 @@ export declare function suggestToolNames(tools: ToolCatalog | undefined, name: s
 export interface ToolParamSpec {
     key: string;
     /** "unknown" 表示非原始类型（union/array/object/null/record）——编译器跳过字面量类型检查，不误报也不当 string 放行。 */
-    kind: "string" | "int" | "number" | "boolean" | "unknown";
+    kind: "string" | "int" | "number" | "boolean" | "enum" | "unknown";
+    /** kind === "enum" 时的合法取值（供字面量成员校验与诊断渲染）。 */
+    legalValues?: readonly (string | number)[];
     required: boolean;
 }
 export declare function toolParams(tool: ToolContract): ToolParamSpec[];
@@ -60,7 +62,7 @@ export declare function fieldViewOf(view: SchemaView, field: string): SchemaView
  */
 export declare function projectElementSchema(sourceView: SchemaView, field: string): ElementSchema | undefined;
 export declare function normalizeLiteral(value: LiteralValue, kind: string): LiteralValue;
-export declare function literalKindError(value: LiteralValue, parameterKey: string, kind: string): string | null;
+export declare function literalKindError(value: LiteralValue, parameterKey: string, kind: string, legalValues?: readonly (string | number)[]): string | null;
 export declare function pushMissing(diagnostics: DslDiagnostic[], line: number, callee: string, key: string): void;
 /** 取字面量参数；ref 或缺失时报错，返回 undefined。 */
 export declare function literalArg(statement: ParsedStatement, key: string, diagnostics: DslDiagnostic[], options?: {

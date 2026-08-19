@@ -56,14 +56,14 @@ import { checkTaskSemantics } from "./taskSpec.js";
 import { runPiAgent, type AgentReasoningTurn } from "./agentRunner.js";
 import { createR5CTask, R5_TASKS, type R5Task, type R5TaskId } from "./r5Tasks.js";
 import type { DslDiagnostic } from "../language/diagnostics.js";
+import type { DescribeDslReferenceMode, RoutingPromptVariant } from "../prompt/routingToolPrompts.js";
 
 import { buildR5Aggregates, deriveR5Metrics } from "./shared/agentJitRun.js";
 import { compressedPath } from "./shared/offloadMetrics.js";
 import { compileErrorBreakdown } from "./shared/compileMetrics.js";
 import { createR5SubmitTool, SUBMIT_ANSWER_ID, submitAnswerTool } from "./shared/submitAnswer.js";
 import { writeR5Report } from "./shared/experimentReport.js";
-import type { R5Arm, R5ExecuteCallPhase, R5RunMetrics, R6ContractMode } from "./shared/types.js";
-import { HISTORICAL_R5_CONTRACT_MODE } from "./shared/types.js";
+import { HISTORICAL_R5_CONTRACT_MODE, type R5Arm, type R5ExecuteCallPhase, type R5RunMetrics, type R6ContractMode } from "./shared/types.js";
 
 export * from "./shared/types.js";
 export * from "./shared/compileMetrics.js";
@@ -106,11 +106,6 @@ export function r5ControlSystemPrompt(): string {
  * 只加两条规则，不写 JIT 教程：
  * 1. offload 的判断依据是"后续决策规则是否已确定"，不是"运行时数据是否已获得"；
  * 2. 决定 offload 后，不在同一个 assistant turn 里并行调用该片段涉及的普通业务工具。
- *
- * R6.1 起按 contractMode 渲染 handoff 行：
- * - eager（历史）：先 describe + execute；
- * - 其余（compile-only / manifest / eager-signatures）：直接提交完整 program，
- *   不再出现 describe——防止 eager 模式的描述泄漏进无 describe 的臂。
  */
 export function boundaryPolicyRules(contractMode: R6ContractMode): readonly string[] {
   const common = [
@@ -193,6 +188,16 @@ export interface R5RunOptions {
   contractMode?: R6ContractMode;
   /** R6.2：工具输出命名（transparent / opaque），runR5Run 透传到 R5RunMetrics 供分格 */
   toolNaming?: "transparent" | "opaque";
+  /** R7：直接覆盖 system prompt（用于 no-system-prompt 路由臂，control 与 treatment 同一提示词）。 */
+  systemPromptOverride?: string;
+  /** R7：jit_* 工具描述文案变体（只对 treatment 生效；缺省 undefined = 历史文案）。 */
+  routingPrompt?: RoutingPromptVariant;
+  /** R7：describe 是否首次附带中性 DSL 参考（缺省 undefined = 历史行为；none = 纯契约）。 */
+  describeDslReference?: DescribeDslReferenceMode;
+  /** R7：显式覆盖 describe 工具是否注册（缺省沿用 contractMode 逻辑）。 */
+  describeTools?: boolean;
+  /** R7：显式覆盖 inline DSL signature 是否注入（缺省沿用 contractMode 逻辑）。 */
+  dslSignatures?: boolean;
 }
 
 export async function runR5Run(
@@ -214,11 +219,14 @@ export async function runR5Run(
     ? registry.all().map((tool) => adaptRegisteredTool(registry, tool))
     : createPiTools(registry, {
         guidance: options.dslGuidance,
-        ...(options.contractMode === "compile-only" || options.contractMode === "manifest" || options.contractMode === "eager-signatures"
-          ? {}
-          : { describeTools: true, describeFormat: "legacy" as const, legacyBundle: true }),
-        // 只有 eager-signatures / production 才注入 inline DSL signature，保证历史臂的 contract visibility 隔离。
-        dslSignatures: options.contractMode === "eager-signatures",
+        ...((options.describeTools ?? (options.contractMode === "compile-only" || options.contractMode === "manifest" || options.contractMode === "eager-signatures" ? false : true))
+          ? { describeTools: true, ...(options.contractMode === undefined || options.contractMode === "eager" ? { describeFormat: "legacy" as const, legacyBundle: true } : {}) }
+          : {}),
+        // 只有 eager-signatures / production 才注入 inline DSL signature，保证历史臂的 contract visibility 隔离；
+        // R7 工具面臂可显式覆盖（inline signatures + describe 同时开）。
+        dslSignatures: options.dslSignatures ?? options.contractMode === "eager-signatures",
+        ...(options.routingPrompt === undefined ? {} : { routingPrompt: options.routingPrompt }),
+        ...(options.describeDslReference === undefined ? {} : { describeDslReference: options.describeDslReference }),
         onCompileFailure: (diagnostics) => compileDiagnostics.push(...diagnostics),
       })
   ).map((tool) => (tool.name === SUBMIT_ANSWER_ID && options.stopAfterSubmit ? createR5SubmitTool(true) : tool));
@@ -234,7 +242,8 @@ export async function runR5Run(
 
   const run = await runPiAgent({
     systemPrompt:
-      arm === "control"
+      options.systemPromptOverride ??
+      (arm === "control"
         ? r5ControlSystemPrompt()
         : r5TreatmentSystemPrompt({
             ...(options.boundaryPolicy ? { boundaryPolicy: true } : {}),
@@ -242,7 +251,7 @@ export async function runR5Run(
               ? { contractMode: options.contractMode }
               : {}),
             ...(options.contractMode === "manifest" && manifestText.length > 0 ? { manifest: manifestText } : {}),
-          }),
+          })),
     tools: piTools,
     prompt: task.prompt,
     runtime,
@@ -389,16 +398,7 @@ export interface R5CliFlags {
 }
 
 export function parseFlags(argv: readonly string[]): R5CliFlags {
-  const flags: R5CliFlags = {
-    arm: "both",
-    task: "all",
-    samples: 1,
-    rounds: 10,
-    dslGuidance: "primitive",
-    stopAfterSubmit: false,
-    boundaryPolicy: false,
-    reasoning: false,
-  };
+  const flags: R5CliFlags = { arm: "both", task: "all", samples: 1, rounds: 10, dslGuidance: "primitive", stopAfterSubmit: false, boundaryPolicy: false, reasoning: false };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, "").split("=");
     if (key === "arm" && (value === "control" || value === "treatment" || value === "both")) flags.arm = value;

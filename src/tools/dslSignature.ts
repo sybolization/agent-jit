@@ -22,6 +22,7 @@ export type DslType =
   | { kind: "object"; fields: readonly DslField[] }
   | { kind: "record"; value: DslType }
   | { kind: "union"; members: readonly DslType[] }
+  | { kind: "enum"; values: readonly (string | number)[] }
   | { kind: "unknown" };
 
 export interface DslField {
@@ -83,6 +84,8 @@ export function dslTypeFromSchemaView(view: SchemaView): DslType {
       return { kind: "record", value: dslTypeFromSchemaView(view.value) };
     case "union":
       return { kind: "union", members: view.members.map((member) => dslTypeFromSchemaView(member)) };
+    case "enum":
+      return { kind: "enum", values: view.values };
     case "unknown":
       return { kind: "unknown" };
   }
@@ -146,6 +149,8 @@ export function renderDslType(type: DslType, options: RenderDslSignatureOptions 
       return `Record<string, ${renderDslType(type.value, options)}>`;
     case "union":
       return type.members.map((member) => renderDslType(member, options)).join(" | ");
+    case "enum":
+      return type.values.map((value) => JSON.stringify(value)).join(" | ");
     case "unknown":
       return "unknown";
   }

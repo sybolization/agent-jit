@@ -41,9 +41,15 @@ export type SchemaView = {
     members: readonly SchemaView[];
     description?: string;
 } | {
+    kind: "enum";
+    values: readonly (string | number)[];
+    description?: string;
+} | {
     kind: "unknown";
     description?: string;
 };
+/** enum 值的基类型：全字符串 → "string"；全数字 → "number"；混编 → "mixed"（values 非空）。 */
+export declare function enumBaseOf(values: readonly (string | number)[]): "string" | "number" | "mixed";
 /**
  * 把 JSON Schema / TypeBox schema 归一为 SchemaView；无法识别 → unknown。
  * 每个节点携带自身 schema 的 description（语义标签）——DSL 签名层据此

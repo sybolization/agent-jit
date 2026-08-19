@@ -26,7 +26,7 @@ export function suggestToolNames(tools, name) {
         .join(" / ");
     return `你是否指 ${list}？`;
 }
-/** 原始类型 → ToolParamSpec.kind；其余（含 union/array/object/null/record）→ "unknown"。 */
+/** 原始类型 → ToolParamSpec.kind；enum → "enum"；其余（含 union/array/object/null/record）→ "unknown"。 */
 function kindOfParam(view) {
     switch (view.kind) {
         case "string":
@@ -37,6 +37,8 @@ function kindOfParam(view) {
             return "number";
         case "boolean":
             return "boolean";
+        case "enum":
+            return "enum";
         default:
             return "unknown";
     }
@@ -46,11 +48,15 @@ export function toolParams(tool) {
     if (view.kind !== "object")
         return [];
     const required = new Set(view.required);
-    return Object.entries(view.properties).map(([key, prop]) => ({
-        key,
-        kind: kindOfParam(prop),
-        required: required.has(key),
-    }));
+    return Object.entries(view.properties).map(([key, prop]) => {
+        const kind = kindOfParam(prop);
+        return {
+            key,
+            kind,
+            ...(kind === "enum" && prop.kind === "enum" ? { legalValues: prop.values } : {}),
+            required: required.has(key),
+        };
+    });
 }
 /** 从工具 outputSchema 提取元素 schema：array 取 items 的 object，object 取自身。 */
 export function elementSchemaOf(definition) {
@@ -172,10 +178,18 @@ export function normalizeLiteral(value, kind) {
     }
     return value;
 }
-export function literalKindError(value, parameterKey, kind) {
+export function literalKindError(value, parameterKey, kind, legalValues) {
     if (value === null || value === undefined)
         return null;
     const normalized = kind.toLowerCase();
+    // enum：字面量必须属于合法取值集（错误从运行时提前到编译期）；无 legalValues 时放行（防御，不误报）
+    if (normalized === "enum") {
+        if (legalValues === undefined)
+            return null;
+        if (legalValues.includes(value))
+            return null;
+        return `参数“${parameterKey}”期望取值 ${legalValues.map((item) => JSON.stringify(item)).join(" | ")}，得到 ${JSON.stringify(value)}`;
+    }
     // "unknown"（非原始类型参数）：不校验类型，保留 unknown（不误报，也不当 string 放行）
     if (normalized === "unknown")
         return null;
