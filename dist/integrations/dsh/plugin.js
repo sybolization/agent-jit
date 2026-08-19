@@ -75,8 +75,8 @@ export function apply(ctx, config = {}) {
                 : renderNeutralDslReference(),
         });
     }
-    // 5. 可选：soft hook —— 工具返回列表后注入"考虑 JIT"提醒（生产默认关闭）。
-    if (dsl.routingReminder === "on-list") {
+    // 5. soft hook —— 工具返回列表后注入"考虑 JIT"提醒（生产默认开启；显式 none 关闭）。
+    if (dsl.routingReminder !== "none") {
         installRoutingReminder(ctx, { minListLength: dsl.routingReminderMinListLength ?? 2 });
     }
 }

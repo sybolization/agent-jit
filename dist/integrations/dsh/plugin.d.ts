@@ -64,8 +64,7 @@ export interface AgentJitDshConfig {
         describeDslReference?: DescribeDslReferenceMode;
         /**
          * soft hook：某工具返回列表结果后，向下一次模型输入追加一条"考虑 JIT"的
-         * 提醒（advisory，模型可忽略）。生产默认 none（关闭，保持行为不变）；
-         * 显式 on-list 才启用。
+         * 提醒（advisory，模型可忽略）。生产默认 on-list（开启）；显式 none 关闭。
          */
         routingReminder?: RoutingReminderMode;
         /** 触发 routingReminder 的最小列表长度（缺省 2）。 */

@@ -181,12 +181,20 @@ describe("routingReminder soft hook 集成", () => {
     expect(scalarResult.additionalContexts).toBeUndefined();
   });
 
-  test("默认（未配置 routingReminder）：不注入（生产行为不变）", async () => {
-    const ctx = await setup();
-    const listTool = registerListTool(ctx);
-    const result = await callFull(ctx, listTool, {});
-    expect(result.isError).toBe(false);
-    expect(result.additionalContexts).toBeUndefined();
+  test("默认（未配置 routingReminder）：开启注入；显式 none 关闭", async () => {
+    // 生产默认 on-list：不配置也注入。
+    const ctxDefault = await setup();
+    const listTool = registerListTool(ctxDefault);
+    const defaultResult = await callFull(ctxDefault, listTool, {});
+    expect(defaultResult.isError).toBe(false);
+    expect(defaultResult.additionalContexts?.length).toBeGreaterThan(0);
+
+    // 显式 none：关闭。
+    const ctxNone = await setup({ dsl: { routingReminder: "none" } });
+    const noneTool = registerListTool(ctxNone);
+    const noneResult = await callFull(ctxNone, noneTool, {});
+    expect(noneResult.isError).toBe(false);
+    expect(noneResult.additionalContexts).toBeUndefined();
   });
 
   test("routingReminderMinListLength 阈值生效", async () => {
