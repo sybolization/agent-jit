@@ -17,3 +17,14 @@ export {
 } from "./jitTools.js";
 export { HostToolView, unreachableHostCaller, type HostToolViewOptions } from "./hostDiscovery.js";
 export { jsonSchemaFromTypebox, typeboxFromJsonSchema } from "./schema.js";
+export {
+  installRoutingReminder,
+  RoutingReminderGate,
+  containsList,
+  buildListReminder,
+  LIST_ROUTING_REMINDER,
+  type RoutingReminderMode,
+  type RoutingReminderOptions,
+  type ReminderExecView,
+  type ReminderResultView,
+} from "./routingReminder.js";

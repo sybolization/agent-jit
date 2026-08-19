@@ -5,6 +5,7 @@ import { ToolRegistry } from "../../tools/registry.js";
 import { DEFAULT_DSL_GUIDANCE, renderDslReference, renderNeutralDslReference } from "../pi/dslReference.js";
 import { adaptRegisteredTool } from "./toolAdapter.js";
 import { createDshJitTools } from "./jitTools.js";
+import { installRoutingReminder } from "./routingReminder.js";
 /**
  * Agent JIT 的 DSH 插件（Cordis 插件形态）。
  *
@@ -73,5 +74,9 @@ export function apply(ctx, config = {}) {
                 ? renderDslReference(dsl.guidance ?? DEFAULT_DSL_GUIDANCE)
                 : renderNeutralDslReference(),
         });
+    }
+    // 5. 可选：soft hook —— 工具返回列表后注入"考虑 JIT"提醒（生产默认关闭）。
+    if (dsl.routingReminder === "on-list") {
+        installRoutingReminder(ctx, { minListLength: dsl.routingReminderMinListLength ?? 2 });
     }
 }

@@ -129,6 +129,8 @@ dsl:
   describeTools: true              # 是否注册 jit_describe_tools
   routingPrompt: tool-embedded     # jit_execute_program 描述含 trigger + 完整中性 DSL manual
   describeDslReference: none       # describe 只返回契约（first-call = 历史懒加载 manual）
+  # routingReminder: on-list       # soft hook：工具返回列表后注入"考虑 JIT"提醒（缺省 none 关闭）
+  # routingReminderMinListLength: 2  # 触发提醒的最小列表长度（缺省 2）
 # hostTools: []         # 缺省（不写）= 自动发现全部 DSH 宿主工具（describe 即用）；
 #                        # [] 显式关闭；写名字数组 = 白名单
 # excludeHostTools: []  # 黑名单：始终排除（如不想开放 bash 给 DSL）

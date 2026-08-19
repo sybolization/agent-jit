@@ -1,6 +1,7 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type { DslGuidanceMode } from "../pi/dslReference.js";
 import type { DescribeDslReferenceMode, RoutingPromptVariant } from "../../prompt/routingToolPrompts.js";
+import { type RoutingReminderMode } from "./routingReminder.js";
 /**
  * Agent JIT 的 DSH 插件（Cordis 插件形态）。
  *
@@ -61,6 +62,14 @@ export interface AgentJitDshConfig {
         routingPrompt?: RoutingPromptVariant;
         /** describe 是否附带中性 DSL 参考（生产默认 none；first-call 为历史 lazy 臂）。 */
         describeDslReference?: DescribeDslReferenceMode;
+        /**
+         * soft hook：某工具返回列表结果后，向下一次模型输入追加一条"考虑 JIT"的
+         * 提醒（advisory，模型可忽略）。生产默认 none（关闭，保持行为不变）；
+         * 显式 on-list 才启用。
+         */
+        routingReminder?: RoutingReminderMode;
+        /** 触发 routingReminder 的最小列表长度（缺省 2）。 */
+        routingReminderMinListLength?: number;
     };
     /**
      * DSL 程序可编排的 DSH 宿主工具（ctx.tools 里已注册的工具）。
