@@ -7,6 +7,7 @@
  */
 
 export { name, inject, apply, type AgentJitDshConfig } from "./plugin.js";
+export { createDshHarnessAdapter } from "./harnessAdapter.js";
 export { adaptRegisteredTool, dshToolAsRegisteredTool, type DslToolCaller } from "./toolAdapter.js";
 export {
   createDshJitDescribeTool,

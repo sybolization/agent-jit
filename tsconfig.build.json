@@ -9,6 +9,7 @@
     "sourceMap": false
   },
   "include": [
+    "src/adapter",
     "src/language",
     "src/compiler",
     "src/runtime",

@@ -6,6 +6,10 @@
   "license": "MIT",
   "main": "dist/integrations/dsh/index.js",
   "exports": {
+    "./adapter": {
+      "types": "./dist/adapter/index.d.ts",
+      "default": "./dist/adapter/index.js"
+    },
     "./dsh": {
       "types": "./dist/integrations/dsh/index.d.ts",
       "default": "./dist/integrations/dsh/index.js"
@@ -52,6 +56,17 @@
     "@deepseek-ai/cordis": ">=4",
     "@deepseek-ai/dsh-tools": "*",
     "@deepseek-ai/dsh-llm": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-llm": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "tsx": "^4.23.9",

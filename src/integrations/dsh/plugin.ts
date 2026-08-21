@@ -1,5 +1,6 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type { ToolRuntime } from "@deepseek-ai/dsh-tools";
+import { installLegacyDslJit } from "../../adapter/jitTools.js";
 import type { RegisteredTool } from "../../tools/definition.js";
 import { createMockGithubTools } from "../../tools/providers/github/mock.js";
 import { createRealGithubTools } from "../../tools/providers/github/real.js";
@@ -9,8 +10,8 @@ import type { RuntimeRegistry } from "../../runtime/runtime.js";
 import type { DslGuidanceMode } from "../pi/dslReference.js";
 import { DEFAULT_DSL_GUIDANCE, renderDslReference, renderNeutralDslReference } from "../pi/dslReference.js";
 import type { DescribeDslReferenceMode, RoutingPromptVariant } from "../../prompt/routingToolPrompts.js";
-import { adaptRegisteredTool } from "./toolAdapter.js";
-import { createDshJitTools, type DshHostToolsConfig } from "./jitTools.js";
+import { createDshHarnessAdapter } from "./harnessAdapter.js";
+import type { DshHostToolsConfig } from "./jitTools.js";
 import { installRoutingReminder, type RoutingReminderMode } from "./routingReminder.js";
 
 /**
@@ -127,10 +128,7 @@ export function apply(ctx: Context, config: AgentJitDshConfig = {}): void {
   const describeDslReference = dsl.describeDslReference ?? "none";
   const systemPromptEnabled = dsl.systemPrompt === true;
 
-  // 1. 业务工具 → DSH 工具（host alias 名 + description 注入 DSL 函数式签名；仅实验模式）。
-  for (const tool of registry.all()) {
-    ctx.tools.register(adaptRegisteredTool(tool, { dslSignature: dsl.signatureInDescription ?? "inline" }));
-  }
+  const adapter = createDshHarnessAdapter(ctx.tools as ToolRuntime);
 
   // 2. 宿主工具开放配置：缺省自动发现全部；[] 关闭；非空 = 白名单。
   const hostTools: DshHostToolsConfig = {
@@ -138,15 +136,15 @@ export function apply(ctx: Context, config: AgentJitDshConfig = {}): void {
     ...(config.excludeHostTools === undefined ? {} : { exclude: config.excludeHostTools }),
   };
 
-  // 3. JIT 元工具（jit_describe_tools / jit_execute_program）。
-  for (const metaTool of createDshJitTools(registry, ctx.tools as ToolRuntime, {
+  // 3. 业务工具 + JIT 元工具通过 host-neutral adapter 安装；DSH 仍拥有
+  //    注册生命周期、活目录和嵌套执行策略管线。
+  installLegacyDslJit(adapter, registry, {
+    dslSignature: dsl.signatureInDescription ?? "inline",
     describeTools: dsl.describeTools,
     hostTools,
     routingPrompt,
     describeDslReference,
-  })) {
-    ctx.tools.register(metaTool);
-  }
+  });
 
   // 4. 可选：DSL 语言参考 section（生产默认关闭；显式 systemPrompt:true 才挂，neutral 为默认）。
   if (systemPromptEnabled) {

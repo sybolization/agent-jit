@@ -9,6 +9,85 @@ Agent 仍是 planner；Agent JIT 是执行 offload 层。
 [![dsh-plugin](https://img.shields.io/badge/dsh--plugin-community-4b32c3)](https://github.com/topics/dsh-plugin)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+## 实验性 Harness Adapter
+
+`agent-jit/adapter` 提供一个与具体 harness 无关的最小工具适配契约，适合在
+自建 harness 中复用同一套工具注册、目录读取和嵌套调用代码。该入口目前是
+**实验性 API**：它只定义宿主边界，不包含 TypeScript 编译器、代码 worker、
+沙箱或 agent loop。
+
+```ts
+import type { HarnessAdapter } from "agent-jit/adapter";
+
+export function installExampleTool<TContext>(adapter: HarnessAdapter<TContext>) {
+  return adapter.registerTool({
+    name: "example_lookup",
+    description: "按 id 查询示例记录。",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+      additionalProperties: false,
+    },
+    outputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, title: { type: "string" } },
+      required: ["id", "title"],
+    },
+    async execute(args) {
+      const { id } = args as { id: string };
+      return { id, title: `record:${id}` };
+    },
+    renderText(_args, value) {
+      return JSON.stringify(value);
+    },
+  });
+}
+```
+
+目录接口是**同步的 live view**：`adapter.catalog(context).getTool(name)` 和
+`listTools()` 每次调用时都读取宿主当前可见工具，而不是创建时的快照。因此，
+动态注册、卸载以及 context/scope 限制会立即反映到查询结果中；真正的工具调用
+仍通过异步的 `adapter.execution(context).callTool(name, args)` 完成。
+若远程 harness 的真实目录只能异步拉取，应由 adapter 在本地维护同步 catalog
+缓存，并在远端状态变化时刷新它，而不是把这里的同步接口改成初始化快照。
+
+若自建 harness 希望直接安装当前 legacy DSL surface，可使用同一入口导出的
+registry 与安装器；安装器会依次注册 provider 和 `jit_*`，并返回幂等 disposer：
+
+```ts
+import {
+  ToolRegistry,
+  installLegacyDslJit,
+  type RegisteredTool,
+} from "agent-jit/adapter";
+
+const registry = new ToolRegistry<RegisteredTool>();
+const dispose = installLegacyDslJit(adapter, registry);
+```
+
+DSH 用户可以从原有入口取得官方 bridge：
+
+```ts
+import { createDshHarnessAdapter } from "agent-jit/dsh";
+
+const adapter = createDshHarnessAdapter(ctx.tools);
+const dispose = adapter.registerTool(toolDefinition);
+
+const visible = adapter.catalog(toolExecution).listTools();
+const result = await adapter.execution(toolExecution).callTool("example_lookup", {
+  id: "42",
+});
+
+dispose();
+```
+
+这项新增能力不会改变现有 DSH bundle：`agent-jit/dsh`、`cordis.patch.yml`、
+`jit_describe_tools`、`jit_execute_program` 及其默认 DSL 行为保持不变。三个 DSH
+peer dependency 现在标记为 optional，只是为了让仅使用 `agent-jit/adapter` 的
+自建 harness 不必安装 DSH；一旦导入 `agent-jit/dsh`，仍需由宿主提供兼容的
+Cordis、DSH Tools 和 DSH LLM。
+
 ## 安装
 
 本仓库即一个 DeepSeek Harness **bundle**（`package.json` 的 `dsh.bundle.patch` + `cordis.patch.yml`）。预构建产物 `dist/` 随仓库分发，git 安装无需任何构建授权。
@@ -146,7 +225,7 @@ pre-execute / post-execute / 超时 / 沙箱），scope = 调用方 agent。`jit
 
 ```sh
 npm run build   # 构建 dist/（bundle 入口 dist/integrations/dsh/index.js）
-npm test        # 642 个单测，含真实 DSH 服务树 smoke 测试（挂载 + 执行路径压缩断言）
+npm test        # 669 个单测，含真实 DSH 服务树 smoke 测试（挂载 + 执行路径压缩断言）
 ```
 
 开发环（在 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) checkout 内）：

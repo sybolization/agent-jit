@@ -6,6 +6,7 @@
  * 从各子模块导出，供测试与外部集成复用。
  */
 export { name, inject, apply, type AgentJitDshConfig } from "./plugin.js";
+export { createDshHarnessAdapter } from "./harnessAdapter.js";
 export { adaptRegisteredTool, dshToolAsRegisteredTool, type DslToolCaller } from "./toolAdapter.js";
 export { createDshJitDescribeTool, createDshJitExecuteProgramTool, createDshJitTools, type DshHostToolsConfig, type JitExecuteProgramDetails, } from "./jitTools.js";
 export { HostToolView, unreachableHostCaller, type HostToolViewOptions } from "./hostDiscovery.js";
